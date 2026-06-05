@@ -766,42 +766,38 @@
     <div style="font-size: 13px; color: var(--text-3); text-align: center; margin-top: 6px; letter-spacing: 1px;">INSPECTOR</div>
   </div>
   <div class="content" style="padding-top: 32px;">
-    <div class="section-label">Активные подразделения</div>
     <div class="role-grid">
+      <div class="role-card active-role" onclick="enterFounder()">
+        <span class="role-name">Учредитель</span>
+        <span style="font-size: 20px;">→</span>
+      </div>
       <div class="role-card active-role" onclick="enterRole('waiter')">
         <span class="role-name">Официант</span>
         <span style="font-size: 20px;">→</span>
       </div>
-      <div class="role-card active-role" onclick="enterFounder()">
-        <span class="role-name">Учредитель</span>
-        <span style="font-size: 20px;">→</span>
+      <div class="role-card inactive" onclick="openTestingStub('Массажист')">
+        <span class="role-name">Массажист</span>
+        <span class="role-wip">Тестирование</span>
+      </div>
+      <div class="role-card inactive" onclick="openTestingStub('Пармастер')">
+        <span class="role-name">Пармастер</span>
+        <span class="role-wip">Тестирование</span>
+      </div>
+      <div class="role-card inactive" onclick="openTestingStub('Техничка')">
+        <span class="role-name">Техничка</span>
+        <span class="role-wip">Тестирование</span>
       </div>
       <div class="role-card active-role" onclick="enterAdmin()">
         <span class="role-name">Администратор</span>
         <span style="font-size: 20px;">→</span>
       </div>
-    </div>
-    <div class="section-label" style="margin-top: 24px;">Тестирование</div>
-    <div class="role-grid">
-      <div class="role-card active-role" onclick="enterRole('cook')">
-        <span class="role-name">Повар</span>
-        <span class="role-wip">Вход по заявке</span>
-      </div>
-      <div class="role-card active-role" onclick="enterRole('stoker')">
+      <div class="role-card inactive" onclick="openTestingStub('Топник')">
         <span class="role-name">Топник</span>
-        <span class="role-wip">Вход по заявке</span>
+        <span class="role-wip">Тестирование</span>
       </div>
-      <div class="role-card active-role" onclick="enterRole('masseur')">
-        <span class="role-name">Массажист</span>
-        <span class="role-wip">Вход по заявке</span>
-      </div>
-      <div class="role-card active-role" onclick="enterRole('cleaner')">
-        <span class="role-name">Техничка</span>
-        <span class="role-wip">Вход по заявке</span>
-      </div>
-      <div class="role-card active-role" onclick="enterRole('bathmaster')">
-        <span class="role-name">Пармастер</span>
-        <span class="role-wip">Вход по заявке</span>
+      <div class="role-card inactive" onclick="openTestingStub('Повар')">
+        <span class="role-name">Повар</span>
+        <span class="role-wip">Тестирование</span>
       </div>
     </div>
   </div>
@@ -831,6 +827,20 @@
       <div class="error-msg" id="reg-error">Заполните все поля</div>
     </div>
     <button class="btn btn-primary" style="margin-top: 8px;" onclick="submitAccessRequest()">Отправить запрос</button>
+
+    <div class="divider"></div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px;">
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px;">Войти как учредитель</div>
+      <div style="font-size:13px;color:var(--text-2);line-height:1.5;margin-bottom:14px;">
+        Учредитель может открыть любое подразделение по паролю. После первого входа пароль повторно не нужен до его смены.
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label>Пароль учредителя</label>
+        <input type="password" id="founder-access-pwd" placeholder="••••" autocomplete="off" onkeydown="if(event.key==='Enter') loginFounderToRole()">
+        <div class="error-msg" id="founder-access-error">Неверный пароль учредителя</div>
+      </div>
+      <button class="btn btn-secondary" onclick="loginFounderToRole()">Войти как учредитель</button>
+    </div>
   </div>
 </div>
 
@@ -1533,6 +1543,68 @@ const LocalDB = {
   remove: (key) => localStorage.removeItem(key),
 };
 
+function setFounderSession() {
+  LocalDB.set("founderSession", {
+    ok: true,
+    passwordToken: getFounderPassword(),
+    createdAt: new Date().toISOString()
+  });
+}
+
+function clearFounderSession() {
+  LocalDB.remove("founderSession");
+  localStorage.removeItem("founderActiveRole");
+}
+
+function hasFounderSession() {
+  const session = LocalDB.get("founderSession");
+  if (!session || !session.ok) return false;
+
+  // Пароль учредителя сменили — прежний локальный вход автоматически недействителен.
+  if (String(session.passwordToken || '') !== String(getFounderPassword())) {
+    clearFounderSession();
+    return false;
+  }
+
+  return true;
+}
+
+function setAdminSession() {
+  LocalDB.set("adminSession", {
+    ok: true,
+    passwordToken: getAdminPassword(),
+    createdAt: new Date().toISOString()
+  });
+}
+
+function clearAdminSession() {
+  LocalDB.remove("adminSession");
+}
+
+function hasAdminSession() {
+  const session = LocalDB.get("adminSession");
+  if (!session || !session.ok) return false;
+
+  // Пароль администратора сменили — прежний локальный вход автоматически недействителен.
+  if (String(session.passwordToken || '') !== String(getAdminPassword())) {
+    clearAdminSession();
+    return false;
+  }
+
+  return true;
+}
+
+function getFounderActor(role = 'founder') {
+  return {
+    id: 'founder-session',
+    login: 'founder',
+    name: 'Учредитель',
+    role,
+    roleLabel: role === 'founder' ? 'Учредитель' : `Учредитель · ${getRoleLabel(role)}`,
+    isFounderSession: true
+  };
+}
+
 async function initCloud() {
   if (!CLOUD_ENABLED) {
     console.warn("Firebase config не заполнен. Работаем локально через localStorage.");
@@ -1651,6 +1723,10 @@ function clearCurrentWaiter() {
 }
 
 function getWaiter() {
+  if (hasFounderSession() && localStorage.getItem("founderActiveRole") === 'waiter') {
+    return getFounderActor('waiter');
+  }
+
   const id = getCurrentWaiterId();
   if (!id) return null;
 
@@ -1795,6 +1871,11 @@ function setCurrentStaffSession(staff) {
 }
 
 function getCurrentApprovedStaff() {
+  if (hasFounderSession()) {
+    const founderRole = localStorage.getItem("founderActiveRole") || 'founder';
+    return getFounderActor(founderRole);
+  }
+
   const id = localStorage.getItem("currentStaffId") || getCurrentWaiterId();
   if (!id) return null;
 
@@ -1811,7 +1892,40 @@ function getCurrentApprovedStaff() {
 }
 
 function showRoleMismatch(staff, requestedRole) {
+  if (staff && staff.isFounderSession) return;
   showToast(`Вы уже зарегистрированы в подразделении ${getRolePrepositional(staff.role || requestedRole)}`);
+}
+
+function openRoleAsFounder(role) {
+  if (!EMPLOYEE_ROLES.includes(role)) return;
+
+  localStorage.setItem("founderActiveRole", role);
+  clearSavedAccessRequest();
+
+  if (role === 'waiter') {
+    renderWaiterMenu();
+    goTo('screen-waiter-menu');
+  } else {
+    openAdminWip(getRoleLabel(role));
+  }
+}
+
+function loginFounderToRole() {
+  const input = document.getElementById('founder-access-pwd');
+  const err = document.getElementById('founder-access-error');
+  const pwd = input ? input.value : '';
+
+  if (pwd === getFounderPassword()) {
+    if (err) err.classList.remove('show');
+    if (input) input.value = '';
+    setFounderSession();
+    screenStack.pop();
+    document.getElementById('screen-waiter-register').classList.remove('active');
+    openRoleAsFounder(activeAccessRole);
+  } else {
+    if (err) err.classList.add('show');
+    if (input) input.value = '';
+  }
 }
 
 function openAccessRequestForm(role) {
@@ -1820,6 +1934,10 @@ function openAccessRequestForm(role) {
   document.getElementById('reg-login').value = '';
   document.getElementById('reg-name').value = '';
   document.getElementById('reg-error').classList.remove('show');
+  const founderPwd = document.getElementById('founder-access-pwd');
+  const founderErr = document.getElementById('founder-access-error');
+  if (founderPwd) founderPwd.value = '';
+  if (founderErr) founderErr.classList.remove('show');
   goTo('screen-waiter-register');
 }
 
@@ -1846,6 +1964,11 @@ function resetAccessRequestForm() {
 
 function enterRole(role) {
   if (!EMPLOYEE_ROLES.includes(role)) return;
+
+  if (hasFounderSession()) {
+    openRoleAsFounder(role);
+    return;
+  }
 
   const saved = getSavedAccessRequest();
   const current = getCurrentApprovedStaff();
@@ -2030,6 +2153,7 @@ function getFounderPassword() {
 function setFounderPassword(pwd) {
   appCache.founderPassword = pwd;
   LocalDB.set("founderPassword", pwd);
+  clearFounderSession();
 
   if (CLOUD_ENABLED && db) {
     db.collection("settings").doc("main").set({
@@ -2049,6 +2173,7 @@ function getAdminPassword() {
 function setAdminPassword(pwd) {
   appCache.adminPassword = pwd;
   LocalDB.set("adminPassword", pwd);
+  clearAdminSession();
 
   if (CLOUD_ENABLED && db) {
     db.collection("settings").doc("main").set({
@@ -2281,17 +2406,32 @@ function closeFullscreen() { document.getElementById('fullscreen-photo').classLi
 // ============================================================
 // HOME
 // ============================================================
+function openTestingStub(title) {
+  openAdminWip(title || 'Раздел');
+}
+
 function enterWaiter() {
   enterRole('waiter');
 }
 
 function enterFounder() {
+  if (hasFounderSession()) {
+    localStorage.setItem("founderActiveRole", 'founder');
+    goTo('screen-founder-menu');
+    return;
+  }
+
   goTo('screen-founder-login');
   document.getElementById('founder-pwd').value = '';
   document.getElementById('founder-error').classList.remove('show');
 }
 
 function enterAdmin() {
+  if (hasAdminSession()) {
+    goTo('screen-admin-menu');
+    return;
+  }
+
   goTo('screen-admin-login');
   document.getElementById('admin-pwd').value = '';
   document.getElementById('admin-error').classList.remove('show');
@@ -3061,6 +3201,7 @@ function checkAdminPwd() {
 
   if (input === getAdminPassword()) {
     err.classList.remove('show');
+    setAdminSession();
     screenStack.pop();
     document.getElementById('screen-admin-login').classList.remove('active');
     goTo('screen-admin-menu');
@@ -3159,7 +3300,7 @@ function changeAdminPassword() {
   setAdminPassword(np);
   document.getElementById('new-admin-pwd').value = '';
   document.getElementById('confirm-admin-pwd').value = '';
-  showToast('Пароль администратора изменён ✓');
+  showToast('Пароль администратора изменён. Вход администратора сброшен');
 }
 
 function adminLogout() {
@@ -3256,6 +3397,8 @@ function checkFounderPwd() {
   const err = document.getElementById('founder-error');
   if (input === getFounderPassword()) {
     err.classList.remove('show');
+    setFounderSession();
+    localStorage.setItem("founderActiveRole", 'founder');
     // Replace login screen with menu
     screenStack.pop();
     document.getElementById('screen-founder-login').classList.remove('active');
@@ -3279,7 +3422,8 @@ function changePassword() {
   setFounderPassword(np);
   document.getElementById('new-pwd').value = '';
   document.getElementById('confirm-pwd').value = '';
-  showToast('Пароль изменён ✓');
+  showToast('Пароль изменён. Вход учредителя сброшен');
+  goHome();
 }
 
 // ============================================================
