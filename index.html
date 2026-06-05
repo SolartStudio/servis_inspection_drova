@@ -768,7 +768,7 @@
   <div class="content" style="padding-top: 32px;">
     <div class="section-label">Активные подразделения</div>
     <div class="role-grid">
-      <div class="role-card active-role" onclick="enterWaiter()">
+      <div class="role-card active-role" onclick="enterRole('waiter')">
         <span class="role-name">Официант</span>
         <span style="font-size: 20px;">→</span>
       </div>
@@ -783,25 +783,25 @@
     </div>
     <div class="section-label" style="margin-top: 24px;">Тестирование</div>
     <div class="role-grid">
-      <div class="role-card inactive">
+      <div class="role-card active-role" onclick="enterRole('cook')">
         <span class="role-name">Повар</span>
-        <span class="role-wip">Тестирование</span>
+        <span class="role-wip">Вход по заявке</span>
       </div>
-      <div class="role-card inactive">
+      <div class="role-card active-role" onclick="enterRole('stoker')">
         <span class="role-name">Топник</span>
-        <span class="role-wip">Тестирование</span>
+        <span class="role-wip">Вход по заявке</span>
       </div>
-      <div class="role-card inactive">
+      <div class="role-card active-role" onclick="enterRole('masseur')">
         <span class="role-name">Массажист</span>
-        <span class="role-wip">Тестирование</span>
+        <span class="role-wip">Вход по заявке</span>
       </div>
-      <div class="role-card inactive">
+      <div class="role-card active-role" onclick="enterRole('cleaner')">
         <span class="role-name">Техничка</span>
-        <span class="role-wip">Тестирование</span>
+        <span class="role-wip">Вход по заявке</span>
       </div>
-      <div class="role-card inactive">
+      <div class="role-card active-role" onclick="enterRole('bathmaster')">
         <span class="role-name">Пармастер</span>
-        <span class="role-wip">Тестирование</span>
+        <span class="role-wip">Вход по заявке</span>
       </div>
     </div>
   </div>
@@ -814,12 +814,12 @@
 <div class="screen" id="screen-waiter-register">
   <div class="header">
     <button class="back-btn" onclick="goHome()">←</button>
-    <span class="header-title">Официант</span>
+    <span class="header-title" id="access-role-title">Официант</span>
   </div>
   <div class="content content-padded">
     <div style="margin-bottom: 32px;">
       <div style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Добро пожаловать</div>
-      <div style="font-size: 14px; color: var(--text-2); line-height: 1.6;">Введите ваши данные для продолжения. Это нужно сделать один раз.</div>
+      <div style="font-size: 14px; color: var(--text-2); line-height: 1.6;">Введите данные и отправьте запрос на вход. Администратор подтвердит доступ.</div>
     </div>
     <div class="field">
       <label>Telegram логин</label>
@@ -830,7 +830,7 @@
       <input type="text" id="reg-name" placeholder="Ваше имя">
       <div class="error-msg" id="reg-error">Заполните все поля</div>
     </div>
-    <button class="btn btn-primary" style="margin-top: 8px;" onclick="registerWaiter()">Продолжить</button>
+    <button class="btn btn-primary" style="margin-top: 8px;" onclick="submitAccessRequest()">Отправить запрос</button>
   </div>
 </div>
 
@@ -1039,6 +1039,14 @@
       <div style="font-size: 24px; font-weight: 700;">Администратор</div>
     </div>
     <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="openAccessRequests()">
+      <div class="menu-icon">✅</div>
+      <div class="menu-text">
+        <div class="menu-title">Одобрить вход</div>
+        <div class="menu-desc" id="access-requests-menu-desc">Заявки сотрудников</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openAdminWip('Сертификаты')">
       <div class="menu-icon">📜</div>
       <div class="menu-text">
@@ -1083,6 +1091,18 @@
   <div class="footer" style="display:flex; justify-content:space-between; align-items:center;">
     <span class="logo-sm">drova inspector</span>
     <button class="btn btn-secondary btn-sm" onclick="adminLogout()">Выйти</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: ADMIN ACCESS REQUESTS ===== -->
+<div class="screen" id="screen-admin-access-requests">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Одобрить вход</span>
+  </div>
+  <div class="content">
+    <div class="section-label">Заявки на вход</div>
+    <div id="access-requests-list"></div>
   </div>
 </div>
 
@@ -1503,7 +1523,8 @@ const appCache = {
   adminPassword: "3235",
   fines: [],
   inventoryDraft: null,
-  inventoryRecords: []
+  inventoryRecords: [],
+  accessRequests: []
 };
 
 const LocalDB = {
@@ -1523,6 +1544,7 @@ async function initCloud() {
     appCache.fines = LocalDB.get("fines") || [];
     appCache.inventoryDraft = LocalDB.get("inventoryDraft") || null;
     appCache.inventoryRecords = LocalDB.get("inventoryRecords") || [];
+    appCache.accessRequests = LocalDB.get("accessRequests") || [];
     return;
   }
 
@@ -1578,11 +1600,12 @@ async function initCloud() {
 }
 
 async function loadCloudData() {
-  const [staffSnap, reportsSnap, finesSnap, inventorySnap, settingsDoc] = await Promise.all([
+  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, settingsDoc] = await Promise.all([
     db.collection("staff").get(),
     db.collection("reports").orderBy("createdAt", "desc").get(),
     db.collection("fines").orderBy("createdAt", "desc").get(),
     db.collection("inventoryRecords").orderBy("createdAt", "desc").get(),
+    db.collection("accessRequests").orderBy("createdAt", "desc").get(),
     db.collection("settings").doc("main").get()
   ]);
 
@@ -1590,6 +1613,7 @@ async function loadCloudData() {
   appCache.reports = reportsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.fines = finesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.inventoryRecords = inventorySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.accessRequests = accessRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   const settings = settingsDoc.exists ? settingsDoc.data() : {};
   appCache.dutyAssignment = settings.dutyAssignment || null;
@@ -1611,6 +1635,7 @@ function refreshVisibleData() {
   const current = screenStack && screenStack[screenStack.length - 1];
   if (!current) return;
   refreshScreen(current);
+  updateAccessRequestsMenuBadge();
 }
 
 function getCurrentWaiterId() {
@@ -1619,7 +1644,10 @@ function getCurrentWaiterId() {
 
 function clearCurrentWaiter() {
   localStorage.removeItem("currentWaiterId");
+  localStorage.removeItem("currentStaffId");
+  localStorage.removeItem("currentStaffRole");
   LocalDB.remove("waiter");
+  LocalDB.remove("staffProfile");
 }
 
 function getWaiter() {
@@ -1674,6 +1702,265 @@ const ROLE_LABELS = {
   cleaner: 'Техничка',
   bathmaster: 'Пармастер'
 };
+
+const EMPLOYEE_ROLES = ['waiter', 'cook', 'stoker', 'masseur', 'cleaner', 'bathmaster'];
+
+let activeAccessRole = 'waiter';
+
+function normalizeLogin(login) {
+  const raw = String(login || '').trim();
+  if (!raw) return '';
+  return raw.startsWith('@') ? raw : '@' + raw;
+}
+
+function getRoleLabel(role) {
+  return ROLE_LABELS[role] || 'Сотрудник';
+}
+
+function getRolePrepositional(role) {
+  const forms = {
+    waiter: 'официантов',
+    cook: 'поваров',
+    stoker: 'топников',
+    masseur: 'массажистов',
+    cleaner: 'техничек',
+    bathmaster: 'пармастеров'
+  };
+  return forms[role] || String(getRoleLabel(role)).toLowerCase();
+}
+
+function getAccessRequests() {
+  return (appCache.accessRequests || []).filter(r => r.status !== 'declined');
+}
+
+function setAccessRequests(arr) {
+  appCache.accessRequests = arr;
+  LocalDB.set("accessRequests", arr);
+}
+
+async function saveAccessRequest(req) {
+  const arr = getAccessRequests().filter(r => String(r.id) !== String(req.id));
+  arr.unshift(req);
+  setAccessRequests(arr);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("accessRequests").doc(String(req.id)).set(req, { merge: true });
+  }
+}
+
+async function deleteAccessRequest(requestId) {
+  const id = String(requestId);
+  setAccessRequests(getAccessRequests().filter(r => String(r.id) !== id));
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("accessRequests").doc(id).delete();
+  }
+}
+
+function findApprovedStaffByLogin(login) {
+  const normalized = normalizeLogin(login);
+  return getStaff().find(s => normalizeLogin(s.login) === normalized);
+}
+
+function findPendingRequest(role, login) {
+  const normalized = normalizeLogin(login);
+  return getAccessRequests().find(r =>
+    r.status === 'pending' &&
+    r.role === role &&
+    normalizeLogin(r.login) === normalized
+  );
+}
+
+function getSavedAccessRequest() {
+  return LocalDB.get("pendingAccessRequest");
+}
+
+function setSavedAccessRequest(req) {
+  LocalDB.set("pendingAccessRequest", req);
+}
+
+function clearSavedAccessRequest() {
+  LocalDB.remove("pendingAccessRequest");
+}
+
+function setCurrentStaffSession(staff) {
+  localStorage.setItem("currentStaffId", String(staff.id));
+  localStorage.setItem("currentStaffRole", String(staff.role || 'waiter'));
+  LocalDB.set("staffProfile", staff);
+
+  if (staff.role === 'waiter') {
+    localStorage.setItem("currentWaiterId", String(staff.id));
+    LocalDB.set("waiter", staff);
+  }
+}
+
+function getCurrentApprovedStaff() {
+  const id = localStorage.getItem("currentStaffId") || getCurrentWaiterId();
+  if (!id) return null;
+
+  const cloudStaff = getStaff().find(s => String(s.id) === String(id));
+  if (CLOUD_ENABLED) {
+    if (!cloudStaff) {
+      clearCurrentWaiter();
+      return null;
+    }
+    return cloudStaff;
+  }
+
+  return cloudStaff || LocalDB.get("staffProfile") || LocalDB.get("waiter") || null;
+}
+
+function showRoleMismatch(staff, requestedRole) {
+  showToast(`Вы уже зарегистрированы в подразделении ${getRolePrepositional(staff.role || requestedRole)}`);
+}
+
+function openAccessRequestForm(role) {
+  activeAccessRole = role;
+  document.getElementById('access-role-title').textContent = getRoleLabel(role);
+  document.getElementById('reg-login').value = '';
+  document.getElementById('reg-name').value = '';
+  document.getElementById('reg-error').classList.remove('show');
+  goTo('screen-waiter-register');
+}
+
+function showAccessPending(role, login) {
+  const title = document.getElementById('access-role-title');
+  const content = document.querySelector('#screen-waiter-register .content');
+  if (!title || !content) return;
+
+  title.textContent = getRoleLabel(role);
+  content.innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">⏳</div>
+      <div class="empty-title">Заявка ожидает подтверждения</div>
+      <div class="empty-sub">Администратор должен одобрить вход для ${escapeHtml(getRoleLabel(role))} · ${escapeHtml(normalizeLogin(login))}</div>
+    </div>
+    <button class="btn btn-secondary" onclick="resetAccessRequestForm()">Отправить другую заявку</button>`;
+  goTo('screen-waiter-register');
+}
+
+function resetAccessRequestForm() {
+  clearSavedAccessRequest();
+  location.reload();
+}
+
+function enterRole(role) {
+  if (!EMPLOYEE_ROLES.includes(role)) return;
+
+  const saved = getSavedAccessRequest();
+  const current = getCurrentApprovedStaff();
+
+  if (current) {
+    if (current.role && current.role !== role) {
+      showRoleMismatch(current, role);
+      return;
+    }
+
+    setCurrentStaffSession(current);
+    clearSavedAccessRequest();
+
+    if (role === 'waiter') {
+      renderWaiterMenu();
+      goTo('screen-waiter-menu');
+    } else {
+      openAdminWip(getRoleLabel(role));
+    }
+    return;
+  }
+
+  if (saved) {
+    const approved = findApprovedStaffByLogin(saved.login);
+    if (approved) {
+      if (approved.role !== role) {
+        showRoleMismatch(approved, role);
+        return;
+      }
+      setCurrentStaffSession(approved);
+      clearSavedAccessRequest();
+
+      if (role === 'waiter') {
+        renderWaiterMenu();
+        goTo('screen-waiter-menu');
+      } else {
+        openAdminWip(getRoleLabel(role));
+      }
+      return;
+    }
+
+    const pending = findPendingRequest(saved.role, saved.login);
+    if (pending) {
+      showAccessPending(saved.role, saved.login);
+      return;
+    }
+
+    clearSavedAccessRequest();
+  }
+
+  openAccessRequestForm(role);
+}
+
+async function submitAccessRequest() {
+  const login = normalizeLogin(document.getElementById('reg-login').value);
+  const name = document.getElementById('reg-name').value.trim();
+  const err = document.getElementById('reg-error');
+
+  if (!login || !name) {
+    err.textContent = 'Заполните все поля';
+    err.classList.add('show');
+    return;
+  }
+
+  const approved = findApprovedStaffByLogin(login);
+  if (approved) {
+    if (approved.role !== activeAccessRole) {
+      err.textContent = `Вы уже зарегистрированы в подразделении ${getRolePrepositional(approved.role)}`;
+      err.classList.add('show');
+      return;
+    }
+
+    setCurrentStaffSession(approved);
+    clearSavedAccessRequest();
+    screenStack.pop();
+    document.getElementById('screen-waiter-register').classList.remove('active');
+
+    if (activeAccessRole === 'waiter') {
+      renderWaiterMenu();
+      goTo('screen-waiter-menu');
+    } else {
+      openAdminWip(getRoleLabel(activeAccessRole));
+    }
+    return;
+  }
+
+  const existing = findPendingRequest(activeAccessRole, login);
+  if (existing) {
+    setSavedAccessRequest({ id: existing.id, role: existing.role, login: existing.login, name: existing.name });
+    showAccessPending(existing.role, existing.login);
+    return;
+  }
+
+  const req = {
+    id: Date.now(),
+    role: activeAccessRole,
+    roleLabel: getRoleLabel(activeAccessRole),
+    login,
+    name,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    await saveAccessRequest(req);
+    setSavedAccessRequest({ id: req.id, role: req.role, login: req.login, name: req.name });
+    showAccessPending(req.role, req.login);
+    showToast('Заявка отправлена');
+  } catch (errSave) {
+    console.error(errSave);
+    showToast('Ошибка отправки заявки');
+  }
+}
+
+
 
 function getStaffRole(staff) {
   if (!staff) return 'Сотрудник';
@@ -1955,6 +2242,7 @@ function refreshScreen(id) {
   if (id === 'screen-waiter-menu') renderWaiterMenu();
   if (id === 'screen-duty') renderDutyScreen();
   if (id === 'screen-admin-fines') renderAdminFines();
+  if (id === 'screen-admin-access-requests') renderAccessRequests();
   if (id === 'screen-founder-fines') renderFounderFines();
   if (id === 'screen-inventory-start') renderInventoryStart();
   if (id === 'screen-inventory-form') renderInventoryForm();
@@ -1994,17 +2282,7 @@ function closeFullscreen() { document.getElementById('fullscreen-photo').classLi
 // HOME
 // ============================================================
 function enterWaiter() {
-  const w = getWaiter();
-
-  if (w) {
-    renderWaiterMenu();
-    goTo('screen-waiter-menu');
-  } else {
-    // Старый локальный аккаунт или удалённый сотрудник.
-    // Чистим устройство и отправляем на регистрацию заново.
-    clearCurrentWaiter();
-    goTo('screen-waiter-register');
-  }
+  enterRole('waiter');
 }
 
 function enterFounder() {
@@ -2023,27 +2301,7 @@ function enterAdmin() {
 // WAITER REGISTER
 // ============================================================
 function registerWaiter() {
-  const login = document.getElementById('reg-login').value.trim();
-  const name = document.getElementById('reg-name').value.trim();
-  const err = document.getElementById('reg-error');
-  if (!login || !name) { err.classList.add('show'); return; }
-  err.classList.remove('show');
-
-  const waiter = { id: Date.now(), login, name, role: 'waiter', roleLabel: 'Официант', createdAt: new Date().toISOString() };
-  setWaiter(waiter);
-
-  // Add to staff list
-  const staff = getStaff();
-  if (!staff.find(s => s.id === waiter.id)) {
-    staff.push(waiter);
-    setStaff(staff);
-  }
-
-  renderWaiterMenu();
-  // Replace register screen with menu in stack
-  screenStack.pop();
-  document.getElementById('screen-waiter-register').classList.remove('active');
-  goTo('screen-waiter-menu');
+  submitAccessRequest();
 }
 
 // ============================================================
@@ -2703,6 +2961,95 @@ function confirmDuty() {
 
   showToast(`${person.name} назначен(а) дежурным ✓`);
   renderDutyScreen();
+}
+
+// ============================================================
+// ADMIN ACCESS REQUESTS
+// ============================================================
+function getPendingAccessRequests() {
+  return getAccessRequests().filter(r => r.status === 'pending');
+}
+
+function updateAccessRequestsMenuBadge() {
+  const el = document.getElementById('access-requests-menu-desc');
+  if (!el) return;
+  const count = getPendingAccessRequests().length;
+  el.textContent = count ? `${count} ${plural(count, 'заявка', 'заявки', 'заявок')} ожидает` : 'Заявки сотрудников';
+}
+
+function openAccessRequests() {
+  renderAccessRequests();
+  goTo('screen-admin-access-requests');
+}
+
+function renderAccessRequests() {
+  updateAccessRequestsMenuBadge();
+
+  const list = document.getElementById('access-requests-list');
+  if (!list) return;
+
+  const requests = getPendingAccessRequests();
+
+  if (!requests.length) {
+    list.innerHTML = `<div class="empty">
+      <div class="empty-icon">✅</div>
+      <div class="empty-title">Заявок нет</div>
+      <div class="empty-sub">Новые запросы сотрудников появятся здесь</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = requests.map(req => `
+    <div class="card" style="cursor:default;">
+      <div class="card-title">${escapeHtml(req.roleLabel || getRoleLabel(req.role))} · ${escapeHtml(req.login)} · ${escapeHtml(req.name)}</div>
+      <div class="card-sub">${req.createdAt ? new Date(req.createdAt).toLocaleString('ru-RU') : ''}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+        <button class="btn btn-primary" onclick="approveAccessRequest('${req.id}')">Подтвердить</button>
+        <button class="btn btn-danger" onclick="declineAccessRequest('${req.id}')">Отклонить</button>
+      </div>
+    </div>`).join('');
+}
+
+async function approveAccessRequest(requestId) {
+  const req = getAccessRequests().find(r => String(r.id) === String(requestId));
+  if (!req) {
+    showToast('Заявка не найдена');
+    return;
+  }
+
+  const existing = findApprovedStaffByLogin(req.login);
+  if (existing && existing.role !== req.role) {
+    showToast(`Уже зарегистрирован в подразделении ${getRolePrepositional(existing.role)}`);
+    await deleteAccessRequest(req.id);
+    renderAccessRequests();
+    return;
+  }
+
+  const staffMember = existing || {
+    id: req.id,
+    login: normalizeLogin(req.login),
+    name: req.name,
+    role: req.role,
+    roleLabel: req.roleLabel || getRoleLabel(req.role),
+    approvedAt: new Date().toISOString(),
+    createdAt: req.createdAt || new Date().toISOString()
+  };
+
+  if (!existing) {
+    const staff = getStaff();
+    staff.push(staffMember);
+    setStaff(staff);
+  }
+
+  await deleteAccessRequest(req.id);
+  showToast('Вход подтверждён ✓');
+  renderAccessRequests();
+}
+
+async function declineAccessRequest(requestId) {
+  await deleteAccessRequest(requestId);
+  showToast('Заявка отклонена');
+  renderAccessRequests();
 }
 
 // ============================================================
@@ -3403,6 +3750,16 @@ async function confirmDeleteStaff() {
 // ============================================================
 // UTILS
 // ============================================================
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+
 function plural(n, one, few, many) {
   if (n % 10 === 1 && n % 100 !== 11) return `${n} ${one}`;
   if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) return `${n} ${few}`;
@@ -3464,6 +3821,7 @@ async function init() {
   // Render duty screen on load
   renderDutyScreen();
   renderAdminFines();
+  renderAccessRequests();
   renderFounderFines();
   renderInventoryStart();
   renderInventoryRecordsList();
