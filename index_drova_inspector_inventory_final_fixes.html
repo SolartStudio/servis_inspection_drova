@@ -1,0 +1,3482 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Drova Inspector</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #222222;
+    --surface3: #2a2a2a;
+    --border: #2e2e2e;
+    --accent: #c8a96e;
+    --accent-dim: #a8894e;
+    --text: #f0ece4;
+    --text-2: #a09880;
+    --text-3: #5a5548;
+    --danger: #e05252;
+    --success: #52a97c;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  /* SCREENS */
+  .screen { display: none; flex-direction: column; min-height: 100dvh; }
+  .screen.active { display: flex; }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+    gap: 12px;
+  }
+  .header-title {
+    flex: 1;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .back-btn {
+    width: 36px; height: 36px;
+    border: none;
+    background: var(--surface2);
+    color: var(--text);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .back-btn:active { background: var(--surface3); }
+
+  /* LOGO */
+  .logo {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--accent);
+    text-align: center;
+  }
+  .logo-sm {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--text-3);
+    text-align: center;
+  }
+
+  /* CONTENT */
+  .content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .content-padded { padding: 24px 20px; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .card:active { background: var(--surface2); }
+  .card.disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+  .card.disabled:active { background: var(--surface); }
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .card-sub {
+    font-size: 13px;
+    color: var(--text-2);
+  }
+  .card-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--text-3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 7px;
+    margin-top: 8px;
+    text-transform: uppercase;
+  }
+
+  /* ROLE CARDS - home screen */
+  .role-grid { display: flex; flex-direction: column; gap: 10px; }
+  .role-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 18px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .role-card:active { background: var(--surface2); border-color: var(--accent); }
+  .role-card.active-role { border-color: var(--accent-dim); }
+  .role-card.inactive { cursor: default; opacity: 0.45; }
+  .role-card.inactive:active { background: var(--surface); border-color: var(--border); }
+  .role-name { font-size: 17px; font-weight: 600; }
+  .role-wip {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-3);
+    letter-spacing: 0.3px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    text-transform: uppercase;
+  }
+
+  /* BUTTONS */
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    text-align: center;
+  }
+  .btn:active { opacity: 0.8; transform: scale(0.98); }
+  .btn-primary { background: var(--accent); color: #0f0f0f; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 16px;
+    font-size: 14px;
+    width: auto;
+    border-radius: var(--radius-sm);
+  }
+  .btn-icon {
+    width: 36px; height: 36px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  /* INPUTS */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-2);
+    margin-bottom: 8px;
+    letter-spacing: 0.2px;
+  }
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    color: var(--text);
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: inherit;
+  }
+  .field textarea { min-height: 90px; resize: vertical; }
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus { border-color: var(--accent); }
+  .field input::placeholder,
+  .field textarea::placeholder { color: var(--text-3); }
+
+  /* SECTION LABELS */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 12px;
+    margin-top: 24px;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  /* EMPTY STATE */
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    gap: 10px;
+  }
+  .empty-icon { font-size: 40px; opacity: 0.3; }
+  .empty-title { font-size: 17px; font-weight: 600; color: var(--text-2); }
+  .empty-sub { font-size: 14px; color: var(--text-3); }
+
+  /* DIVIDER */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  /* MENU ITEMS */
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-bottom: 10px;
+  }
+  .menu-item:active { background: var(--surface2); }
+  .menu-icon {
+    width: 44px; height: 44px;
+    background: var(--surface2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .menu-text { flex: 1; }
+  .menu-title { font-size: 16px; font-weight: 600; }
+  .menu-desc { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+  .menu-arrow { color: var(--text-3); font-size: 18px; }
+
+  /* PHOTO SECTIONS */
+  .photo-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .photo-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .photo-section-title { font-size: 15px; font-weight: 600; }
+  .photo-count { font-size: 13px; color: var(--text-2); }
+  .photo-body { padding: 14px 18px; }
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .photo-thumb {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--surface2);
+    position: relative;
+    cursor: pointer;
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-thumb .remove-photo {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 22px; height: 22px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    cursor: pointer;
+    color: #fff;
+    border: none;
+  }
+  .add-photo-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-2);
+    font-size: 14px;
+    cursor: pointer;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  .add-photo-btn:active { border-color: var(--accent); }
+  .add-photo-btn.hidden { display: none; }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    margin-bottom: 20px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-2);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .tab.active {
+    background: var(--surface3);
+    color: var(--text);
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: flex-end;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: 24px 20px 36px;
+    width: 100%;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .modal-sub {
+    font-size: 14px;
+    color: var(--text-2);
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .modal-actions { display: flex; flex-direction: column; gap: 10px; }
+
+  /* FULLSCREEN PHOTO */
+  .fullscreen-photo {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .fullscreen-photo.open { display: flex; }
+  .fullscreen-photo img { max-width: 100%; max-height: 100dvh; object-fit: contain; }
+  .fullscreen-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 300;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* STAFF LIST */
+  .staff-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .staff-item:active { background: var(--surface2); }
+  .staff-avatar {
+    width: 44px; height: 44px;
+    background: var(--surface3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .staff-name { font-size: 15px; font-weight: 600; }
+  .staff-login { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+
+  /* STAT ROW */
+  .stat-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .stat-box {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 14px 10px;
+    text-align: center;
+  }
+  .stat-val { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .stat-lbl { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+
+  /* SHIFT CARD */
+  .shift-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .shift-card:active { background: var(--surface2); }
+  .shift-date { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .shift-meta { font-size: 13px; color: var(--text-2); }
+
+  /* DUTY SELECTOR */
+  .duty-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .duty-item.selected { border-color: var(--accent); background: rgba(200,169,110,0.08); }
+  .duty-item:active { background: var(--surface2); }
+  .duty-check {
+    width: 22px; height: 22px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .duty-item.selected .duty-check { border-color: var(--accent); background: var(--accent); }
+  .duty-check::after {
+    content: '';
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #0f0f0f;
+    display: none;
+  }
+  .duty-item.selected .duty-check::after { display: block; }
+
+  /* REPORT VIEW */
+  .report-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .report-section-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-2);
+    letter-spacing: 0.3px;
+  }
+  .report-section-body { padding: 14px 18px; }
+  .report-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .report-photo-thumb {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--surface2);
+    cursor: pointer;
+  }
+  .report-photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* ERROR */
+  .error-msg {
+    color: var(--danger);
+    font-size: 13px;
+    margin-top: 6px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* FOOTER */
+  .footer {
+    padding: 14px 20px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  /* HOME FOOTER */
+  .home-footer {
+    padding: 20px;
+    text-align: center;
+  }
+
+  /* WIP SCREEN */
+  .wip-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+    gap: 16px;
+  }
+  .wip-icon { font-size: 48px; opacity: 0.4; }
+  .wip-title { font-size: 20px; font-weight: 700; color: var(--text-2); }
+  .wip-sub { font-size: 14px; color: var(--text-3); line-height: 1.6; }
+
+  /* BADGE STATUS */
+  .duty-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(200,169,110,0.12);
+    border: 1px solid rgba(200,169,110,0.3);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+  /* VIEW-ONLY DOCUMENTS */
+  .doc-placeholder {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 12px;
+    color: var(--text-2);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .doc-image {
+    width: 100%;
+    display: block;
+    border-radius: var(--radius);
+    margin-bottom: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  input[type="date"] { color-scheme: dark; }
+
+  /* INVENTORY */
+  .inventory-white {
+    background: #f7f4ee;
+    color: #111;
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 18px;
+  }
+  .inventory-row {
+    display: grid;
+    grid-template-columns: 1fr 88px;
+    gap: 10px;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+  }
+  .inventory-row:last-child { border-bottom: none; }
+  .inventory-name {
+    font-size: 14px;
+    line-height: 1.25;
+    color: #111;
+  }
+  .inventory-input {
+    width: 100%;
+    background: #fff;
+    border: 1px solid #cfc7b5;
+    border-radius: 8px;
+    padding: 10px 8px;
+    color: #111;
+    font-size: 16px;
+    text-align: center;
+    outline: none;
+  }
+  .inventory-input.filled {
+    background: #dff3df;
+    border-color: #54a86a;
+    color: #0f3b1c;
+    font-weight: 700;
+  }
+  .inventory-status {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+
+  .inventory-view-table {
+    background: #f7f4ee;
+    color: #111;
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .inventory-view-row {
+    display: grid;
+    grid-template-columns: 1fr 90px;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.14);
+  }
+  .inventory-view-row:last-child { border-bottom: none; }
+  .inventory-view-name { font-size: 14px; color: #111; line-height: 1.25; }
+  .inventory-view-value {
+    background: #dff3df;
+    border: 1px solid #54a86a;
+    border-radius: 8px;
+    padding: 10px 8px;
+    color: #0f3b1c;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+  }
+  .button-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .inventory-view-value.empty {
+    background: #fff;
+    border-color: #cfc7b5;
+    color: #777;
+    font-weight: 400;
+  }
+  .export-hint {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--text-2);
+    line-height: 1.45;
+    margin-bottom: 14px;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ===== SCREEN: HOME ===== -->
+<div class="screen active" id="screen-home">
+  <div style="padding: 48px 20px 0;">
+    <div class="logo">drova</div>
+    <div style="font-size: 13px; color: var(--text-3); text-align: center; margin-top: 6px; letter-spacing: 1px;">INSPECTOR</div>
+  </div>
+  <div class="content" style="padding-top: 32px;">
+    <div class="section-label">Активные подразделения</div>
+    <div class="role-grid">
+      <div class="role-card active-role" onclick="enterWaiter()">
+        <span class="role-name">Официант</span>
+        <span style="font-size: 20px;">→</span>
+      </div>
+      <div class="role-card active-role" onclick="enterFounder()">
+        <span class="role-name">Учредитель</span>
+        <span style="font-size: 20px;">→</span>
+      </div>
+      <div class="role-card active-role" onclick="enterAdmin()">
+        <span class="role-name">Администратор</span>
+        <span style="font-size: 20px;">→</span>
+      </div>
+    </div>
+    <div class="section-label" style="margin-top: 24px;">Тестирование</div>
+    <div class="role-grid">
+      <div class="role-card inactive">
+        <span class="role-name">Повар</span>
+        <span class="role-wip">Тестирование</span>
+      </div>
+      <div class="role-card inactive">
+        <span class="role-name">Топник</span>
+        <span class="role-wip">Тестирование</span>
+      </div>
+      <div class="role-card inactive">
+        <span class="role-name">Массажист</span>
+        <span class="role-wip">Тестирование</span>
+      </div>
+      <div class="role-card inactive">
+        <span class="role-name">Техничка</span>
+        <span class="role-wip">Тестирование</span>
+      </div>
+      <div class="role-card inactive">
+        <span class="role-name">Пармастер</span>
+        <span class="role-wip">Тестирование</span>
+      </div>
+    </div>
+  </div>
+  <div class="home-footer">
+    <div class="logo-sm">drova inspector</div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: WAITER REGISTER ===== -->
+<div class="screen" id="screen-waiter-register">
+  <div class="header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <span class="header-title">Официант</span>
+  </div>
+  <div class="content content-padded">
+    <div style="margin-bottom: 32px;">
+      <div style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Добро пожаловать</div>
+      <div style="font-size: 14px; color: var(--text-2); line-height: 1.6;">Введите ваши данные для продолжения. Это нужно сделать один раз.</div>
+    </div>
+    <div class="field">
+      <label>Telegram логин</label>
+      <input type="text" id="reg-login" placeholder="@username" autocomplete="off" autocorrect="off" autocapitalize="off">
+    </div>
+    <div class="field">
+      <label>Имя</label>
+      <input type="text" id="reg-name" placeholder="Ваше имя">
+      <div class="error-msg" id="reg-error">Заполните все поля</div>
+    </div>
+    <button class="btn btn-primary" style="margin-top: 8px;" onclick="registerWaiter()">Продолжить</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: WAITER MENU ===== -->
+<div class="screen" id="screen-waiter-menu">
+  <div style="padding: 32px 20px 0;">
+    <div class="logo" style="font-size: 22px; letter-spacing: 4px;">drova</div>
+  </div>
+  <div class="content" style="padding-top: 24px;">
+    <div style="margin-bottom: 28px;">
+      <div style="font-size: 13px; color: var(--text-3); margin-bottom: 4px;">Официант</div>
+      <div style="font-size: 24px; font-weight: 700;" id="waiter-menu-name">—</div>
+    </div>
+    <div id="duty-banner" style="display:none;" class="duty-badge">
+      <span>🌅</span>
+      <span id="duty-banner-text">Вы дежурный завтра</span>
+    </div>
+    <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="goTo('screen-photo-reports')">
+      <div class="menu-icon">📷</div>
+      <div class="menu-text">
+        <div class="menu-title">Фотоотчеты</div>
+        <div class="menu-desc">Отчеты по баням</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openWaiterDocs('instructions')">
+      <div class="menu-icon">📘</div>
+      <div class="menu-text">
+        <div class="menu-title">Должностные инструкции</div>
+        <div class="menu-desc">Материалы для просмотра</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openWaiterDocs('algorithm')">
+      <div class="menu-icon">🧭</div>
+      <div class="menu-text">
+        <div class="menu-title">Алгоритм работы</div>
+        <div class="menu-desc">Порядок действий на смене</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="goTo('screen-inventory')">
+      <div class="menu-icon">📦</div>
+      <div class="menu-text">
+        <div class="menu-title">Инвентаризация</div>
+        <div class="menu-desc">Учет инвентаря</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  </div>
+  <div class="footer" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+    <span class="logo-sm">drova inspector</span>
+    <button class="btn btn-secondary btn-sm" onclick="waiterLogout()">Выйти</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: INVENTORY ===== -->
+<div class="screen" id="screen-inventory">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Инвентаризация</span>
+  </div>
+  <div class="content">
+    <div class="section-label">Разделы</div>
+    <div class="menu-item" onclick="openInventorySection('items')">
+      <div class="menu-icon">🍽️</div>
+      <div class="menu-text">
+        <div class="menu-title">Инвентарь</div>
+        <div class="menu-desc">Посуда и рабочие предметы</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openInventorySection('bar')">
+      <div class="menu-icon">🍸</div>
+      <div class="menu-text">
+        <div class="menu-title">Бар</div>
+        <div class="menu-desc">Раздел в тестировании</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: INVENTORY START ===== -->
+<div class="screen" id="screen-inventory-start">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="inventory-start-title">Инвентарь</span>
+  </div>
+  <div class="content content-padded">
+    <div id="inventory-start-content"></div>
+  </div>
+  <div class="footer" id="inventory-start-footer"></div>
+</div>
+
+<!-- ===== SCREEN: INVENTORY FORM ===== -->
+<div class="screen" id="screen-inventory-form">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="inventory-form-title">Инвентарь</span>
+  </div>
+  <div class="content" id="inventory-form-content"></div>
+  <div class="footer">
+    <button class="btn btn-primary" onclick="submitInventoryDraft()">Отправить</button>
+  </div>
+</div>
+
+
+<!-- ===== SCREEN: WAITER DOCS ===== -->
+<div class="screen" id="screen-waiter-docs">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="waiter-docs-title">Документы</span>
+  </div>
+  <div class="content content-padded">
+    <div id="waiter-docs-content"></div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: PHOTO REPORTS (bath list) ===== -->
+<div class="screen" id="screen-photo-reports">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Фотоотчеты</span>
+  </div>
+  <div class="content">
+    <div class="section-label">Выберите баню</div>
+    <div id="bath-list"></div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: BATH REPORT (create) ===== -->
+<div class="screen" id="screen-bath-report">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="bath-report-title">Баня</span>
+  </div>
+  <div class="content" id="bath-report-content"></div>
+  <div class="footer">
+    <button class="btn btn-primary" onclick="submitReport()">Отправить отчет</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: DUTY ===== -->
+<div class="screen" id="screen-duty">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Дежурный завтра</span>
+  </div>
+  <div class="content">
+    <div id="current-duty-info" style="margin-bottom:20px;"></div>
+    <div class="section-label">Выберите сотрудника</div>
+    <div id="duty-staff-list"></div>
+    <div id="duty-empty" class="empty" style="display:none;">
+      <div class="empty-icon">👤</div>
+      <div class="empty-title">Пока нет сотрудников</div>
+      <div class="empty-sub">Сотрудники появятся после регистрации</div>
+    </div>
+
+    <div class="section-label">Сообщение дежурному</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px;">
+      <div style="font-size:14px;color:var(--text-2);line-height:1.5;margin-bottom:12px;">
+        Шапка сообщения добавится автоматически. Здесь напишите только список задач.
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Список задач</label>
+        <textarea id="duty-tasks" placeholder="Например:&#10;Проверить пульты&#10;Сделать фото цветов до 12:00&#10;Проверить террасу"></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <button class="btn btn-primary" onclick="assignDuty()">Назначить</button>
+  </div>
+</div>
+
+
+<!-- ===== SCREEN: ADMIN LOGIN ===== -->
+<div class="screen" id="screen-admin-login">
+  <div class="header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <span class="header-title">Администратор</span>
+  </div>
+  <div class="content content-padded">
+    <div style="margin-bottom: 32px;">
+      <div style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Вход</div>
+      <div style="font-size: 14px; color: var(--text-2);">Введите пароль администратора</div>
+    </div>
+    <div class="field">
+      <label>Пароль</label>
+      <input type="password" id="admin-pwd" placeholder="••••" autocomplete="off" onkeydown="if(event.key==='Enter') checkAdminPwd()">
+      <div class="error-msg" id="admin-error">Неверный пароль</div>
+    </div>
+    <button class="btn btn-primary" onclick="checkAdminPwd()">Войти</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: ADMIN MENU ===== -->
+<div class="screen" id="screen-admin-menu">
+  <div style="padding: 32px 20px 0;">
+    <div class="logo" style="font-size: 22px; letter-spacing: 4px;">drova</div>
+  </div>
+  <div class="content" style="padding-top: 24px;">
+    <div style="margin-bottom: 28px;">
+      <div style="font-size: 13px; color: var(--text-3); margin-bottom: 4px;">Панель</div>
+      <div style="font-size: 24px; font-weight: 700;">Администратор</div>
+    </div>
+    <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="openAdminWip('Сертификаты')">
+      <div class="menu-icon">📜</div>
+      <div class="menu-text">
+        <div class="menu-title">Сертификаты</div>
+        <div class="menu-desc">Раздел в тестировании</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="goTo('screen-duty')">
+      <div class="menu-icon">🌅</div>
+      <div class="menu-text">
+        <div class="menu-title">Дежурный завтра</div>
+        <div class="menu-desc">Назначение на смену</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openAdminWip('Инвентаризация')">
+      <div class="menu-icon">📦</div>
+      <div class="menu-text">
+        <div class="menu-title">Инвентаризация</div>
+        <div class="menu-desc">Раздел в тестировании</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openAdminFines()">
+      <div class="menu-icon">💸</div>
+      <div class="menu-text">
+        <div class="menu-title">Штрафы</div>
+        <div class="menu-desc">Назначение штрафов сотрудникам</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="goTo('screen-admin-settings')">
+      <div class="menu-icon">⚙️</div>
+      <div class="menu-text">
+        <div class="menu-title">Настройки</div>
+        <div class="menu-desc">Пароль администратора</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  </div>
+  <div class="footer" style="display:flex; justify-content:space-between; align-items:center;">
+    <span class="logo-sm">drova inspector</span>
+    <button class="btn btn-secondary btn-sm" onclick="adminLogout()">Выйти</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: ADMIN WIP ===== -->
+<div class="screen" id="screen-admin-wip">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="admin-wip-title">Раздел</span>
+  </div>
+  <div class="wip-screen">
+    <div class="wip-icon">🔧</div>
+    <div class="wip-title">Раздел в тестировании</div>
+    <div class="wip-sub">Функционал тестируется и будет расширяться.</div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: ADMIN FINES ===== -->
+<div class="screen" id="screen-admin-fines">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Штрафы</span>
+  </div>
+  <div class="content content-padded">
+    <div class="section-label">Добавить штраф</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div class="field">
+        <label>Сотрудник</label>
+        <select id="fine-staff-select"></select>
+      </div>
+      <div class="field">
+        <label>Дата штрафа</label>
+        <input type="date" id="fine-date">
+      </div>
+      <div class="field">
+        <label>Сумма штрафа</label>
+        <input type="number" id="fine-amount" placeholder="Например: 50000" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label>Причина</label>
+        <textarea id="fine-reason" placeholder="Например: не сдан отчет, грязный стол, опоздание"></textarea>
+        <div class="error-msg" id="fine-error">Выберите сотрудника и укажите сумму</div>
+      </div>
+      <button class="btn btn-primary" onclick="addFine()">Сохранить штраф</button>
+    </div>
+    <div class="section-label">Последние штрафы</div>
+    <div id="admin-fines-list"></div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: ADMIN SETTINGS ===== -->
+<div class="screen" id="screen-admin-settings">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Настройки администратора</span>
+  </div>
+  <div class="content content-padded">
+    <div class="section-label">Безопасность</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">Сменить пароль администратора</div>
+      <div class="field">
+        <label>Новый пароль</label>
+        <input type="password" id="new-admin-pwd" placeholder="Введите новый пароль">
+      </div>
+      <div class="field">
+        <label>Подтвердите пароль</label>
+        <input type="password" id="confirm-admin-pwd" placeholder="Повторите пароль">
+        <div class="error-msg" id="admin-pwd-error">Пароли не совпадают</div>
+      </div>
+      <button class="btn btn-primary" onclick="changeAdminPassword()">Сохранить пароль</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: DELETE STAFF CONFIRM ===== -->
+<div class="modal-overlay" id="modal-delete-staff">
+  <div class="modal">
+    <div class="modal-title">Удалить сотрудника?</div>
+    <div class="modal-sub" id="delete-staff-sub">Сотрудник будет удален из системы</div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="confirmDeleteStaff()">Удалить</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-delete-staff')">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: FOUNDER LOGIN ===== --><div class="screen" id="screen-founder-login">
+  <div class="header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <span class="header-title">Учредитель</span>
+  </div>
+  <div class="content content-padded">
+    <div style="margin-bottom: 32px;">
+      <div style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Вход</div>
+      <div style="font-size: 14px; color: var(--text-2);">Введите пароль для доступа</div>
+    </div>
+    <div class="field">
+      <label>Пароль</label>
+      <input type="password" id="founder-pwd" placeholder="••••" autocomplete="off" onkeydown="if(event.key==='Enter') checkFounderPwd()">
+      <div class="error-msg" id="founder-error">Неверный пароль</div>
+    </div>
+    <button class="btn btn-primary" onclick="checkFounderPwd()">Войти</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: FOUNDER MENU ===== -->
+<div class="screen" id="screen-founder-menu">
+  <div style="padding: 32px 20px 0;">
+    <div class="logo" style="font-size: 22px; letter-spacing: 4px;">drova</div>
+  </div>
+  <div class="content" style="padding-top: 24px;">
+    <div style="margin-bottom: 28px;">
+      <div style="font-size: 13px; color: var(--text-3); margin-bottom: 4px;">Панель управления</div>
+      <div style="font-size: 24px; font-weight: 700;">Учредитель</div>
+    </div>
+    <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="goTo('screen-founder-waiters')">
+      <div class="menu-icon">🧑‍🤝‍🧑</div>
+      <div class="menu-text">
+        <div class="menu-title">Официанты</div>
+        <div class="menu-desc">Смены и сотрудники</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="goTo('screen-founder-admins')">
+      <div class="menu-icon">👔</div>
+      <div class="menu-text">
+        <div class="menu-title">Администраторы</div>
+        <div class="menu-desc">Склад, сертификаты, статистика</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openFounderFines()">
+      <div class="menu-icon">💸</div>
+      <div class="menu-text">
+        <div class="menu-title">Штрафы</div>
+        <div class="menu-desc">Штрафы по всем сотрудникам</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="goTo('screen-settings')">
+      <div class="menu-icon">⚙️</div>
+      <div class="menu-text">
+        <div class="menu-title">Настройки</div>
+        <div class="menu-desc">Пароль и параметры</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  </div>
+  <div class="footer" style="display:flex; justify-content:space-between; align-items:center;">
+    <span class="logo-sm">drova inspector</span>
+    <button class="btn btn-secondary btn-sm" onclick="founderLogout()">Выйти</button>
+  </div>
+</div>
+
+
+<!-- ===== SCREEN: FOUNDER ADMINS ===== -->
+<div class="screen" id="screen-founder-admins">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Администраторы</span>
+  </div>
+  <div class="content">
+    <div class="section-label">Разделы</div>
+    <div class="menu-item" onclick="openFounderAdminWip('Склад')">
+      <div class="menu-icon">📦</div>
+      <div class="menu-text">
+        <div class="menu-title">Склад</div>
+        <div class="menu-desc">Раздел в тестировании</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openFounderAdminWip('Сертификаты')">
+      <div class="menu-icon">📜</div>
+      <div class="menu-text">
+        <div class="menu-title">Сертификаты</div>
+        <div class="menu-desc">Раздел в тестировании</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openFounderAdminWip('Статистика')">
+      <div class="menu-icon">📊</div>
+      <div class="menu-text">
+        <div class="menu-title">Статистика</div>
+        <div class="menu-desc">Раздел в тестировании</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: FOUNDER ADMIN WIP ===== -->
+<div class="screen" id="screen-founder-admin-wip">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="founder-admin-wip-title">Раздел</span>
+  </div>
+  <div class="wip-screen">
+    <div class="wip-icon">🔧</div>
+    <div class="wip-title">Раздел в тестировании</div>
+    <div class="wip-sub">Функционал будет добавлен в следующих обновлениях.</div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: FOUNDER FINES ===== -->
+<div class="screen" id="screen-founder-fines">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Штрафы</span>
+  </div>
+  <div class="content content-padded">
+    <div class="section-label">Добавить штраф</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div class="field">
+        <label>Сотрудник</label>
+        <select id="founder-fine-staff-select"></select>
+      </div>
+      <div class="field">
+        <label>Дата штрафа</label>
+        <input type="date" id="founder-fine-date">
+      </div>
+      <div class="field">
+        <label>Сумма штрафа</label>
+        <input type="number" id="founder-fine-amount" placeholder="Например: 50000" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label>Причина</label>
+        <textarea id="founder-fine-reason" placeholder="Например: не сдан отчет, грязный стол, опоздание"></textarea>
+        <div class="error-msg" id="founder-fine-error">Выберите сотрудника, дату и сумму</div>
+      </div>
+      <button class="btn btn-primary" onclick="addFounderFine()">Сохранить штраф</button>
+    </div>
+    <div class="section-label">История штрафов</div>
+    <div id="founder-fines-list"></div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: FOUNDER WAITERS ===== -->
+<div class="screen" id="screen-founder-waiters">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Официанты</span>
+  </div>
+  <div class="content">
+    <div class="tabs">
+      <div class="tab active" id="tab-shifts" onclick="switchTab('shifts')">Смены</div>
+      <div class="tab" id="tab-staff" onclick="switchTab('staff')">Сотрудники</div>
+      <div class="tab" id="tab-inventory" onclick="switchTab('inventory')">Инвентаризация</div>
+    </div>
+    <div id="panel-shifts"></div>
+    <div id="panel-staff" style="display:none;"></div>
+    <div id="panel-inventory" style="display:none;"></div>
+  </div>
+</div>
+
+
+<!-- ===== SCREEN: INVENTORY RECORD VIEW ===== -->
+<div class="screen" id="screen-inventory-record-view">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="inventory-record-view-title">Инвентаризация</span>
+  </div>
+  <div class="content" id="inventory-record-view-content"></div>
+</div>
+
+<!-- ===== SCREEN: SHIFT VIEW ===== -->
+<div class="screen" id="screen-shift-view">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="shift-view-title">Смена</span>
+  </div>
+  <div class="content" id="shift-view-content"></div>
+</div>
+
+<!-- ===== SCREEN: STAFF VIEW ===== -->
+<div class="screen" id="screen-staff-view">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="staff-view-title">Сотрудник</span>
+  </div>
+  <div class="content" id="staff-view-content"></div>
+</div>
+
+<!-- ===== SCREEN: SETTINGS ===== -->
+<div class="screen" id="screen-settings">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Настройки</span>
+  </div>
+  <div class="content content-padded">
+    <div class="section-label">Безопасность</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">Сменить пароль</div>
+      <div class="field">
+        <label>Новый пароль</label>
+        <input type="password" id="new-pwd" placeholder="Введите новый пароль">
+      </div>
+      <div class="field">
+        <label>Подтвердите пароль</label>
+        <input type="password" id="confirm-pwd" placeholder="Повторите пароль">
+        <div class="error-msg" id="pwd-error">Пароли не совпадают</div>
+      </div>
+      <button class="btn btn-primary" onclick="changePassword()">Сохранить пароль</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: CONFIRM SEND ===== -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal">
+    <div class="modal-title">Отправить отчет?</div>
+    <div class="modal-sub">Проверьте отчет. Фото будут отправлены в Telegram только после подтверждения.</div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="confirmReport()">Да, отправить</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-confirm')">Нет, вернуться</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: DUTY CONFIRM ===== -->
+<div class="modal-overlay" id="modal-duty-confirm">
+  <div class="modal">
+    <div class="modal-title" id="duty-confirm-title">Назначить дежурным?</div>
+    <div class="modal-sub" id="duty-confirm-sub"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="confirmDuty()">Назначить</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-duty-confirm')">Отмена</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===== MODAL: INVENTORY CONFIRM ===== -->
+<div class="modal-overlay" id="modal-inventory-confirm">
+  <div class="modal">
+    <div class="modal-title">Отправить инвентаризацию?</div>
+    <div class="modal-sub">Проверьте данные. После отправки черновик будет закрыт.</div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="confirmInventorySubmit()">Да, уверен</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-inventory-confirm')">Нет, вернуться</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===== MODAL: EXPORT READY ===== -->
+<div class="modal-overlay" id="modal-export-ready">
+  <div class="modal">
+    <div class="modal-title">Файл готов</div>
+    <div class="modal-sub" id="export-ready-text">Файл подготовлен.</div>
+    <div class="modal-actions">
+      <a class="btn btn-primary" id="export-ready-link" href="#" download>Открыть файл</a>
+      <button class="btn btn-secondary" onclick="closeExportModal()">Вернуться в приложение</button>
+    </div>
+  </div>
+</div>
+
+<!-- FULLSCREEN PHOTO -->
+<div class="fullscreen-photo" id="fullscreen-photo">
+  <button class="fullscreen-close" onclick="closeFullscreen()">✕</button>
+  <img id="fullscreen-img" src="">
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- HIDDEN FILE INPUT -->
+<input type="file" id="file-input" accept="image/*" capture="environment" style="display:none;">
+
+<!-- Firebase SDK: Firestore cloud database only. Photos go through Telegram Worker. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
+<script>
+// ============================================================
+// DATA LAYER — Firestore cloud database + Telegram photo worker
+// ============================================================
+
+/*
+  DROVA INSPECTOR SETUP
+
+  1) Вставь сюда firebaseConfig из Firebase Console.
+     Firebase используется ТОЛЬКО для Firestore:
+     - staff
+     - reports
+     - settings
+     - fines
+
+  2) Вставь сюда URL Cloudflare Worker.
+     Worker безопасно хранит BOT_TOKEN и отправляет фото в Telegram.
+     В HTML токен бота НЕ вставлять.
+
+  Пока firebaseConfig содержит PASTE_, приложение работает локально.
+*/
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDyWSklPpXp1ic6OUzRS4deU_ShMy2q3E0",
+  authDomain: "drova-inspector.firebaseapp.com",
+  projectId: "drova-inspector",
+  storageBucket: "drova-inspector.firebasestorage.app",
+  messagingSenderId: "229031170976",
+  appId: "1:229031170976:web:a93758d71491169f5f8ac5",
+  measurementId: "G-SMYMS8MPML"
+};
+
+// Пример: "https://drova-photo-worker.YOUR_SUBDOMAIN.workers.dev"
+const TELEGRAM_PHOTO_WORKER_URL = "https://drova-telegram-storage.swiftkartofel.workers.dev";
+
+const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
+const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
+
+let db = null;
+
+const appCache = {
+  staff: [],
+  reports: [],
+  dutyAssignment: null,
+  founderPassword: "5552",
+  adminPassword: "3235",
+  fines: [],
+  inventoryDraft: null,
+  inventoryRecords: []
+};
+
+const LocalDB = {
+  get: (key) => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
+  set: (key, val) => localStorage.setItem(key, JSON.stringify(val)),
+  remove: (key) => localStorage.removeItem(key),
+};
+
+async function initCloud() {
+  if (!CLOUD_ENABLED) {
+    console.warn("Firebase config не заполнен. Работаем локально через localStorage.");
+    appCache.staff = LocalDB.get("staff") || [];
+    appCache.reports = LocalDB.get("reports") || [];
+    appCache.dutyAssignment = LocalDB.get("dutyAssignment") || null;
+    appCache.founderPassword = LocalDB.get("founderPassword") || "5552";
+    appCache.adminPassword = LocalDB.get("adminPassword") || "3235";
+    appCache.fines = LocalDB.get("fines") || [];
+    appCache.inventoryDraft = LocalDB.get("inventoryDraft") || null;
+    appCache.inventoryRecords = LocalDB.get("inventoryRecords") || [];
+    return;
+  }
+
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+
+  await loadCloudData();
+
+  db.collection("staff").onSnapshot((snapshot) => {
+    appCache.staff = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    refreshVisibleData();
+  }, (err) => {
+    console.error("staff snapshot error", err);
+    showToast("Ошибка загрузки сотрудников");
+  });
+
+  db.collection("reports").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    appCache.reports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    refreshVisibleData();
+  }, (err) => {
+    console.error("reports snapshot error", err);
+    showToast("Ошибка загрузки отчетов");
+  });
+
+  db.collection("fines").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    appCache.fines = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    refreshVisibleData();
+  }, (err) => {
+    console.error("fines snapshot error", err);
+    showToast("Ошибка загрузки штрафов");
+  });
+
+  db.collection("inventoryRecords").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    appCache.inventoryRecords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    refreshVisibleData();
+  }, (err) => {
+    console.error("inventory snapshot error", err);
+    showToast("Ошибка загрузки инвентаризации");
+  });
+
+  db.collection("settings").doc("main").onSnapshot((doc) => {
+    const data = doc.exists ? doc.data() : {};
+    appCache.dutyAssignment = data.dutyAssignment || null;
+    appCache.founderPassword = data.founderPassword || "5552";
+    appCache.adminPassword = data.adminPassword || "3235";
+    appCache.inventoryDraft = data.inventoryDraft || null;
+    LocalDB.set("inventoryDraft", appCache.inventoryDraft);
+    refreshVisibleData();
+  }, (err) => {
+    console.error("settings snapshot error", err);
+    showToast("Ошибка загрузки настроек");
+  });
+}
+
+async function loadCloudData() {
+  const [staffSnap, reportsSnap, finesSnap, inventorySnap, settingsDoc] = await Promise.all([
+    db.collection("staff").get(),
+    db.collection("reports").orderBy("createdAt", "desc").get(),
+    db.collection("fines").orderBy("createdAt", "desc").get(),
+    db.collection("inventoryRecords").orderBy("createdAt", "desc").get(),
+    db.collection("settings").doc("main").get()
+  ]);
+
+  appCache.staff = staffSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.reports = reportsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.fines = finesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.inventoryRecords = inventorySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  const settings = settingsDoc.exists ? settingsDoc.data() : {};
+  appCache.dutyAssignment = settings.dutyAssignment || null;
+  appCache.founderPassword = settings.founderPassword || "5552";
+  appCache.adminPassword = settings.adminPassword || "3235";
+  appCache.inventoryDraft = settings.inventoryDraft || null;
+
+  if (!settingsDoc.exists) {
+    await db.collection("settings").doc("main").set({
+      founderPassword: "5552",
+      adminPassword: "3235",
+      dutyAssignment: null,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
+
+function refreshVisibleData() {
+  const current = screenStack && screenStack[screenStack.length - 1];
+  if (!current) return;
+  refreshScreen(current);
+}
+
+function getCurrentWaiterId() {
+  return localStorage.getItem("currentWaiterId");
+}
+
+function clearCurrentWaiter() {
+  localStorage.removeItem("currentWaiterId");
+  LocalDB.remove("waiter");
+}
+
+function getWaiter() {
+  const id = getCurrentWaiterId();
+  if (!id) return null;
+
+  const cloudStaff = appCache.staff.find(s => String(s.id) === String(id));
+
+  // Если Firebase включён, локальный официант больше не считается источником правды.
+  // Удалили сотрудника из Firebase staff — на его телефоне вход автоматически сбрасывается.
+  if (CLOUD_ENABLED) {
+    if (!cloudStaff) {
+      clearCurrentWaiter();
+      return null;
+    }
+    return cloudStaff;
+  }
+
+  return cloudStaff || LocalDB.get("waiter") || null;
+}
+
+function setWaiter(data) {
+  localStorage.setItem("currentWaiterId", String(data.id));
+  LocalDB.set("waiter", data);
+
+  const idx = appCache.staff.findIndex(s => String(s.id) === String(data.id));
+  if (idx >= 0) appCache.staff[idx] = data;
+  else appCache.staff.push(data);
+
+  LocalDB.set("staff", appCache.staff);
+
+  if (CLOUD_ENABLED && db) {
+    db.collection("staff").doc(String(data.id)).set(data, { merge: true })
+      .catch(err => {
+        console.error(err);
+        showToast("Ошибка сохранения сотрудника");
+      });
+  }
+}
+
+function getStaff() {
+  return appCache.staff || [];
+}
+
+const ROLE_LABELS = {
+  waiter: 'Официант',
+  founder: 'Учредитель',
+  admin: 'Администратор',
+  cook: 'Повар',
+  stoker: 'Топник',
+  masseur: 'Массажист',
+  cleaner: 'Техничка',
+  bathmaster: 'Пармастер'
+};
+
+function getStaffRole(staff) {
+  if (!staff) return 'Сотрудник';
+  if (staff.roleLabel) return staff.roleLabel;
+  if (staff.role && ROLE_LABELS[staff.role]) return ROLE_LABELS[staff.role];
+  return 'Официант';
+}
+
+function getStaffDisplay(staff) {
+  return `${staff.name} · ${getStaffRole(staff)}`;
+}
+
+function setStaff(arr) {
+  appCache.staff = arr;
+  LocalDB.set("staff", arr);
+
+  if (CLOUD_ENABLED && db) {
+    arr.forEach(s => {
+      db.collection("staff").doc(String(s.id)).set(s, { merge: true })
+        .catch(err => console.error("staff save error", err));
+    });
+  }
+}
+
+function getReports() {
+  return appCache.reports || [];
+}
+
+function setReports(arr) {
+  appCache.reports = arr;
+  LocalDB.set("reports", arr);
+
+  if (CLOUD_ENABLED && db) {
+    arr.forEach(r => {
+      db.collection("reports").doc(String(r.id)).set(r, { merge: true })
+        .catch(err => {
+          console.error(err);
+          showToast("Ошибка сохранения отчета");
+        });
+    });
+  }
+}
+
+function getDutyAssignment() {
+  return appCache.dutyAssignment || null;
+}
+
+function setDutyAssignment(data) {
+  appCache.dutyAssignment = data;
+  LocalDB.set("dutyAssignment", data);
+
+  if (CLOUD_ENABLED && db) {
+    db.collection("settings").doc("main").set({
+      dutyAssignment: data,
+      updatedAt: new Date().toISOString()
+    }, { merge: true }).catch(err => {
+      console.error(err);
+      showToast("Ошибка назначения");
+    });
+  }
+}
+
+function getFounderPassword() {
+  return appCache.founderPassword || "5552";
+}
+
+function setFounderPassword(pwd) {
+  appCache.founderPassword = pwd;
+  LocalDB.set("founderPassword", pwd);
+
+  if (CLOUD_ENABLED && db) {
+    db.collection("settings").doc("main").set({
+      founderPassword: pwd,
+      updatedAt: new Date().toISOString()
+    }, { merge: true }).catch(err => {
+      console.error(err);
+      showToast("Ошибка смены пароля");
+    });
+  }
+}
+
+function getAdminPassword() {
+  return appCache.adminPassword || "3235";
+}
+
+function setAdminPassword(pwd) {
+  appCache.adminPassword = pwd;
+  LocalDB.set("adminPassword", pwd);
+
+  if (CLOUD_ENABLED && db) {
+    db.collection("settings").doc("main").set({
+      adminPassword: pwd,
+      updatedAt: new Date().toISOString()
+    }, { merge: true }).catch(err => {
+      console.error(err);
+      showToast("Ошибка смены пароля администратора");
+    });
+  }
+}
+
+function getFines() {
+  return appCache.fines || [];
+}
+
+function setFines(arr) {
+  appCache.fines = arr;
+  LocalDB.set("fines", arr);
+
+  if (CLOUD_ENABLED && db) {
+    arr.forEach(f => {
+      db.collection("fines").doc(String(f.id)).set(f, { merge: true })
+        .catch(err => {
+          console.error(err);
+          showToast("Ошибка сохранения штрафа");
+        });
+    });
+  }
+}
+
+function saveFine(fine) {
+  appCache.fines = [fine, ...(appCache.fines || [])];
+  LocalDB.set("fines", appCache.fines);
+
+  if (CLOUD_ENABLED && db) {
+    db.collection("fines").doc(String(fine.id)).set(fine, { merge: true })
+      .catch(err => {
+        console.error(err);
+        showToast("Ошибка сохранения штрафа");
+      });
+  }
+}
+
+async function deleteStaff(staffId) {
+  const id = String(staffId);
+  const staff = getStaff().filter(s => String(s.id) !== id);
+  appCache.staff = staff;
+  LocalDB.set("staff", staff);
+
+  const currentWaiterId = getCurrentWaiterId();
+  if (String(currentWaiterId) === id) {
+    localStorage.removeItem("currentWaiterId");
+    LocalDB.remove("waiter");
+  }
+
+  const duty = getDutyAssignment();
+  if (duty && String(duty.staffId) === id) {
+    setDutyAssignment(null);
+  }
+
+  if (CLOUD_ENABLED && db) {
+    try {
+      await db.collection("staff").doc(id).delete();
+    } catch (err) {
+      console.error(err);
+      showToast("Ошибка удаления сотрудника");
+    }
+  }
+
+  refreshVisibleData();
+}
+
+
+function getInventoryDraft() {
+  return appCache.inventoryDraft || null;
+}
+
+async function setInventoryDraft(data) {
+  appCache.inventoryDraft = data;
+  LocalDB.set("inventoryDraft", data);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("settings").doc("main").set({
+      inventoryDraft: data,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
+
+async function clearInventoryDraft() {
+  appCache.inventoryDraft = null;
+  LocalDB.remove("inventoryDraft");
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("settings").doc("main").set({
+      inventoryDraft: null,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
+
+function getInventoryRecords() {
+  return appCache.inventoryRecords || [];
+}
+
+async function saveInventoryRecord(record) {
+  appCache.inventoryRecords = [record, ...(appCache.inventoryRecords || [])];
+  LocalDB.set("inventoryRecords", appCache.inventoryRecords);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("inventoryRecords").doc(String(record.id)).set(record, { merge: true });
+  }
+}
+
+async function uploadReportPhoto(file, sectionKey) {
+  if (!TELEGRAM_PHOTO_ENABLED) {
+    throw new Error("Cloudflare Worker URL не настроен");
+  }
+
+  const formData = new FormData();
+  formData.append("photo", file);
+  formData.append("sectionKey", sectionKey);
+
+  const response = await fetch(TELEGRAM_PHOTO_WORKER_URL + "/uploadPhoto", {
+    method: "POST",
+    body: formData
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error("Telegram photo upload failed: " + text);
+  }
+
+  const result = await response.json();
+
+  if (!result.ok || !result.file_id) {
+    throw new Error("Worker did not return file_id");
+  }
+
+  return {
+    type: "telegram",
+    file_id: result.file_id,
+    preview_url: result.preview_url || null,
+    uploadedAt: new Date().toISOString()
+  };
+}
+
+function getPhotoDisplaySrc(photo) {
+  if (!photo) return "";
+  if (typeof photo === "string") return photo;
+  if (photo.preview_url) return photo.preview_url;
+  if (photo.file_id && TELEGRAM_PHOTO_ENABLED) {
+    return TELEGRAM_PHOTO_WORKER_URL + "/photo/" + encodeURIComponent(photo.file_id);
+  }
+  return "";
+}
+
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+let screenStack = ['screen-home'];
+
+function goTo(screenId) {
+  const current = screenStack[screenStack.length - 1];
+  document.getElementById(current).classList.remove('active');
+  document.getElementById(screenId).classList.add('active');
+  screenStack.push(screenId);
+  window.scrollTo(0, 0);
+}
+
+function goBack() {
+  if (screenStack.length <= 1) return;
+  const current = screenStack.pop();
+  document.getElementById(current).classList.remove('active');
+  const prev = screenStack[screenStack.length - 1];
+  document.getElementById(prev).classList.add('active');
+  refreshScreen(prev);
+  window.scrollTo(0, 0);
+}
+
+function goHome() {
+  screenStack.forEach(s => document.getElementById(s).classList.remove('active'));
+  screenStack = ['screen-home'];
+  document.getElementById('screen-home').classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function refreshScreen(id) {
+  if (id === 'screen-waiter-menu') renderWaiterMenu();
+  if (id === 'screen-duty') renderDutyScreen();
+  if (id === 'screen-admin-fines') renderAdminFines();
+  if (id === 'screen-founder-fines') renderFounderFines();
+  if (id === 'screen-inventory-start') renderInventoryStart();
+  if (id === 'screen-inventory-form') renderInventoryForm();
+  if (id === 'screen-founder-waiters') {
+    renderShifts();
+    renderStaff();
+    renderInventoryRecordsList();
+  }
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ============================================================
+// MODAL
+// ============================================================
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ============================================================
+// FULLSCREEN PHOTO
+// ============================================================
+function openFullscreen(src) {
+  document.getElementById('fullscreen-img').src = src;
+  document.getElementById('fullscreen-photo').classList.add('open');
+}
+function closeFullscreen() { document.getElementById('fullscreen-photo').classList.remove('open'); }
+
+// ============================================================
+// HOME
+// ============================================================
+function enterWaiter() {
+  const w = getWaiter();
+
+  if (w) {
+    renderWaiterMenu();
+    goTo('screen-waiter-menu');
+  } else {
+    // Старый локальный аккаунт или удалённый сотрудник.
+    // Чистим устройство и отправляем на регистрацию заново.
+    clearCurrentWaiter();
+    goTo('screen-waiter-register');
+  }
+}
+
+function enterFounder() {
+  goTo('screen-founder-login');
+  document.getElementById('founder-pwd').value = '';
+  document.getElementById('founder-error').classList.remove('show');
+}
+
+function enterAdmin() {
+  goTo('screen-admin-login');
+  document.getElementById('admin-pwd').value = '';
+  document.getElementById('admin-error').classList.remove('show');
+}
+
+// ============================================================
+// WAITER REGISTER
+// ============================================================
+function registerWaiter() {
+  const login = document.getElementById('reg-login').value.trim();
+  const name = document.getElementById('reg-name').value.trim();
+  const err = document.getElementById('reg-error');
+  if (!login || !name) { err.classList.add('show'); return; }
+  err.classList.remove('show');
+
+  const waiter = { id: Date.now(), login, name, role: 'waiter', roleLabel: 'Официант', createdAt: new Date().toISOString() };
+  setWaiter(waiter);
+
+  // Add to staff list
+  const staff = getStaff();
+  if (!staff.find(s => s.id === waiter.id)) {
+    staff.push(waiter);
+    setStaff(staff);
+  }
+
+  renderWaiterMenu();
+  // Replace register screen with menu in stack
+  screenStack.pop();
+  document.getElementById('screen-waiter-register').classList.remove('active');
+  goTo('screen-waiter-menu');
+}
+
+// ============================================================
+// WAITER MENU
+// ============================================================
+function renderWaiterMenu() {
+  const w = getWaiter();
+  if (!w) {
+    clearCurrentWaiter();
+
+    const menu = document.getElementById('screen-waiter-menu');
+    const register = document.getElementById('screen-waiter-register');
+
+    if (menu && menu.classList.contains('active')) {
+      menu.classList.remove('active');
+      register.classList.add('active');
+      screenStack = ['screen-home', 'screen-waiter-register'];
+      showToast('Сотрудник удалён из системы');
+    }
+
+    return;
+  }
+  document.getElementById('waiter-menu-name').textContent = w.name;
+
+  // Duty banner
+  const duty = getDutyAssignment();
+  const banner = document.getElementById('duty-banner');
+  const activeShiftDate = getNextShiftDateKey();
+
+  if (
+    duty &&
+    String(duty.staffId) === String(w.id) &&
+    (!duty.targetDate || duty.targetDate === activeShiftDate)
+  ) {
+    const target = duty.targetDate ? ` (${formatDateRu(duty.targetDate)})` : '';
+    const tasks = duty.tasks ? `\n\nСписок задач:\n${duty.tasks}` : '';
+    document.getElementById('duty-banner-text').textContent =
+      `Здравствуйте, ${w.name}!\n\nЗавтра вы назначены дежурным${target}!${tasks}`;
+    banner.style.display = 'flex';
+    banner.style.whiteSpace = 'pre-line';
+    banner.style.alignItems = 'flex-start';
+    banner.style.width = '100%';
+    banner.style.lineHeight = '1.45';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function waiterLogout() {
+  // Это выход из раздела, а не удаление профиля официанта.
+  // Регистрацию и currentWaiterId не очищаем.
+  showToast('Вы вышли в меню');
+  goHome();
+}
+
+
+
+
+// ============================================================
+// INVENTORY
+// ============================================================
+const INVENTORY_ITEMS = [
+  "Серв тарелки Б",
+  "Серв тарелки М",
+  "Блюдца",
+  "Чашки",
+  "Вилки",
+  "Ножи",
+  "Столовые ложки",
+  "Маленькие ложки",
+  "Сахарница",
+  "Салфетница",
+  "Соль и перец (минаж)",
+  "Пепельница",
+  "Шот",
+  "Под чайник",
+  "Графин",
+  "Пивной бокал",
+  "Пивная кружка",
+  "Коктейльная рюмка",
+  "Шампань флюте",
+  "Винный бокал",
+  "Айриш",
+  "Бокалы",
+  "Кружка Капучино",
+  "Чашка под эспрессо",
+  "Чашка под американо",
+  "Чайник",
+  "Айсбак",
+  "Барная ложка",
+  "Джигер",
+  "Питчер",
+  "Рожок",
+  "Колба для кальяна",
+  "Кальян",
+  "Шланг для кальяна",
+  "Чашка для кальяна",
+  "Щипчик",
+  "Калауд",
+  "Корзинка для угля",
+  "Барный нож",
+  "Плейсматы",
+  "Шкатулки"
+];
+
+let activeInventorySection = 'items';
+
+function openInventorySection(section) {
+  activeInventorySection = section;
+
+  if (section === 'bar') {
+    document.getElementById('inventory-start-title').textContent = 'Бар';
+    document.getElementById('inventory-start-content').innerHTML = `
+      <div class="wip-screen" style="padding:40px 0;">
+        <div class="wip-icon">🍸</div>
+        <div class="wip-title">Раздел в тестировании</div>
+        <div class="wip-sub">Бар добавим следующим этапом. Сейчас работаем с инвентарём.</div>
+      </div>`;
+    document.getElementById('inventory-start-footer').innerHTML = '';
+    goTo('screen-inventory-start');
+    return;
+  }
+
+  renderInventoryStart();
+  goTo('screen-inventory-start');
+}
+
+function renderInventoryStart() {
+  const waiter = getWaiter();
+  const draft = getInventoryDraft();
+  const content = document.getElementById('inventory-start-content');
+  const footer = document.getElementById('inventory-start-footer');
+  if (!content || !footer) return;
+
+  document.getElementById('inventory-start-title').textContent = 'Инвентарь';
+
+  const today = formatDateRu(toDateKey(new Date()));
+
+  if (!waiter) {
+    content.innerHTML = `<div class="empty"><div class="empty-icon">👤</div><div class="empty-title">Нет сотрудника</div><div class="empty-sub">Войдите как официант</div></div>`;
+    footer.innerHTML = '';
+    return;
+  }
+
+  if (draft && String(draft.staffId) !== String(waiter.id)) {
+    content.innerHTML = `
+      <div class="inventory-status">
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Инвентаризация занята</div>
+        <div style="font-size:14px;color:var(--text-2);line-height:1.6;">
+          Сейчас инвентарь в режиме редактирования пользователем <b>${draft.staffName}</b>.
+        </div>
+      </div>`;
+    footer.innerHTML = '';
+    return;
+  }
+
+  const hasDraft = draft && String(draft.staffId) === String(waiter.id);
+  content.innerHTML = `
+    <div class="inventory-status">
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Дата</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:16px;">${today}</div>
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Сотрудник</div>
+      <div style="font-size:18px;font-weight:700;">${waiter.name}</div>
+    </div>
+    ${hasDraft ? `
+      <div class="doc-placeholder">
+        У вас есть сохранённый черновик инвентаризации. Можно продолжить с того же места.
+      </div>` : ''}`;
+
+  footer.innerHTML = `<button class="btn btn-primary" onclick="startInventory()">${hasDraft ? 'Продолжить' : 'Начать'}</button>`;
+}
+
+async function startInventory() {
+  const waiter = getWaiter();
+  if (!waiter) {
+    showToast('Войдите как официант');
+    return;
+  }
+
+  let draft = getInventoryDraft();
+
+  if (draft && String(draft.staffId) !== String(waiter.id)) {
+    showToast(`Редактирует ${draft.staffName}`);
+    renderInventoryStart();
+    return;
+  }
+
+  if (!draft) {
+    draft = {
+      id: Date.now(),
+      type: 'items',
+      staffId: waiter.id,
+      staffName: waiter.name,
+      staffLogin: waiter.login,
+      staffRole: getStaffRole(waiter),
+      date: toDateKey(new Date()),
+      values: {},
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await setInventoryDraft(draft);
+  }
+
+  renderInventoryForm();
+  goTo('screen-inventory-form');
+}
+
+function renderInventoryForm() {
+  const waiter = getWaiter();
+  const draft = getInventoryDraft();
+  const content = document.getElementById('inventory-form-content');
+  if (!content) return;
+
+  if (!waiter || !draft || String(draft.staffId) !== String(waiter.id)) {
+    content.innerHTML = `<div class="empty"><div class="empty-icon">🔒</div><div class="empty-title">Нет доступа</div><div class="empty-sub">Инвентаризация редактируется другим пользователем</div></div>`;
+    return;
+  }
+
+  document.getElementById('inventory-form-title').textContent = `Инвентарь · ${formatDateRu(draft.date)}`;
+
+  const values = draft.values || {};
+  content.innerHTML = `
+    <div class="doc-placeholder">
+      Белый лист инвентаризации. Заполненные поля подсвечиваются зелёным. Прогресс сохраняется автоматически.
+    </div>
+    <div class="inventory-white">
+      ${INVENTORY_ITEMS.map((name, idx) => {
+        const val = values[String(idx)] ?? '';
+        const filled = String(val).trim() !== '';
+        return `
+          <div class="inventory-row">
+            <div class="inventory-name">${idx + 1}. ${name}</div>
+            <input class="inventory-input ${filled ? 'filled' : ''}"
+              inputmode="numeric"
+              type="number"
+              value="${val}"
+              oninput="updateInventoryValue(${idx}, this.value, this)">
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+let inventorySaveTimer = null;
+
+function updateInventoryValue(index, value, input) {
+  const draft = getInventoryDraft();
+  const waiter = getWaiter();
+  if (!draft || !waiter || String(draft.staffId) !== String(waiter.id)) return;
+
+  draft.values = draft.values || {};
+
+  if (String(value).trim() === '') delete draft.values[String(index)];
+  else draft.values[String(index)] = String(value).trim();
+
+  draft.updatedAt = new Date().toISOString();
+  appCache.inventoryDraft = draft;
+  LocalDB.set("inventoryDraft", draft);
+
+  if (input) {
+    input.classList.toggle('filled', String(value).trim() !== '');
+  }
+
+  clearTimeout(inventorySaveTimer);
+  inventorySaveTimer = setTimeout(() => {
+    setInventoryDraft(draft).catch(err => {
+      console.error(err);
+      showToast('Ошибка сохранения прогресса');
+    });
+  }, 700);
+}
+
+function submitInventoryDraft() {
+  const draft = getInventoryDraft();
+  const waiter = getWaiter();
+
+  if (!draft || !waiter || String(draft.staffId) !== String(waiter.id)) {
+    showToast('Нет активной инвентаризации');
+    return;
+  }
+
+  openModal('modal-inventory-confirm');
+}
+
+async function confirmInventorySubmit() {
+  closeModal('modal-inventory-confirm');
+
+  const draft = getInventoryDraft();
+  const waiter = getWaiter();
+
+  if (!draft || !waiter || String(draft.staffId) !== String(waiter.id)) {
+    showToast('Нет активной инвентаризации');
+    return;
+  }
+
+  const values = draft.values || {};
+  if (Object.keys(values).length === 0) {
+    showToast('Заполните хотя бы одну позицию');
+    return;
+  }
+
+  const record = {
+    ...draft,
+    id: Date.now(),
+    submittedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    status: 'submitted'
+  };
+
+  try {
+    await saveInventoryRecord(record);
+    await clearInventoryDraft();
+    showToast('Инвентаризация отправлена ✓');
+    goBack();
+    goBack();
+  } catch (err) {
+    console.error(err);
+    showToast('Ошибка отправки инвентаризации');
+  }
+}
+
+// ============================================================
+// WAITER DOCUMENTS
+// ============================================================
+// JPG-файлы нужно будет загрузить в репозиторий GitHub рядом с index.html.
+// Потом просто заменить имена файлов ниже на реальные.
+const DOC_IMAGES = {
+  instructions: [
+    // "docs/job-instructions-1.jpg",
+    // "docs/job-instructions-2.jpg"
+  ],
+  algorithm: [
+    // "docs/work-algorithm-1.jpg",
+    // "docs/work-algorithm-2.jpg"
+  ]
+};
+
+function openWaiterDocs(type) {
+  const title = type === 'instructions' ? 'Должностные инструкции' : 'Алгоритм работы';
+  const images = DOC_IMAGES[type] || [];
+
+  document.getElementById('waiter-docs-title').textContent = title;
+
+  const content = document.getElementById('waiter-docs-content');
+  if (!images.length) {
+    content.innerHTML = `
+      <div class="doc-placeholder">
+        <div style="font-weight:700;color:var(--text);margin-bottom:8px;">${title}</div>
+        <div>Здесь будет просмотр JPG-файлов. Загрузим изображения в GitHub-репозиторий и пропишем их в массиве <b>DOC_IMAGES</b>.</div>
+        <div style="margin-top:12px;color:var(--text-3);">Пример пути: <code>docs/job-instructions-1.jpg</code></div>
+      </div>`;
+  } else {
+    content.innerHTML = images.map(src => `<img class="doc-image" src="${src}" onclick="openFullscreen('${src}')" alt="${title}">`).join('');
+  }
+
+  goTo('screen-waiter-docs');
+}
+
+// ============================================================
+// BATHS
+// ============================================================
+const BATHS = ['Первая', 'Добрая', 'Малая', 'Лесная', 'Ханская', 'Байская'];
+const SECTIONS = [
+  { key: 'table', label: 'Стол', limit: 3 },
+  { key: 'terrace', label: 'Терраса', limit: 3 },
+  { key: 'menu', label: 'Меню', limit: 3 },
+  { key: 'remotes', label: 'Пульты', limit: 3 },
+  { key: 'flowers', label: 'Цветы', limit: 5 },
+];
+
+function renderBathList() {
+  const el = document.getElementById('bath-list');
+  el.innerHTML = '';
+  BATHS.forEach((bath, i) => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `<div class="card-title">${bath}</div><div class="card-sub" style="margin-top:4px;">Нажмите, чтобы открыть отчет</div>`;
+    div.onclick = () => openBathReport(i);
+    el.appendChild(div);
+  });
+}
+
+// Active report state
+let activeReport = { bathIndex: null, photos: {} };
+
+function openBathReport(bathIndex) {
+  activeReport = { bathIndex, photos: {} };
+  SECTIONS.forEach(s => { activeReport.photos[s.key] = []; });
+  document.getElementById('bath-report-title').textContent = BATHS[bathIndex];
+  renderBathReportContent();
+  goTo('screen-bath-report');
+}
+
+function renderBathReportContent() {
+  const el = document.getElementById('bath-report-content');
+  el.innerHTML = '';
+  SECTIONS.forEach(section => {
+    const photos = activeReport.photos[section.key];
+    const atLimit = photos.length >= section.limit;
+
+    const div = document.createElement('div');
+    div.className = 'photo-section';
+    div.id = `section-${section.key}`;
+
+    let thumbsHtml = '';
+    photos.forEach((src, idx) => {
+      thumbsHtml += `
+        <div class="photo-thumb" onclick="openFullscreen(getPhotoDisplaySrc(src))">
+          <img src="${getPhotoDisplaySrc(src)}" alt="">
+          <button class="remove-photo" onclick="event.stopPropagation(); removePhoto('${section.key}', ${idx})">✕</button>
+        </div>`;
+    });
+
+    div.innerHTML = `
+      <div class="photo-section-header">
+        <span class="photo-section-title">${section.label}</span>
+        <span class="photo-count">${photos.length} / ${section.limit}</span>
+      </div>
+      <div class="photo-body">
+        ${photos.length > 0 ? `<div class="photo-grid" id="grid-${section.key}">${thumbsHtml}</div>` : `<div class="photo-grid" id="grid-${section.key}" style="display:${photos.length===0?'none':'grid'}"></div>`}
+        <label class="add-photo-btn ${atLimit ? 'hidden' : ''}" id="add-btn-${section.key}">
+          <span>＋</span>
+          <span>Добавить фото</span>
+          <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotos(event, '${section.key}')">
+        </label>
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+function handlePhotos(event, sectionKey) {
+  const files = Array.from(event.target.files || []);
+  const section = SECTIONS.find(s => s.key === sectionKey);
+  const current = activeReport.photos[sectionKey];
+
+  if (!files.length) return;
+
+  if (current.length >= section.limit) {
+    showToast(`Лимит фото: ${section.limit}`);
+    event.target.value = '';
+    return;
+  }
+
+  // Фото пока НЕ отправляется в Telegram.
+  // Здесь только локальный предпросмотр. Отправка всего пакета будет после кнопки "Отправить отчет".
+  const file = files[0];
+
+  if (!file || !file.type || !file.type.startsWith('image/')) {
+    showToast('Нужно сделать фото');
+    event.target.value = '';
+    return;
+  }
+
+  const localPhoto = {
+    type: "local",
+    file,
+    preview_url: URL.createObjectURL(file),
+    addedAt: new Date().toISOString()
+  };
+
+  activeReport.photos[sectionKey].push(localPhoto);
+  renderBathReportContent();
+  showToast("Фото добавлено");
+
+  event.target.value = '';
+}
+
+function removePhoto(sectionKey, idx) {
+  activeReport.photos[sectionKey].splice(idx, 1);
+  renderBathReportContent();
+}
+
+async function uploadAllReportPhotos() {
+  const uploaded = {};
+
+  for (const section of SECTIONS) {
+    uploaded[section.key] = [];
+
+    const photos = activeReport.photos[section.key] || [];
+
+    for (const photo of photos) {
+      if (photo && photo.type === "local" && photo.file) {
+        const uploadedPhoto = await uploadReportPhoto(photo.file, section.key);
+        uploaded[section.key].push(uploadedPhoto);
+      } else {
+        uploaded[section.key].push(photo);
+      }
+    }
+  }
+
+  return uploaded;
+}
+
+function submitReport() {
+  const totalPhotos = SECTIONS.reduce((sum, section) => {
+    return sum + ((activeReport.photos[section.key] || []).length);
+  }, 0);
+
+  if (totalPhotos < 1) {
+    showToast('Добавьте хотя бы 1 фото');
+    return;
+  }
+
+  openModal('modal-confirm');
+}
+
+
+
+async function confirmReport() {
+  closeModal('modal-confirm');
+
+  const waiter = getWaiter();
+  const now = new Date();
+
+  if (!waiter) {
+    clearCurrentWaiter();
+    showToast('Сотрудник удалён из системы');
+    goHome();
+    goTo('screen-waiter-register');
+    return;
+  }
+
+  try {
+    showToast('Отправляем фото...');
+    const uploadedPhotos = await uploadAllReportPhotos();
+
+    const report = {
+      id: Date.now(),
+      bathIndex: activeReport.bathIndex,
+      bathName: BATHS[activeReport.bathIndex],
+      staffId: waiter.id,
+      staffName: waiter.name,
+      date: getPhotoReportTargetDateKey(now),
+      calendarDate: toDateKey(now),
+      operationalDate: getOperationalDateKey(now),
+      time: now.toTimeString().slice(0, 5),
+      createdAt: now.toISOString(),
+      photos: uploadedPhotos,
+    };
+
+    const reports = getReports();
+    reports.push(report);
+    setReports(reports);
+
+    showToast('Отчет отправлен ✓');
+
+    // back to bath list, then waiter menu
+    goBack();
+    goBack();
+  } catch (err) {
+    console.error(err);
+    showToast('Не удалось отправить отчет');
+  }
+}
+
+// ============================================================
+// DUTY
+// ============================================================
+let selectedDutyId = null;
+
+function renderDutyScreen() {
+  const staff = getStaff();
+  const duty = getDutyAssignment();
+  const listEl = document.getElementById('duty-staff-list');
+  const emptyEl = document.getElementById('duty-empty');
+  const infoEl = document.getElementById('current-duty-info');
+
+  selectedDutyId = duty ? duty.staffId : null;
+
+  if (duty) {
+    const person = staff.find(s => String(s.id) === String(duty.staffId));
+    const dateText = duty.targetDate ? ` на ${formatDateRu(duty.targetDate)}` : '';
+    infoEl.innerHTML = `
+      <div class="duty-badge" style="display:inline-flex;">
+        <span>🌅</span>
+        <span>Дежурный${dateText}: ${person ? person.name : 'Неизвестно'}</span>
+      </div>
+      ${duty.tasks ? `<div style="font-size:13px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-top:8px;">${duty.tasks}</div>` : ''}`;
+  } else {
+    infoEl.innerHTML = `<div style="font-size:14px; color:var(--text-3); margin-bottom:8px;">Дежурный ещё не назначен</div>`;
+  }
+
+  const taskField = document.getElementById('duty-tasks');
+  if (taskField) taskField.value = duty && duty.tasks ? duty.tasks : '';
+
+  if (staff.length === 0) {
+    listEl.style.display = 'none';
+    emptyEl.style.display = 'flex';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  listEl.style.display = 'block';
+  listEl.innerHTML = '';
+
+  staff.forEach(s => {
+    const isSelected = s.id === selectedDutyId;
+    const div = document.createElement('div');
+    div.className = `duty-item${isSelected ? ' selected' : ''}`;
+    div.id = `duty-${s.id}`;
+    div.innerHTML = `
+      <div class="duty-check"></div>
+      <div class="staff-avatar">${s.name.charAt(0).toUpperCase()}</div>
+      <div>
+        <div class="staff-name">${s.name}</div>
+        <div class="staff-login">${getStaffRole(s)}${s.login ? ' · ' + s.login : ''}</div>
+      </div>`;
+    div.onclick = () => selectDutyPerson(s.id);
+    listEl.appendChild(div);
+  });
+}
+
+function selectDutyPerson(id) {
+  selectedDutyId = id;
+  document.querySelectorAll('.duty-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById(`duty-${id}`).classList.add('selected');
+}
+
+function assignDuty() {
+  if (!selectedDutyId) { showToast('Выберите сотрудника'); return; }
+  const staff = getStaff();
+  const person = staff.find(s => String(s.id) === String(selectedDutyId));
+  const tasks = (document.getElementById('duty-tasks')?.value || '').trim();
+
+  const targetDate = getNextShiftDateKey();
+  document.getElementById('duty-confirm-title').textContent = 'Назначить дежурным?';
+  document.getElementById('duty-confirm-sub').textContent = person
+    ? `${person.name}\nДата смены: ${formatDateRu(targetDate)}${tasks ? '\n\nЗадачи:\n' + tasks : ''}`
+    : '';
+  document.getElementById('duty-confirm-sub').style.whiteSpace = 'pre-line';
+  openModal('modal-duty-confirm');
+}
+
+function confirmDuty() {
+  closeModal('modal-duty-confirm');
+  const staff = getStaff();
+  const person = staff.find(s => String(s.id) === String(selectedDutyId));
+  if (!person) return;
+
+  const tasks = (document.getElementById('duty-tasks')?.value || '').trim();
+  const targetDate = getNextShiftDateKey();
+  const messageText =
+    `Здравствуйте, ${person.name}!\n\nЗавтра вы назначены дежурным (${formatDateRu(targetDate)})!` +
+    (tasks ? `\n\nСписок задач:\n${tasks}` : '');
+
+  // Update duty count
+  person.dutyCount = (person.dutyCount || 0) + 1;
+  setStaff(staff);
+
+  setDutyAssignment({
+    staffId: selectedDutyId,
+    staffName: person.name,
+    staffLogin: person.login,
+    targetDate,
+    tasks,
+    messageText,
+    assignedAt: new Date().toISOString()
+  });
+
+  showToast(`${person.name} назначен(а) дежурным ✓`);
+  renderDutyScreen();
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+function checkAdminPwd() {
+  const input = document.getElementById('admin-pwd').value;
+  const err = document.getElementById('admin-error');
+
+  if (input === getAdminPassword()) {
+    err.classList.remove('show');
+    screenStack.pop();
+    document.getElementById('screen-admin-login').classList.remove('active');
+    goTo('screen-admin-menu');
+  } else {
+    err.classList.add('show');
+    document.getElementById('admin-pwd').value = '';
+  }
+}
+
+function openAdminWip(title) {
+  document.getElementById('admin-wip-title').textContent = title;
+  goTo('screen-admin-wip');
+}
+
+function openAdminFines() {
+  renderAdminFines();
+  goTo('screen-admin-fines');
+}
+
+function renderAdminFines() {
+  const staff = getStaff();
+  const select = document.getElementById('fine-staff-select');
+  const list = document.getElementById('admin-fines-list');
+  const dateInput = document.getElementById('fine-date');
+  if (!select || !list) return;
+
+  if (dateInput && !dateInput.value) dateInput.value = toDateKey(new Date());
+
+  select.innerHTML = staff.length
+    ? staff.map(s => `<option value="${s.id}">${getStaffDisplay(s)}</option>`).join('')
+    : `<option value="">Нет сотрудников</option>`;
+
+  const fines = getFines();
+  if (!fines.length) {
+    list.innerHTML = `<div class="empty" style="padding:32px 0;">
+      <div class="empty-icon">✅</div>
+      <div class="empty-title">Пока штрафов нет</div>
+      <div class="empty-sub">Новые штрафы появятся здесь</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = fines.slice(0, 20).map(f => {
+    const date = f.date ? formatDateRu(f.date) : new Date(f.createdAt).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+    return `<div class="card" style="cursor:default;">
+      <div class="card-title">${f.staffName}${f.staffRole ? ' · ' + f.staffRole : ''} · ${Number(f.amount).toLocaleString('ru-RU')} сум</div>
+      <div class="card-sub">${date}${f.reason ? ' · ' + f.reason : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function addFine() {
+  const staffId = document.getElementById('fine-staff-select').value;
+  const fineDate = document.getElementById('fine-date').value;
+  const amount = Number(document.getElementById('fine-amount').value);
+  const reason = document.getElementById('fine-reason').value.trim();
+  const err = document.getElementById('fine-error');
+  const staff = getStaff();
+  const person = staff.find(s => String(s.id) === String(staffId));
+
+  if (!person || !fineDate || !amount || amount <= 0) {
+    err.classList.add('show');
+    return;
+  }
+
+  err.classList.remove('show');
+
+  const now = new Date();
+  const fine = {
+    id: Date.now(),
+    staffId: person.id,
+    staffName: person.name,
+    staffLogin: person.login,
+    staffRole: getStaffRole(person),
+    amount,
+    reason,
+    date: fineDate,
+    time: now.toTimeString().slice(0, 5),
+    createdAt: now.toISOString()
+  };
+
+  saveFine(fine);
+
+  document.getElementById('fine-amount').value = '';
+  document.getElementById('fine-reason').value = '';
+  showToast('Штраф сохранён ✓');
+  renderAdminFines();
+}
+
+function changeAdminPassword() {
+  const np = document.getElementById('new-admin-pwd').value;
+  const cp = document.getElementById('confirm-admin-pwd').value;
+  const err = document.getElementById('admin-pwd-error');
+  if (!np || np !== cp) { err.classList.add('show'); return; }
+  err.classList.remove('show');
+  setAdminPassword(np);
+  document.getElementById('new-admin-pwd').value = '';
+  document.getElementById('confirm-admin-pwd').value = '';
+  showToast('Пароль администратора изменён ✓');
+}
+
+function adminLogout() {
+  goHome();
+}
+
+
+function openFounderAdminWip(title) {
+  document.getElementById('founder-admin-wip-title').textContent = title;
+  goTo('screen-founder-admin-wip');
+}
+
+function openFounderFines() {
+  renderFounderFines();
+  goTo('screen-founder-fines');
+}
+
+function renderFounderFines() {
+  const staff = getStaff();
+  const select = document.getElementById('founder-fine-staff-select');
+  const list = document.getElementById('founder-fines-list');
+  const dateInput = document.getElementById('founder-fine-date');
+  if (!select || !list) return;
+
+  if (dateInput && !dateInput.value) dateInput.value = toDateKey(new Date());
+
+  select.innerHTML = staff.length
+    ? staff.map(s => `<option value="${s.id}">${getStaffDisplay(s)}</option>`).join('')
+    : `<option value="">Нет сотрудников</option>`;
+
+  const fines = getFines();
+  if (!fines.length) {
+    list.innerHTML = `<div class="empty" style="padding:32px 0;">
+      <div class="empty-icon">✅</div>
+      <div class="empty-title">Пока штрафов нет</div>
+      <div class="empty-sub">История штрафов будет здесь</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = fines.slice(0, 50).map(f => {
+    const date = f.date ? formatDateRu(f.date) : new Date(f.createdAt).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+    return `<div class="card" style="cursor:default;">
+      <div class="card-title">${f.staffName}${f.staffRole ? ' · ' + f.staffRole : ''} · ${Number(f.amount).toLocaleString('ru-RU')} сум</div>
+      <div class="card-sub">${date}${f.reason ? ' · ' + f.reason : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function addFounderFine() {
+  const staffId = document.getElementById('founder-fine-staff-select').value;
+  const fineDate = document.getElementById('founder-fine-date').value;
+  const amount = Number(document.getElementById('founder-fine-amount').value);
+  const reason = document.getElementById('founder-fine-reason').value.trim();
+  const err = document.getElementById('founder-fine-error');
+  const staff = getStaff();
+  const person = staff.find(s => String(s.id) === String(staffId));
+
+  if (!person || !fineDate || !amount || amount <= 0) {
+    err.classList.add('show');
+    return;
+  }
+
+  err.classList.remove('show');
+
+  const now = new Date();
+  const fine = {
+    id: Date.now(),
+    staffId: person.id,
+    staffName: person.name,
+    staffLogin: person.login,
+    staffRole: getStaffRole(person),
+    amount,
+    reason,
+    date: fineDate,
+    time: now.toTimeString().slice(0, 5),
+    createdAt: now.toISOString(),
+    createdBy: 'founder'
+  };
+
+  saveFine(fine);
+
+  document.getElementById('founder-fine-amount').value = '';
+  document.getElementById('founder-fine-reason').value = '';
+  showToast('Штраф сохранён ✓');
+  renderFounderFines();
+}
+
+// ============================================================
+// FOUNDER
+// ============================================================
+function checkFounderPwd() {
+  const input = document.getElementById('founder-pwd').value;
+  const err = document.getElementById('founder-error');
+  if (input === getFounderPassword()) {
+    err.classList.remove('show');
+    // Replace login screen with menu
+    screenStack.pop();
+    document.getElementById('screen-founder-login').classList.remove('active');
+    goTo('screen-founder-menu');
+  } else {
+    err.classList.add('show');
+    document.getElementById('founder-pwd').value = '';
+  }
+}
+
+function founderLogout() {
+  goHome();
+}
+
+function changePassword() {
+  const np = document.getElementById('new-pwd').value;
+  const cp = document.getElementById('confirm-pwd').value;
+  const err = document.getElementById('pwd-error');
+  if (!np || np !== cp) { err.classList.add('show'); return; }
+  err.classList.remove('show');
+  setFounderPassword(np);
+  document.getElementById('new-pwd').value = '';
+  document.getElementById('confirm-pwd').value = '';
+  showToast('Пароль изменён ✓');
+}
+
+// ============================================================
+// TABS (founder waiters)
+// ============================================================
+let activeTab = 'shifts';
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-shifts').classList.toggle('active', tab === 'shifts');
+  document.getElementById('tab-staff').classList.toggle('active', tab === 'staff');
+  document.getElementById('tab-inventory').classList.toggle('active', tab === 'inventory');
+  document.getElementById('panel-shifts').style.display = tab === 'shifts' ? 'block' : 'none';
+  document.getElementById('panel-staff').style.display = tab === 'staff' ? 'block' : 'none';
+  document.getElementById('panel-inventory').style.display = tab === 'inventory' ? 'block' : 'none';
+  if (tab === 'inventory') renderInventoryRecordsList();
+}
+
+function renderShifts() {
+  const reports = getReports();
+  const el = document.getElementById('panel-shifts');
+  el.innerHTML = '';
+
+  if (reports.length === 0) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">📋</div>
+      <div class="empty-title">Пока нет смен</div>
+      <div class="empty-sub">Смены появятся после первого фотоотчета</div>
+    </div>`;
+    return;
+  }
+
+  // Group by date
+  const byDate = {};
+  reports.forEach(r => {
+    if (!byDate[r.date]) byDate[r.date] = [];
+    byDate[r.date].push(r);
+  });
+
+  const dates = Object.keys(byDate).sort().reverse();
+  dates.forEach(date => {
+    const reps = byDate[date];
+    const duty = getDutyAssignment();
+    const staff = getStaff();
+    let dutyName = 'Не назначен';
+    if (duty && duty.targetDate === date) {
+      const p = staff.find(s => String(s.id) === String(duty.staffId));
+      if (p) dutyName = p.name;
+    }
+
+    const div = document.createElement('div');
+    div.className = 'shift-card';
+    const d = new Date(date);
+    const formatted = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+    div.innerHTML = `
+      <div class="shift-date">${formatted}</div>
+      <div class="shift-meta">${reps.length} ${plural(reps.length, 'отчет', 'отчета', 'отчетов')} · Дежурный: ${dutyName}</div>`;
+    div.onclick = () => openShiftView(date, reps);
+    el.appendChild(div);
+  });
+}
+
+function renderStaff() {
+  const staff = getStaff();
+  const el = document.getElementById('panel-staff');
+  el.innerHTML = '';
+
+  if (staff.length === 0) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">👤</div>
+      <div class="empty-title">Пока нет сотрудников</div>
+      <div class="empty-sub">Сотрудники появятся после регистрации</div>
+    </div>`;
+    return;
+  }
+
+  staff.forEach(s => {
+    const reports = getReports();
+    const reportCount = reports.filter(r => r.staffId === s.id).length;
+    const days = new Set(reports.filter(r => r.staffId === s.id).map(r => r.date)).size;
+    const dutyCount = s.dutyCount || 0;
+
+    const div = document.createElement('div');
+    div.className = 'staff-item';
+    div.innerHTML = `
+      <div class="staff-avatar">${s.name.charAt(0).toUpperCase()}</div>
+      <div style="flex:1;">
+        <div class="staff-name">${s.name}</div>
+        <div class="staff-login">${getStaffRole(s)}${s.login ? ' · ' + s.login : ''}</div>
+      </div>
+      <div style="text-align:right; color:var(--text-2); font-size:13px;">
+        <div>${reportCount} отчетов</div>
+        <div>${days} смен</div>
+      </div>`;
+    div.onclick = () => openStaffView(s.id);
+    el.appendChild(div);
+  });
+}
+
+
+// ============================================================
+// INVENTORY RECORDS VIEW
+// ============================================================
+function renderInventoryRecordsList() {
+  const el = document.getElementById('panel-inventory');
+  if (!el) return;
+
+  const records = getInventoryRecords().slice().sort((a, b) => {
+    return String(b.createdAt || b.submittedAt || '').localeCompare(String(a.createdAt || a.submittedAt || ''));
+  });
+
+  if (!records.length) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">📦</div>
+      <div class="empty-title">Пока нет инвентаризаций</div>
+      <div class="empty-sub">Отправленные инвентаризации появятся здесь</div>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = records.map(r => {
+    const date = r.date ? formatDateRu(r.date) : 'Без даты';
+    const time = r.submittedAt || r.createdAt ? new Date(r.submittedAt || r.createdAt).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) : '';
+    const filled = Object.keys(r.values || {}).length;
+    return `<div class="shift-card" onclick="openInventoryRecordView('${r.id}')">
+      <div class="shift-date">${date}</div>
+      <div class="shift-meta">${r.staffName || 'Неизвестно'}${r.staffRole ? ' · ' + r.staffRole : ''}${time ? ' · ' + time : ''} · ${filled} позиций</div>
+    </div>`;
+  }).join('');
+}
+
+function openInventoryRecordView(recordId) {
+  const record = getInventoryRecords().find(r => String(r.id) === String(recordId));
+  if (!record) {
+    showToast('Инвентаризация не найдена');
+    return;
+  }
+
+  document.getElementById('inventory-record-view-title').textContent = `Инвентаризация · ${record.date ? formatDateRu(record.date) : ''}`;
+  const content = document.getElementById('inventory-record-view-content');
+
+  const values = record.values || {};
+  const rows = INVENTORY_ITEMS.map((name, idx) => {
+    const value = values[String(idx)];
+    const hasValue = value !== undefined && value !== null && String(value).trim() !== '';
+    return `<div class="inventory-view-row">
+      <div class="inventory-view-name">${idx + 1}. ${name}</div>
+      <div class="inventory-view-value ${hasValue ? '' : 'empty'}">${hasValue ? value : ''}</div>
+    </div>`;
+  }).join('');
+
+  content.innerHTML = `
+    <div class="inventory-status">
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Сотрудник</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:12px;">${record.staffName || '—'}${record.staffRole ? ' · ' + record.staffRole : ''}</div>
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Дата</div>
+      <div style="font-size:18px;font-weight:700;">${record.date ? formatDateRu(record.date) : '—'}</div>
+    </div>
+    <div class="export-hint">
+      В шаблоне показаны все 41 позиции. Пустые строки остаются пустыми, чтобы было видно, что сотрудник не заполнил.
+    </div>
+    <div class="button-row">
+      <button class="btn btn-secondary" onclick="saveInventoryAsJpg('${record.id}')">Сохранить JPG</button>
+      <button class="btn btn-secondary" onclick="downloadInventoryCsv('${record.id}')">Скачать CSV</button>
+    </div>
+    <div class="inventory-view-table" id="inventory-export-area">
+      ${rows}
+    </div>`;
+
+  goTo('screen-inventory-record-view');
+}
+
+function getInventoryRecordById(recordId) {
+  return getInventoryRecords().find(r => String(r.id) === String(recordId));
+}
+
+let currentExportUrl = null;
+
+function openExportFile(url, filename, text) {
+  if (currentExportUrl) {
+    URL.revokeObjectURL(currentExportUrl);
+  }
+
+  currentExportUrl = url;
+
+  const link = document.getElementById('export-ready-link');
+  const msg = document.getElementById('export-ready-text');
+
+  link.href = url;
+  link.download = filename;
+  msg.textContent = text || 'Файл подготовлен.';
+
+  // Пробуем скачать автоматически. В Telegram это может быть заблокировано,
+  // поэтому ниже остаётся кнопка "Открыть файл" и кнопка возврата.
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  openModal('modal-export-ready');
+}
+
+function closeExportModal() {
+  closeModal('modal-export-ready');
+}
+
+function escapeCsvCell(value) {
+  const s = String(value ?? '');
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function downloadInventoryCsv(recordId) {
+  const record = getInventoryRecordById(recordId);
+  if (!record) return;
+
+  const values = record.values || {};
+  const rows = [];
+
+  rows.push(['Инвентаризация']);
+  rows.push(['Дата', record.date ? formatDateRu(record.date) : '']);
+  rows.push(['Сотрудник', `${record.staffName || ''}${record.staffRole ? ' · ' + record.staffRole : ''}`]);
+  rows.push([]);
+  rows.push(['№', 'Наименование', 'Количество']);
+
+  INVENTORY_ITEMS.forEach((name, idx) => {
+    const value = values[String(idx)];
+    rows.push([idx + 1, name, value !== undefined && value !== null ? String(value) : '']);
+  });
+
+  const csv = '\ufeff' + rows.map(row => row.map(escapeCsvCell).join(';')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+
+  openExportFile(url, `inventory_${record.date || 'date'}_${record.staffName || 'staff'}.csv`, 'CSV готов. Если Telegram не скачал файл автоматически, нажмите “Открыть файл”.');
+}
+
+// Старое имя оставляем как переходник, чтобы ничего не сломалось.
+function downloadInventoryXls(recordId) {
+  downloadInventoryCsv(recordId);
+}
+
+function saveInventoryAsJpg(recordId) {
+  const record = getInventoryRecordById(recordId);
+  if (!record) return;
+
+  const values = record.values || {};
+  const allRows = INVENTORY_ITEMS.map((name, idx) => {
+    const value = values[String(idx)];
+    return {
+      number: idx + 1,
+      name,
+      value: value !== undefined && value !== null ? String(value) : ''
+    };
+  });
+
+  const rowHeight = 42;
+  const width = 900;
+  const height = 180 + allRows.length * rowHeight + 40;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#f7f4ee';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = '#111';
+  ctx.font = 'bold 30px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('Инвентаризация', width / 2, 45);
+
+  ctx.font = '20px Arial';
+  ctx.fillText(record.date ? formatDateRu(record.date) : '', width / 2, 78);
+
+  ctx.font = '18px Arial';
+  ctx.fillText(`${record.staffName || ''}${record.staffRole ? ' · ' + record.staffRole : ''}`, width / 2, 108);
+
+  const startY = 145;
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 1;
+  ctx.font = 'bold 18px Arial';
+  ctx.textAlign = 'left';
+
+  ctx.strokeRect(40, startY - 30, 820, 30);
+  ctx.fillText('№', 55, startY - 9);
+  ctx.fillText('Наименование', 115, startY - 9);
+  ctx.fillText('Количество', 700, startY - 9);
+
+  allRows.forEach((row, i) => {
+    const y = startY + i * rowHeight;
+    ctx.strokeRect(40, y, 820, rowHeight);
+    ctx.beginPath();
+    ctx.moveTo(100, y);
+    ctx.lineTo(100, y + rowHeight);
+    ctx.moveTo(680, y);
+    ctx.lineTo(680, y + rowHeight);
+    ctx.stroke();
+
+    ctx.fillStyle = '#111';
+    ctx.font = '18px Arial';
+    ctx.fillText(String(row.number), 55, y + 27);
+    ctx.fillText(row.name, 115, y + 27);
+    ctx.font = row.value ? 'bold 20px Arial' : '18px Arial';
+    ctx.fillText(row.value, 720, y + 27);
+  });
+
+  canvas.toBlob(blob => {
+    if (!blob) {
+      showToast('Не удалось создать JPG');
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    openExportFile(url, `inventory_${record.date || 'date'}_${record.staffName || 'staff'}.jpg`, 'JPG готов. Если Telegram открыл файл отдельным просмотром, вернитесь назад кнопкой Telegram или нажмите “Вернуться в приложение”.');
+  }, 'image/jpeg', 0.92);
+}
+
+// ============================================================
+// SHIFT VIEW
+// ============================================================
+function openShiftView(date, reps) {
+  const el = document.getElementById('shift-view-content');
+  const duty = getDutyAssignment();
+  const staff = getStaff();
+
+  document.getElementById('shift-view-title').textContent = formatDateRu(date);
+
+  let dutyName = 'Не назначен';
+  if (duty && duty.targetDate === date) {
+    const p = staff.find(s => String(s.id) === String(duty.staffId));
+    if (p) dutyName = p.name;
+  }
+
+  let html = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:20px;">
+      <div style="font-size:12px;color:var(--text-3);letter-spacing:0.5px;margin-bottom:6px;">ДЕЖУРНЫЙ УТРОМ · ${formatDateRu(date)}</div>
+      <div style="font-size:17px;font-weight:600;">${dutyName}</div>
+      ${duty && duty.targetDate === date && duty.tasks ? `<div style="font-size:13px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-top:10px;">${duty.tasks}</div>` : ''}
+    </div>`;
+
+  const byBath = {};
+  reps.forEach(r => {
+    const key = r.bathName || BATHS[r.bathIndex] || 'Без названия';
+    if (!byBath[key]) byBath[key] = {
+      bathName: key,
+      reports: [],
+      photos: {}
+    };
+
+    byBath[key].reports.push(r);
+
+    SECTIONS.forEach(section => {
+      if (!byBath[key].photos[section.key]) byBath[key].photos[section.key] = [];
+      const photos = (r.photos && r.photos[section.key]) ? r.photos[section.key] : [];
+      byBath[key].photos[section.key].push(...photos);
+    });
+  });
+
+  Object.values(byBath).forEach(group => {
+    const reporters = [...new Set(group.reports.map(r => `${r.staffName} · ${r.time}`))].join(', ');
+
+    html += `
+      <div style="margin-bottom:20px;">
+        <div style="font-size:18px;font-weight:700;margin-bottom:4px;">${group.bathName}</div>
+        <div style="font-size:13px;color:var(--text-2);margin-bottom:16px;">Отчеты: ${reporters}</div>`;
+
+    SECTIONS.forEach(section => {
+      const photos = group.photos[section.key] || [];
+      if (photos.length === 0) return;
+      html += `
+        <div class="report-section">
+          <div class="report-section-header">${section.label}</div>
+          <div class="report-section-body">
+            <div class="report-photo-grid">
+              ${photos.map(src => `
+                <div class="report-photo-thumb" onclick="openFullscreen(getPhotoDisplaySrc(src))">
+                  <img src="${getPhotoDisplaySrc(src)}" alt="">
+                </div>`).join('')}
+            </div>
+          </div>
+        </div>`;
+    });
+
+    html += `</div><div class="divider"></div>`;
+  });
+
+  el.innerHTML = html;
+  goTo('screen-shift-view');
+}
+
+// ============================================================
+// STAFF VIEW
+// ============================================================
+function openStaffView(staffId) {
+  const staff = getStaff();
+  const s = staff.find(x => x.id === staffId);
+  if (!s) return;
+
+  const reports = getReports().filter(r => r.staffId === staffId);
+  const days = new Set(reports.map(r => r.date)).size;
+  const dutyCount = s.dutyCount || 0;
+  const fines = getFines().filter(f => String(f.staffId) === String(staffId));
+
+  document.getElementById('staff-view-title').textContent = s.name;
+
+  let html = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-val">${days}</div><div class="stat-lbl">Смен</div></div>
+      <div class="stat-box"><div class="stat-val">${reports.length}</div><div class="stat-lbl">Отчетов</div></div>
+      <div class="stat-box"><div class="stat-val">${dutyCount}</div><div class="stat-lbl">Дежурств</div></div>
+    </div>
+    <div class="divider"></div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Должность</div>
+      <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${getStaffRole(s)}</div>
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Telegram</div>
+      <div style="font-size:16px;font-weight:500;">${s.login || '—'}</div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-label">Штрафы</div>`;
+
+  if (fines.length === 0) {
+    html += `<div class="empty" style="padding:32px 0;">
+      <div class="empty-icon">✅</div>
+      <div class="empty-title">Пока штрафов нет</div>
+    </div>`;
+  } else {
+    fines.forEach(f => {
+      const date = f.date ? formatDateRu(f.date) : new Date(f.createdAt).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+      html += `<div class="card" style="cursor:default;">
+        <div class="card-title">${Number(f.amount).toLocaleString('ru-RU')} сум</div>
+        <div class="card-sub">${date}${f.reason ? ' · ' + f.reason : ''}</div>
+      </div>`;
+    });
+  }
+
+  html += `
+    <div class="divider"></div>
+    <button class="btn btn-danger" onclick="openDeleteStaffModal('${s.id}')">Удалить сотрудника</button>
+  `;
+
+  document.getElementById('staff-view-content').innerHTML = html;
+  goTo('screen-staff-view');
+}
+
+let staffIdToDelete = null;
+
+function openDeleteStaffModal(staffId) {
+  const staff = getStaff();
+  const person = staff.find(s => String(s.id) === String(staffId));
+  if (!person) return;
+  staffIdToDelete = staffId;
+  document.getElementById('delete-staff-sub').textContent = `${person.name} будет удалён из системы. Отчеты останутся в истории.`;
+  openModal('modal-delete-staff');
+}
+
+async function confirmDeleteStaff() {
+  if (!staffIdToDelete) return;
+  await deleteStaff(staffIdToDelete);
+  staffIdToDelete = null;
+  closeModal('modal-delete-staff');
+  showToast('Сотрудник удалён ✓');
+  goBack();
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function plural(n, one, few, many) {
+  if (n % 10 === 1 && n % 100 !== 11) return `${n} ${one}`;
+  if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) return `${n} ${few}`;
+  return `${n} ${many}`;
+}
+
+function toDateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// Внутренняя смена Дрова переключается в 06:00.
+// До 06:00 система считает, что операционный день ещё вчерашний.
+function getOperationalDateKey(now = new Date()) {
+  const d = new Date(now);
+  if (d.getHours() < 6) d.setDate(d.getDate() - 1);
+  return toDateKey(d);
+}
+
+// Дежурный назначается на следующую операционную смену.
+// До 06:00 это всё ещё "завтра" относительно предыдущего рабочего дня.
+function getNextShiftDateKey(now = new Date()) {
+  const d = new Date(getOperationalDateKey(now) + 'T12:00:00');
+  d.setDate(d.getDate() + 1);
+  return toDateKey(d);
+}
+
+// Фотоотчёт — это подготовка именно к завтрашней смене по календарю.
+// 23:00, 02:00, 03:00, 05:59 — всё летит в дату "завтра".
+function getPhotoReportTargetDateKey(now = new Date()) {
+  const d = new Date(now);
+  d.setDate(d.getDate() + 1);
+  return toDateKey(d);
+}
+
+function formatDateRu(dateKey) {
+  const d = new Date(dateKey + 'T12:00:00');
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  await initCloud();
+
+  renderBathList();
+
+  // Restore waiter data if registered
+  const w = getWaiter();
+  if (w) renderWaiterMenu();
+
+  // Render founder panels
+  renderShifts();
+  renderStaff();
+
+  // Render duty screen on load
+  renderDutyScreen();
+  renderAdminFines();
+  renderFounderFines();
+  renderInventoryStart();
+  renderInventoryRecordsList();
+
+  if (!CLOUD_ENABLED) {
+    showToast("Firebase config не заполнен");
+  } else if (!TELEGRAM_PHOTO_ENABLED) {
+    showToast("Worker URL не заполнен");
+  }
+}
+
+init();
+
+</script>
+</body>
+</html>
