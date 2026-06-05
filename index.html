@@ -867,11 +867,19 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
-    <div class="menu-item" onclick="openWaiterDocs('instructions')">
-      <div class="menu-icon">📘</div>
+    <div class="menu-item" onclick="openWaiterMenuJpg()">
+      <div class="menu-icon">🍽️</div>
       <div class="menu-text">
-        <div class="menu-title">Должностные инструкции</div>
-        <div class="menu-desc">Материалы для просмотра</div>
+        <div class="menu-title">Меню</div>
+        <div class="menu-desc">Актуальное меню в JPG</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="goTo('screen-inventory')">
+      <div class="menu-icon">📦</div>
+      <div class="menu-text">
+        <div class="menu-title">Инвентаризация</div>
+        <div class="menu-desc">Учет инвентаря</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -883,11 +891,19 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
-    <div class="menu-item" onclick="goTo('screen-inventory')">
-      <div class="menu-icon">📦</div>
+    <div class="menu-item" onclick="openWaiterDocs('instructions')">
+      <div class="menu-icon">📘</div>
       <div class="menu-text">
-        <div class="menu-title">Инвентаризация</div>
-        <div class="menu-desc">Учет инвентаря</div>
+        <div class="menu-title">Должностные инструкции</div>
+        <div class="menu-desc">Материалы для просмотра</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" id="waiter-attestation-menu-item" onclick="openWaiterAttestation()">
+      <div class="menu-icon">🎓</div>
+      <div class="menu-text">
+        <div class="menu-title">Аттестация</div>
+        <div class="menu-desc" id="waiter-attestation-menu-desc">Лучший результат: пока нет</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -959,6 +975,15 @@
   <div class="content content-padded">
     <div id="waiter-docs-content"></div>
   </div>
+</div>
+
+<!-- ===== SCREEN: WAITER ATTESTATION ===== -->
+<div class="screen" id="screen-waiter-attestation">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Аттестация</span>
+  </div>
+  <div class="content content-padded" id="waiter-attestation-content"></div>
 </div>
 
 <!-- ===== SCREEN: PHOTO REPORTS (bath list) ===== -->
@@ -2458,6 +2483,7 @@ function goHome() {
 
 function refreshScreen(id) {
   if (id === 'screen-waiter-menu') renderWaiterMenu();
+  if (id === 'screen-waiter-attestation') renderWaiterAttestation();
   if (id === 'screen-duty') renderDutyScreen();
   if (id === 'screen-admin-fines') renderAdminFines();
   if (id === 'screen-admin-statistics') renderAdminStatisticsForm();
@@ -2561,6 +2587,8 @@ function renderWaiterMenu() {
     return;
   }
   document.getElementById('waiter-menu-name').textContent = w.name;
+  const attestationDesc = document.getElementById('waiter-attestation-menu-desc');
+  if (attestationDesc) attestationDesc.textContent = getAttestationBestText(w);
 
   // Duty banner
   const duty = getDutyAssignment();
@@ -2864,6 +2892,10 @@ async function confirmInventorySubmit() {
 // JPG-файлы нужно будет загрузить в репозиторий GitHub рядом с index.html.
 // Потом просто заменить имена файлов ниже на реальные.
 const DOC_IMAGES = {
+  menu: [
+    // "docs/menu-1.jpg",
+    // "docs/menu-2.jpg"
+  ],
   instructions: [
     // "docs/job-instructions-1.jpg",
     // "docs/job-instructions-2.jpg"
@@ -2875,24 +2907,96 @@ const DOC_IMAGES = {
 };
 
 function openWaiterDocs(type) {
-  const title = type === 'instructions' ? 'Должностные инструкции' : 'Алгоритм работы';
+  const titles = {
+    menu: 'Меню',
+    instructions: 'Должностные инструкции',
+    algorithm: 'Алгоритм работы'
+  };
+  const title = titles[type] || 'Документы';
   const images = DOC_IMAGES[type] || [];
 
   document.getElementById('waiter-docs-title').textContent = title;
 
   const content = document.getElementById('waiter-docs-content');
   if (!images.length) {
+    const example = type === 'menu' ? 'docs/menu-1.jpg' : (type === 'algorithm' ? 'docs/work-algorithm-1.jpg' : 'docs/job-instructions-1.jpg');
     content.innerHTML = `
       <div class="doc-placeholder">
         <div style="font-weight:700;color:var(--text);margin-bottom:8px;">${title}</div>
         <div>Здесь будет просмотр JPG-файлов. Загрузим изображения в GitHub-репозиторий и пропишем их в массиве <b>DOC_IMAGES</b>.</div>
-        <div style="margin-top:12px;color:var(--text-3);">Пример пути: <code>docs/job-instructions-1.jpg</code></div>
+        <div style="margin-top:12px;color:var(--text-3);">Пример пути: <code>${example}</code></div>
       </div>`;
   } else {
     content.innerHTML = images.map(src => `<img class="doc-image" src="${src}" onclick="openFullscreen('${src}')" alt="${title}">`).join('');
   }
 
   goTo('screen-waiter-docs');
+}
+
+function openWaiterMenuJpg() {
+  openWaiterDocs('menu');
+}
+
+function getAttestationStats(staff) {
+  const attempts = Number(staff && staff.attestationAttempts ? staff.attestationAttempts : 0);
+  const bestPercentRaw = staff && staff.attestationBestPercent !== undefined ? Number(staff.attestationBestPercent) : null;
+  const lastPercentRaw = staff && staff.attestationLastPercent !== undefined ? Number(staff.attestationLastPercent) : null;
+
+  return {
+    attempts,
+    bestPercent: Number.isFinite(bestPercentRaw) ? bestPercentRaw : null,
+    lastPercent: Number.isFinite(lastPercentRaw) ? lastPercentRaw : null,
+    bestCorrect: staff && staff.attestationBestCorrect !== undefined ? Number(staff.attestationBestCorrect) : null,
+    lastCorrect: staff && staff.attestationLastCorrect !== undefined ? Number(staff.attestationLastCorrect) : null,
+    totalQuestions: Number(staff && staff.attestationTotalQuestions ? staff.attestationTotalQuestions : 20),
+    version: staff && staff.attestationVersion ? staff.attestationVersion : null
+  };
+}
+
+function getAttestationBestText(staff) {
+  const stats = getAttestationStats(staff);
+  if (stats.bestPercent === null) return 'Лучший результат: пока нет';
+  const correct = Number.isFinite(stats.bestCorrect) ? ` · ${stats.bestCorrect}/${stats.totalQuestions}` : '';
+  return `Лучший результат: ${stats.bestPercent}%${correct}`;
+}
+
+function renderWaiterAttestation() {
+  const waiter = getWaiter();
+  const content = document.getElementById('waiter-attestation-content');
+  if (!content) return;
+
+  if (!waiter) {
+    content.innerHTML = `<div class="empty"><div class="empty-icon">👤</div><div class="empty-title">Нет сотрудника</div><div class="empty-sub">Войдите как официант</div></div>`;
+    return;
+  }
+
+  const stats = getAttestationStats(waiter);
+  const best = stats.bestPercent === null ? '—' : `${stats.bestPercent}%`;
+  const last = stats.lastPercent === null ? '—' : `${stats.lastPercent}%`;
+  const attempts = stats.attempts || 0;
+
+  content.innerHTML = `
+    <div class="inventory-status">
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Официант</div>
+      <div style="font-size:22px;font-weight:700;margin-bottom:16px;">${escapeHtml(waiter.name || '—')}</div>
+      <div class="stat-row" style="margin-bottom:0;">
+        <div class="stat-box"><div class="stat-val">${best}</div><div class="stat-lbl">Лучший результат</div></div>
+        <div class="stat-box"><div class="stat-val">${last}</div><div class="stat-lbl">Последняя попытка</div></div>
+        <div class="stat-box"><div class="stat-val">${attempts}</div><div class="stat-lbl">Попыток</div></div>
+      </div>
+    </div>
+    <div class="doc-placeholder">
+      Аттестация будет работать по актуальному меню: из общего списка 60–80 вопросов система будет случайно выдавать 20 вопросов на попытку. Проходить можно будет сколько угодно раз.
+    </div>
+    <button class="btn btn-primary" onclick="showToast('Аттестация в разработке')">Пройти тестирование</button>
+    <div class="doc-placeholder" style="margin-top:14px;">
+      Раздел в разработке. Сейчас здесь подготовлен экран, статистика попыток и место под будущий тест.
+    </div>`;
+}
+
+function openWaiterAttestation() {
+  renderWaiterAttestation();
+  goTo('screen-waiter-attestation');
 }
 
 // ============================================================
@@ -3752,6 +3856,7 @@ function renderStaff() {
       <div style="text-align:right; color:var(--text-2); font-size:13px;">
         <div>${reportCount} отчетов</div>
         <div>${days} смен</div>
+        <div>${getAttestationBestText(s).replace('Лучший результат: ', 'Рейтинг: ')}</div>
       </div>`;
     div.onclick = () => openStaffView(s.id);
     el.appendChild(div);
@@ -4077,7 +4182,9 @@ function openStaffView(staffId) {
       <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Должность</div>
       <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${getStaffRole(s)}</div>
       <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Telegram</div>
-      <div style="font-size:16px;font-weight:500;">${s.login || '—'}</div>
+      <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${s.login || '—'}</div>
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Аттестация</div>
+      <div style="font-size:16px;font-weight:500;">${getAttestationBestText(s)}</div>
     </div>
     <div class="divider"></div>
     <div class="section-label">Штрафы</div>`;
