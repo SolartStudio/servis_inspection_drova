@@ -907,6 +907,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openWaiterKpi()">
+      <div class="menu-icon">📈</div>
+      <div class="menu-text">
+        <div class="menu-title">KPI</div>
+        <div class="menu-desc">Поощрения и штрафы</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
   </div>
   <div class="footer" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
     <span class="logo-sm">drova inspector</span>
@@ -984,6 +992,42 @@
     <span class="header-title">Аттестация</span>
   </div>
   <div class="content content-padded" id="waiter-attestation-content"></div>
+</div>
+
+<!-- ===== SCREEN: WAITER KPI ===== -->
+<div class="screen" id="screen-waiter-kpi">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">KPI</span>
+  </div>
+  <div class="content">
+    <div class="section-label">Разделы</div>
+    <div class="menu-item" onclick="openWaiterKpiView('rewards')">
+      <div class="menu-icon">🏆</div>
+      <div class="menu-text">
+        <div class="menu-title">Поощрения</div>
+        <div class="menu-desc">Актуальная информация от администратора</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openWaiterKpiView('fines')">
+      <div class="menu-icon">⚠️</div>
+      <div class="menu-text">
+        <div class="menu-title">Штрафы</div>
+        <div class="menu-desc">Актуальная информация от администратора</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: WAITER KPI VIEW ===== -->
+<div class="screen" id="screen-waiter-kpi-view">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="waiter-kpi-view-title">KPI</span>
+  </div>
+  <div class="content content-padded" id="waiter-kpi-view-content"></div>
 </div>
 
 <!-- ===== SCREEN: PHOTO REPORTS (bath list) ===== -->
@@ -1106,11 +1150,11 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
-    <div class="menu-item" onclick="openAdminWip('Склад 3')">
-      <div class="menu-icon">📦</div>
+    <div class="menu-item" onclick="openAdminKpi()">
+      <div class="menu-icon">📈</div>
       <div class="menu-text">
-        <div class="menu-title">Склад 3</div>
-        <div class="menu-desc">Раздел в тестировании</div>
+        <div class="menu-title">KPI</div>
+        <div class="menu-desc">Поощрения и штрафы по подразделениям</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1142,6 +1186,86 @@
   <div class="footer" style="display:flex; justify-content:space-between; align-items:center;">
     <span class="logo-sm">drova inspector</span>
     <button class="btn btn-secondary btn-sm" onclick="adminLogout()">Выйти</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: ADMIN KPI ===== -->
+<div class="screen" id="screen-admin-kpi">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">KPI</span>
+  </div>
+  <div class="content">
+    <div class="section-label">Подразделения</div>
+    <div class="menu-item" onclick="openAdminKpiRole('waiter')">
+      <div class="menu-icon">🍽️</div>
+      <div class="menu-text">
+        <div class="menu-title">Официант</div>
+        <div class="menu-desc">Штрафы и поощрения</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openAdminWip('Массажист · KPI')">
+      <div class="menu-icon">💆</div>
+      <div class="menu-text">
+        <div class="menu-title">Массажист</div>
+        <div class="menu-desc">Раздел в разработке</div>
+      </div>
+      <span class="role-wip">В разработке</span>
+    </div>
+    <div class="menu-item" onclick="openAdminWip('Пармастер · KPI')">
+      <div class="menu-icon">🔥</div>
+      <div class="menu-text">
+        <div class="menu-title">Пармастер</div>
+        <div class="menu-desc">Раздел в разработке</div>
+      </div>
+      <span class="role-wip">В разработке</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: ADMIN KPI ROLE ===== -->
+<div class="screen" id="screen-admin-kpi-role">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="admin-kpi-role-title">KPI</span>
+  </div>
+  <div class="content">
+    <div class="section-label">Разделы</div>
+    <div class="menu-item" onclick="openAdminKpiEditor('rewards')">
+      <div class="menu-icon">🏆</div>
+      <div class="menu-text">
+        <div class="menu-title">Поощрения</div>
+        <div class="menu-desc">Текст для официантов</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openAdminKpiEditor('fines')">
+      <div class="menu-icon">⚠️</div>
+      <div class="menu-text">
+        <div class="menu-title">Штрафы</div>
+        <div class="menu-desc">Текст для официантов</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: ADMIN KPI EDITOR ===== -->
+<div class="screen" id="screen-admin-kpi-editor">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="admin-kpi-editor-title">KPI</span>
+  </div>
+  <div class="content content-padded">
+    <div class="section-label" id="admin-kpi-editor-label">Текст</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div class="field">
+        <label>Текст для официантов</label>
+        <textarea id="admin-kpi-editor-text" placeholder="Напишите актуальную информацию, которую официанты увидят в своём KPI-разделе"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="saveAdminKpiEditor()">Сохранить</button>
+    </div>
   </div>
 </div>
 
@@ -1320,7 +1444,7 @@
       <div class="menu-icon">👔</div>
       <div class="menu-text">
         <div class="menu-title">Администраторы</div>
-        <div class="menu-desc">Склад, сертификаты, статистика</div>
+        <div class="menu-desc">Сертификаты и статистика</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1356,14 +1480,6 @@
   </div>
   <div class="content">
     <div class="section-label">Разделы</div>
-    <div class="menu-item" onclick="openFounderAdminWip('Склад')">
-      <div class="menu-icon">📦</div>
-      <div class="menu-text">
-        <div class="menu-title">Склад</div>
-        <div class="menu-desc">Раздел в тестировании</div>
-      </div>
-      <span class="menu-arrow">›</span>
-    </div>
     <div class="menu-item" onclick="openFounderAdminWip('Сертификаты')">
       <div class="menu-icon">📜</div>
       <div class="menu-text">
@@ -1637,7 +1753,8 @@ const appCache = {
   inventoryRecords: [],
   accessRequests: [],
   adminStats: [],
-  adminProfiles: []
+  adminProfiles: [],
+  kpiContent: getDefaultKpiContent()
 };
 
 const LocalDB = {
@@ -1645,6 +1762,40 @@ const LocalDB = {
   set: (key, val) => localStorage.setItem(key, JSON.stringify(val)),
   remove: (key) => localStorage.removeItem(key),
 };
+
+function getDefaultKpiContent() {
+  return {
+    waiter: {
+      rewards: '',
+      fines: ''
+    }
+  };
+}
+
+function getKpiContent() {
+  return appCache.kpiContent || getDefaultKpiContent();
+}
+
+function getKpiText(role, section) {
+  const data = getKpiContent();
+  return data && data[role] && data[role][section] ? data[role][section] : '';
+}
+
+async function setKpiText(role, section, textValue) {
+  const data = JSON.parse(JSON.stringify(getKpiContent()));
+  if (!data[role]) data[role] = {};
+  data[role][section] = textValue;
+  data[role].updatedAt = new Date().toISOString();
+  appCache.kpiContent = data;
+  LocalDB.set("kpiContent", data);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("settings").doc("main").set({
+      kpiContent: data,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
 
 function setFounderSession() {
   LocalDB.set("founderSession", {
@@ -1768,6 +1919,7 @@ async function initCloud() {
     appCache.accessRequests = LocalDB.get("accessRequests") || [];
     appCache.adminStats = LocalDB.get("adminStats") || [];
     appCache.adminProfiles = LocalDB.get("adminProfiles") || [];
+    appCache.kpiContent = LocalDB.get("kpiContent") || getDefaultKpiContent();
     return;
   }
 
@@ -1830,7 +1982,9 @@ async function initCloud() {
     appCache.founderPassword = data.founderPassword || "5552";
     appCache.adminPassword = data.adminPassword || "3235";
     appCache.inventoryDraft = data.inventoryDraft || null;
+    appCache.kpiContent = data.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
     LocalDB.set("inventoryDraft", appCache.inventoryDraft);
+    LocalDB.set("kpiContent", appCache.kpiContent);
     refreshVisibleData();
   }, (err) => {
     console.error("settings snapshot error", err);
@@ -1863,12 +2017,14 @@ async function loadCloudData() {
   appCache.founderPassword = settings.founderPassword || "5552";
   appCache.adminPassword = settings.adminPassword || "3235";
   appCache.inventoryDraft = settings.inventoryDraft || null;
+  appCache.kpiContent = settings.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
 
   if (!settingsDoc.exists) {
     await db.collection("settings").doc("main").set({
       founderPassword: "5552",
       adminPassword: "3235",
       dutyAssignment: null,
+      kpiContent: appCache.kpiContent || getDefaultKpiContent(),
       updatedAt: new Date().toISOString()
     }, { merge: true });
   }
@@ -2551,6 +2707,8 @@ function goHome() {
 function refreshScreen(id) {
   if (id === 'screen-waiter-menu') renderWaiterMenu();
   if (id === 'screen-waiter-attestation') renderWaiterAttestation();
+  if (id === 'screen-waiter-kpi-view') renderWaiterKpiView();
+  if (id === 'screen-admin-kpi-editor') renderAdminKpiEditor();
   if (id === 'screen-duty') renderDutyScreen();
   if (id === 'screen-admin-fines') renderAdminFines();
   if (id === 'screen-admin-statistics') renderAdminStatisticsForm();
@@ -3069,6 +3227,89 @@ function renderWaiterAttestation() {
 function openWaiterAttestation() {
   renderWaiterAttestation();
   goTo('screen-waiter-attestation');
+}
+
+// ============================================================
+// KPI
+// ============================================================
+let activeWaiterKpiSection = 'rewards';
+let activeAdminKpiRole = 'waiter';
+let activeAdminKpiSection = 'rewards';
+
+function getKpiSectionTitle(section) {
+  return section === 'fines' ? 'Штрафы' : 'Поощрения';
+}
+
+function openWaiterKpi() {
+  goTo('screen-waiter-kpi');
+}
+
+function openWaiterKpiView(section) {
+  activeWaiterKpiSection = section;
+  renderWaiterKpiView();
+  goTo('screen-waiter-kpi-view');
+}
+
+function renderWaiterKpiView() {
+  const title = document.getElementById('waiter-kpi-view-title');
+  const content = document.getElementById('waiter-kpi-view-content');
+  if (!title || !content) return;
+
+  const sectionTitle = getKpiSectionTitle(activeWaiterKpiSection);
+  const textValue = getKpiText('waiter', activeWaiterKpiSection).trim();
+
+  title.textContent = sectionTitle;
+  content.innerHTML = `
+    <div class="inventory-status">
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">KPI · Официант</div>
+      <div style="font-size:22px;font-weight:700;">${sectionTitle}</div>
+    </div>
+    <div class="doc-placeholder" style="white-space:pre-line;color:${textValue ? 'var(--text)' : 'var(--text-2)'};">
+      ${escapeHtml(textValue || 'Информация пока не добавлена. Администратор сможет обновлять этот текст в своём KPI-разделе.')}
+    </div>`;
+}
+
+function openAdminKpi() {
+  goTo('screen-admin-kpi');
+}
+
+function openAdminKpiRole(role) {
+  activeAdminKpiRole = role;
+  const title = document.getElementById('admin-kpi-role-title');
+  if (title) title.textContent = `KPI · ${getRoleLabel(role)}`;
+  goTo('screen-admin-kpi-role');
+}
+
+function openAdminKpiEditor(section) {
+  activeAdminKpiSection = section;
+  renderAdminKpiEditor();
+  goTo('screen-admin-kpi-editor');
+}
+
+function renderAdminKpiEditor() {
+  const title = document.getElementById('admin-kpi-editor-title');
+  const label = document.getElementById('admin-kpi-editor-label');
+  const textarea = document.getElementById('admin-kpi-editor-text');
+  if (!title || !textarea) return;
+
+  const sectionTitle = getKpiSectionTitle(activeAdminKpiSection);
+  title.textContent = `${sectionTitle} · ${getRoleLabel(activeAdminKpiRole)}`;
+  if (label) label.textContent = `${getRoleLabel(activeAdminKpiRole)} · ${sectionTitle}`;
+  textarea.value = getKpiText(activeAdminKpiRole, activeAdminKpiSection);
+}
+
+async function saveAdminKpiEditor() {
+  const textarea = document.getElementById('admin-kpi-editor-text');
+  const textValue = textarea ? textarea.value.trim() : '';
+
+  try {
+    await setKpiText(activeAdminKpiRole, activeAdminKpiSection, textValue);
+    showToast('KPI обновлён ✓');
+    goBack();
+  } catch (e) {
+    console.error(e);
+    showToast('Ошибка сохранения KPI');
+  }
 }
 
 // ============================================================
