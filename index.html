@@ -1741,6 +1741,8 @@
       </div>
       <button class="btn btn-primary" onclick="submitBathmasterOrder()">Отправить</button>
     </div>
+    <div class="section-label">История заказов</div>
+    <div id="bathmaster-order-history"></div>
   </div>
 </div>
 
@@ -1774,7 +1776,10 @@
   <div class="content content-padded"><div class="section-label">Заявка на ремонт</div><div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
     <div class="field"><label>Описание поломки</label><textarea id="repair-create-text" placeholder="Например: течёт кран, не работает свет, сломалась ручка двери..."></textarea><div class="error-msg" id="repair-create-error">Напишите, что сломалось</div></div>
     <div class="photo-section" style="margin-bottom:0;"><div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="repair-create-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-create-photo-grid" style="display:none;"></div><label class="add-photo-btn" id="repair-create-add-btn"><span>＋</span><span>Добавить фото</span><input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairPhotos(event)"></label></div></div>
-  </div></div>
+  </div>
+    <div class="section-label">История заявок</div>
+    <div id="repair-create-history"></div>
+  </div>
   <div class="footer"><button class="btn btn-primary" onclick="submitRepairRequest()">Отправить заявку</button></div>
 </div>
 
@@ -2395,10 +2400,14 @@ function getCurrentWaiterId() {
 
 function clearCurrentWaiter() {
   localStorage.removeItem("currentWaiterId");
-  localStorage.removeItem("currentStaffId");
-  localStorage.removeItem("currentStaffRole");
+  localStorage.removeItem("currentStaffId_waiter");
+  if (localStorage.getItem("currentStaffRole") === 'waiter') {
+    localStorage.removeItem("currentStaffId");
+    localStorage.removeItem("currentStaffRole");
+    LocalDB.remove("staffProfile");
+  }
   LocalDB.remove("waiter");
-  LocalDB.remove("staffProfile");
+  LocalDB.remove("staffProfile_waiter");
 }
 
 function getWaiter() {
@@ -2541,35 +2550,59 @@ function clearSavedAccessRequest() {
 }
 
 function setCurrentStaffSession(staff) {
+  const role = String(staff.role || 'waiter');
   localStorage.setItem("currentStaffId", String(staff.id));
-  localStorage.setItem("currentStaffRole", String(staff.role || 'waiter'));
+  localStorage.setItem("currentStaffRole", role);
+  localStorage.setItem("currentStaffId_" + role, String(staff.id));
   LocalDB.set("staffProfile", staff);
+  LocalDB.set("staffProfile_" + role, staff);
 
-  if (staff.role === 'waiter') {
+  if (role === 'waiter') {
     localStorage.setItem("currentWaiterId", String(staff.id));
     LocalDB.set("waiter", staff);
   }
 }
 
-function getCurrentApprovedStaff() {
+function clearStaffRoleSession(role) {
+  if (!role) return;
+  localStorage.removeItem("currentStaffId_" + role);
+  LocalDB.remove("staffProfile_" + role);
+  if (String(localStorage.getItem("currentStaffRole")) === String(role)) {
+    localStorage.removeItem("currentStaffId");
+    localStorage.removeItem("currentStaffRole");
+    LocalDB.remove("staffProfile");
+  }
+  if (role === 'waiter') {
+    localStorage.removeItem("currentWaiterId");
+    LocalDB.remove("waiter");
+  }
+}
+
+function getCurrentApprovedStaffForRole(role) {
   if (hasFounderSession()) {
-    const founderRole = localStorage.getItem("founderActiveRole") || 'founder';
+    const founderRole = localStorage.getItem("founderActiveRole") || role || 'founder';
     return getFounderActor(founderRole);
   }
 
-  const id = localStorage.getItem("currentStaffId") || getCurrentWaiterId();
+  const roleId = role ? localStorage.getItem("currentStaffId_" + role) : null;
+  const fallbackId = localStorage.getItem("currentStaffId") || getCurrentWaiterId();
+  const id = roleId || fallbackId;
   if (!id) return null;
 
   const cloudStaff = getStaff().find(s => String(s.id) === String(id));
   if (CLOUD_ENABLED) {
     if (!cloudStaff) {
-      clearCurrentWaiter();
+      clearStaffRoleSession(role || localStorage.getItem("currentStaffRole"));
       return null;
     }
     return cloudStaff;
   }
 
-  return cloudStaff || LocalDB.get("staffProfile") || LocalDB.get("waiter") || null;
+  return cloudStaff || (role ? LocalDB.get("staffProfile_" + role) : null) || LocalDB.get("staffProfile") || LocalDB.get("waiter") || null;
+}
+
+function getCurrentApprovedStaff() {
+  return getCurrentApprovedStaffForRole(localStorage.getItem("currentStaffRole") || null);
 }
 
 function showRoleMismatch(staff, requestedRole) {
@@ -2658,7 +2691,7 @@ function enterRole(role) {
   }
 
   const saved = getSavedAccessRequest();
-  const current = getCurrentApprovedStaff();
+  const current = getCurrentApprovedStaffForRole(role);
 
   if (current) {
     if (current.role && current.role !== role) {
@@ -3017,7 +3050,7 @@ function getBathmasterOrders() {
 }
 
 async function saveBathmasterOrder(order) {
-  appCache.bathmasterOrders = [order, ...(appCache.bathmasterOrders || [])];
+  appCache.bathmasterOrders = [order, ...(appCache.bathmasterOrders || []).filter(o => String(o.id) !== String(order.id))];
   LocalDB.set("bathmasterOrders", appCache.bathmasterOrders);
   updateUnreadBadges();
 
@@ -3042,6 +3075,7 @@ async function updateRepairRequest(req) {
   LocalDB.set("repairRequests", appCache.repairRequests);
   updateUnreadBadges();
   if (CLOUD_ENABLED && db) await db.collection("repairRequests").doc(String(req.id)).set(req, { merge: true });
+  renderRepairHistoryForCurrentActor();
 }
 
 async function deleteFineById(fineId) {
@@ -3217,6 +3251,8 @@ function refreshScreen(id) {
   if (id === 'screen-admin-fines') renderAdminFines();
   if (id === 'screen-admin-statistics') renderAdminStatisticsForm();
   if (id === 'screen-admin-access-requests') renderAccessRequests();
+  if (id === 'screen-bathmaster-order') renderBathmasterOrderHistory();
+  if (id === 'screen-repair-create') renderRepairHistoryForCurrentActor();
   if (id === 'screen-bathmaster-menu') renderBathmasterMenu();
   if (id === 'screen-technician-menu') renderTechnicianMenu();
   if (id === 'screen-technician-repairs') renderTechnicianRepairs();
@@ -4276,7 +4312,7 @@ let activeRepairFixedPhotoSet = [];
 
 function getCurrentTechnician() {
   if (hasFounderSession() && localStorage.getItem("founderActiveRole") === 'technician') return getFounderActor('technician');
-  const current = getCurrentApprovedStaff();
+  const current = getCurrentApprovedStaffForRole('technician');
   if (!current || current.role !== 'technician') return null;
   return current;
 }
@@ -4316,6 +4352,7 @@ function openRepairCreate(sourceRole) {
   if (text) text.value = '';
   if (err) err.classList.remove('show');
   renderRepairCreatePhotos();
+  renderRepairHistoryForCurrentActor();
   goTo('screen-repair-create');
 }
 
@@ -4371,13 +4408,49 @@ async function confirmRepairRequest() {
     await saveRepairRequest(req);
     activeRepairPhotos = [];
     document.getElementById('repair-create-text').value = '';
+    renderRepairCreatePhotos();
+    renderRepairHistoryForCurrentActor();
     showToast('Заявка отправлена ✓');
-    goBack();
   } catch (e) { console.error(e); showToast('Ошибка отправки заявки'); }
 }
 
-function getRepairStatusText(req) { if (!req) return 'Новая заявка'; if (req.status === 'repaired') return 'Отремонтировано'; if (req.status === 'read_by_technician') return 'Прочитано техником'; return 'Новая заявка'; }
+function getRepairStatusText(req) { if (!req) return 'Ожидает'; if (req.status === 'repaired') return 'Отремонтировано'; if (req.status === 'read_by_technician') return 'Просмотрено'; return 'Ожидает'; }
 function getRepairStatusColor(req) { if (!req) return 'var(--accent)'; if (req.status === 'repaired') return 'var(--success)'; if (req.status === 'read_by_technician') return 'var(--text-2)'; return 'var(--accent)'; }
+
+function getRepairHistoryForActor(sourceRole) {
+  const actor = getRepairActor(sourceRole);
+  if (!actor) return [];
+  return getRepairRequests()
+    .filter(r => String(r.staffId) === String(actor.id) && String(r.sourceRole || sourceRole) === String(sourceRole))
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+}
+
+function renderRepairHistoryForCurrentActor() {
+  const el = document.getElementById('repair-create-history');
+  if (!el) return;
+  const items = getRepairHistoryForActor(activeRepairSourceRole);
+
+  if (!items.length) {
+    el.innerHTML = `<div class="empty" style="padding:32px 0;"><div class="empty-icon">🛠️</div><div class="empty-title">История пустая</div><div class="empty-sub">Ваши заявки на ремонт появятся здесь</div></div>`;
+    return;
+  }
+
+  el.innerHTML = items.map(req => {
+    const dateText = req.date ? `${formatDateRu(req.date)}${req.time ? ' · ' + req.time : ''}` : '';
+    const photos = (req.photos || []).slice(0, 3);
+    const fixedPhotos = (req.fixedPhotos || []).slice(0, 3);
+    const photoHtml = photos.length ? `<div class="report-photo-grid" style="margin-top:12px;">${photos.map((photo, idx) => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+    const fixedHtml = fixedPhotos.length ? `<div style="font-size:12px;color:var(--text-3);margin-top:12px;margin-bottom:8px;">Фото после ремонта</div><div class="report-photo-grid">${fixedPhotos.map((photo, idx) => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+    return `<div class="card" style="cursor:default;">
+      <div class="card-title">${escapeHtml(dateText || 'Без даты')}</div>
+      <div class="card-sub"><span style="color:${getRepairStatusColor(req)};font-weight:700;">${getRepairStatusText(req)}</span>${req.technicianName ? ' · ' + escapeHtml(req.technicianName) : ''}</div>
+      <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(req.text || '')}</div>
+      ${photoHtml}
+      ${fixedHtml}
+    </div>`;
+  }).join('');
+}
+
 
 function openTechnicianRepairs() { renderTechnicianRepairs(); goTo('screen-technician-repairs'); }
 
@@ -4493,7 +4566,7 @@ function getCurrentBathmaster() {
     return getFounderActor('bathmaster');
   }
 
-  const current = getCurrentApprovedStaff();
+  const current = getCurrentApprovedStaffForRole('bathmaster');
   if (!current || current.role !== 'bathmaster') return null;
   return current;
 }
@@ -4521,7 +4594,46 @@ function openBathmasterOrder() {
   const err = document.getElementById('bathmaster-order-error');
   if (field) field.value = '';
   if (err) err.classList.remove('show');
+  renderBathmasterOrderHistory();
   goTo('screen-bathmaster-order');
+}
+
+function getBathmasterOrderStatusText(order) {
+  return order && order.status === 'read' ? 'Прочитано' : 'Ожидает';
+}
+
+function getBathmasterOrderStatusColor(order) {
+  return order && order.status === 'read' ? 'var(--success)' : 'var(--accent)';
+}
+
+function renderBathmasterOrderHistory() {
+  const el = document.getElementById('bathmaster-order-history');
+  if (!el) return;
+
+  const orders = getBathmasterOrders().slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  if (!orders.length) {
+    el.innerHTML = `<div class="empty" style="padding:32px 0;"><div class="empty-icon">🧾</div><div class="empty-title">История пустая</div><div class="empty-sub">Здесь появятся заказы пармастеров</div></div>`;
+    return;
+  }
+
+  el.innerHTML = orders.map(o => {
+    const dateText = o.date ? `${formatDateRu(o.date)}${o.time ? ' · ' + o.time : ''}` : (o.createdAt ? new Date(o.createdAt).toLocaleString('ru-RU') : '');
+    return `<div class="card" style="cursor:default;">
+      <div class="card-title">${escapeHtml(o.staffName || 'Пармастер')}${o.staffLogin ? ' · ' + escapeHtml(o.staffLogin) : ''}</div>
+      <div class="card-sub">${escapeHtml(dateText)} · <span style="color:${getBathmasterOrderStatusColor(o)};font-weight:700;">${getBathmasterOrderStatusText(o)}</span></div>
+      <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(o.text || '')}</div>
+    </div>`;
+  }).join('');
+}
+
+async function markBathmasterOrdersStatusRead() {
+  const unread = getBathmasterOrders().filter(o => o.status !== 'read');
+  if (!unread.length) return;
+  for (const order of unread) {
+    order.status = 'read';
+    order.readAt = order.readAt || new Date().toISOString();
+    await saveBathmasterOrder(order);
+  }
 }
 
 function openBathmasterWip(title) {
@@ -4563,8 +4675,8 @@ async function submitBathmasterOrder() {
   try {
     await saveBathmasterOrder(order);
     document.getElementById('bathmaster-order-text').value = '';
+    renderBathmasterOrderHistory();
     showToast('Заявка отправлена ✓');
-    goBack();
   } catch (e) {
     console.error(e);
     showToast('Ошибка отправки заявки');
@@ -4587,6 +4699,7 @@ function switchBathmasterTab(tab) {
   if (tab === 'consumables') {
     renderBathmasterConsumables();
     markBathmasterOrdersRead();
+    markBathmasterOrdersStatusRead().then(() => renderBathmasterConsumables()).catch(err => console.error(err));
   }
 }
 
@@ -4643,7 +4756,7 @@ function renderBathmasterConsumables() {
     const dateText = o.date ? `${formatDateRu(o.date)}${o.time ? ' · ' + o.time : ''}` : (o.createdAt ? new Date(o.createdAt).toLocaleString('ru-RU') : '');
     return `<div class="card" style="cursor:default;">
       <div class="card-title">${escapeHtml(o.staffName || 'Пармастер')}${o.staffLogin ? ' · ' + escapeHtml(o.staffLogin) : ''}</div>
-      <div class="card-sub">${escapeHtml(dateText)}</div>
+      <div class="card-sub">${escapeHtml(dateText)} · <span style="color:${getBathmasterOrderStatusColor(o)};font-weight:700;">${getBathmasterOrderStatusText(o)}</span></div>
       <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(o.text || '')}</div>
     </div>`;
   }).join('');
