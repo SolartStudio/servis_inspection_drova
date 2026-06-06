@@ -21,6 +21,67 @@
     --radius: 14px;
     --radius-sm: 8px;
   }
+  /* ============================================================
+     LIGHT THEME — все экраны, все разделы, включая будущие
+     ============================================================ */
+  body.light {
+    --bg: #f5f0e8;
+    --surface: #ffffff;
+    --surface2: #ede8df;
+    --surface3: #e4ddd2;
+    --border: #d6cfc4;
+    --accent: #b8924a;
+    --accent-dim: #9a7a3e;
+    --text: #1a1410;
+    --text-2: #6b5c48;
+    --text-3: #a0927e;
+    --danger: #cc3b3b;
+    --success: #3a8a60;
+  }
+
+  body.light input[type="date"] { color-scheme: light; }
+
+  body.light .inventory-white {
+    background: #fff;
+    border: 1px solid var(--border);
+  }
+  body.light .inventory-row { border-bottom-color: var(--border); }
+  body.light .inventory-name { color: var(--text); }
+  body.light .inventory-input {
+    background: var(--surface2);
+    border-color: var(--border);
+    color: var(--text);
+  }
+  body.light .inventory-input.filled {
+    background: #d6f0df;
+    border-color: #4a9e64;
+    color: #0a3018;
+  }
+  body.light .inventory-view-table {
+    background: #fff;
+    border: 1px solid var(--border);
+  }
+  body.light .inventory-view-row { border-bottom-color: var(--border); }
+  body.light .inventory-view-name { color: var(--text); }
+
+  .theme-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: background 0.15s, border-color 0.15s;
+    z-index: 5;
+  }
+  .theme-toggle:active { background: var(--surface3); }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -827,7 +888,8 @@
 <body>
 
 <!-- ===== SCREEN: HOME ===== -->
-<div class="screen active" id="screen-home">
+<div class="screen active" id="screen-home" style="position:relative;">
+  <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle-btn" title="Сменить тему">🌙</button>
   <div style="padding: 48px 20px 0;">
     <div class="logo">drova</div>
     <div style="font-size: 13px; color: var(--text-3); text-align: center; margin-top: 6px; letter-spacing: 1px;">INSPECTOR</div>
@@ -5717,7 +5779,34 @@ async function init() {
   } else if (!TELEGRAM_PHOTO_ENABLED) {
     showToast("Worker URL не заполнен");
   }
+  initTheme();
 }
+
+// ============================================================
+// THEME TOGGLE
+// ============================================================
+function initTheme() {
+  const saved = localStorage.getItem('drovaTheme') || 'dark';
+  applyTheme(saved);
+}
+
+function applyTheme(theme) {
+  const btn = document.getElementById('theme-toggle-btn');
+  if (theme === 'light') {
+    document.body.classList.add('light');
+    if (btn) btn.textContent = '\u{1F319}';
+  } else {
+    document.body.classList.remove('light');
+    if (btn) btn.textContent = '\u2600\uFE0F';
+  }
+  localStorage.setItem('drovaTheme', theme);
+}
+
+function toggleTheme() {
+  const isLight = document.body.classList.contains('light');
+  applyTheme(isLight ? 'dark' : 'light');
+}
+
 
 init();
 
