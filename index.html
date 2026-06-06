@@ -2675,6 +2675,9 @@ function enterRole(role) {
     } else if (role === 'bathmaster') {
       renderBathmasterMenu();
       goTo('screen-bathmaster-menu');
+    } else if (role === 'technician') {
+      renderTechnicianMenu();
+      goTo('screen-technician-menu');
     } else {
       openAdminWip(getRoleLabel(role));
     }
