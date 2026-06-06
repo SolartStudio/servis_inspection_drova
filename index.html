@@ -1533,7 +1533,7 @@
       <div class="menu-icon">🔥</div>
       <div class="menu-text">
         <div class="menu-title-row"><div class="menu-title">Пармастера</div><span class="notify-badge" id="badge-founder-bathmasters">0</span></div>
-        <div class="menu-desc">Сотрудники и расходники</div>
+        <div class="menu-desc">Сотрудники и заказ</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1579,7 +1579,7 @@
   <div class="content">
     <div class="tabs">
       <div class="tab active" id="tab-bathmaster-staff" onclick="switchBathmasterTab('staff')">Сотрудники</div>
-      <div class="tab" id="tab-bathmaster-consumables" onclick="switchBathmasterTab('consumables')">Расходники <span class="notify-badge" id="badge-tab-bathmaster-consumables">0</span></div>
+      <div class="tab" id="tab-bathmaster-consumables" onclick="switchBathmasterTab('consumables')">Заказ <span class="notify-badge" id="badge-tab-bathmaster-consumables">0</span></div>
     </div>
     <div id="panel-bathmaster-staff"></div>
     <div id="panel-bathmaster-consumables" style="display:none;"></div>
@@ -1597,11 +1597,11 @@
       <div style="font-size: 24px; font-weight: 700;" id="bathmaster-menu-name">—</div>
     </div>
     <div class="section-label">Меню</div>
-    <div class="menu-item" onclick="openBathmasterWip('Меню')">
+    <div class="menu-item" onclick="openBathmasterMenuJpg()">
       <div class="menu-icon">🍽️</div>
       <div class="menu-text">
         <div class="menu-title">Меню</div>
-        <div class="menu-desc">Раздел в разработке</div>
+        <div class="menu-desc">Актуальное меню в JPG</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -2196,7 +2196,7 @@ async function initCloud() {
     refreshVisibleData();
   }, (err) => {
     console.error("bathmaster orders snapshot error", err);
-    showToast("Ошибка загрузки расходников");
+    showToast("Ошибка загрузки заказов");
   });
 
   db.collection("settings").doc("main").onSnapshot((doc) => {
@@ -3559,7 +3559,13 @@ async function confirmInventorySubmit() {
 // Потом просто заменить имена файлов ниже на реальные.
 const DOC_IMAGES = {
   menu: [
-    "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%9C%D0%B5%D0%BD%D1%8E%20%D0%9E%D1%84%D0%B8%D0%BA"
+    "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%9C%D0%B5%D0%BD%D1%8E%20%D0%9E%D1%84%D0%B8%D0%BA",
+    "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%9C%D0%B5%D0%BD%D1%8E%20%D0%BE%D1%84%D0%B8%D0%BA%202",
+    "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%BC%D0%B5%D0%BD%D1%8E%20%D0%BE%D1%84%D0%B8%D0%BA%203",
+    "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%BC%D0%B5%D0%BD%D1%8E%20%D0%BE%D1%84%D0%B8%D0%BA%204"
+  ],
+  bathmasterMenu: [
+    "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%BC%D0%B5%D0%BD%D1%8E%20%D0%BF%D0%B0%D1%80%D0%BC%D0%B0%D1%81%D1%82%D0%B5%D1%80"
   ],
   instructions: [
     // "docs/job-instructions-1.jpg",
@@ -3574,6 +3580,7 @@ const DOC_IMAGES = {
 function openWaiterDocs(type) {
   const titles = {
     menu: 'Меню',
+    bathmasterMenu: 'Меню пармастера',
     instructions: 'Должностные инструкции',
     algorithm: 'Алгоритм работы'
   };
@@ -3600,6 +3607,10 @@ function openWaiterDocs(type) {
 
 function openWaiterMenuJpg() {
   openWaiterDocs('menu');
+}
+
+function openBathmasterMenuJpg() {
+  openWaiterDocs('bathmasterMenu');
 }
 
 function getAttestationStats(staff) {
