@@ -425,9 +425,21 @@
     z-index: 200;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+    touch-action: none;
   }
   .fullscreen-photo.open { display: flex; }
-  .fullscreen-photo img { max-width: 100%; max-height: 100dvh; object-fit: contain; }
+  .fullscreen-photo img {
+    max-width: none;
+    max-height: none;
+    width: 100vw;
+    height: auto;
+    object-fit: contain;
+    transform-origin: center center;
+    will-change: transform;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
   .fullscreen-close {
     position: absolute;
     top: 16px; right: 16px;
@@ -439,7 +451,34 @@
     border-radius: 50%;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
+    z-index: 205;
   }
+  .fullscreen-zoom-controls {
+    position: absolute;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 205;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 999px;
+    padding: 8px;
+    backdrop-filter: blur(6px);
+  }
+  .fullscreen-zoom-controls button {
+    width: 42px;
+    height: 42px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.16);
+    color: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .fullscreen-zoom-controls button:active { background: rgba(255,255,255,0.28); }
 
   /* TOAST */
   .toast {
@@ -1689,7 +1728,12 @@
 <!-- FULLSCREEN PHOTO -->
 <div class="fullscreen-photo" id="fullscreen-photo">
   <button class="fullscreen-close" onclick="closeFullscreen()">✕</button>
-  <img id="fullscreen-img" src="">
+  <img id="fullscreen-img" src="" alt="">
+  <div class="fullscreen-zoom-controls">
+    <button type="button" onclick="zoomFullscreenImage(0.75)">−</button>
+    <button type="button" onclick="resetFullscreenZoom()">1×</button>
+    <button type="button" onclick="zoomFullscreenImage(1.35)">+</button>
+  </div>
 </div>
 
 <!-- TOAST -->
@@ -2744,11 +2788,109 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 // ============================================================
 // FULLSCREEN PHOTO
 // ============================================================
+let fullscreenZoom = {
+  scale: 1,
+  x: 0,
+  y: 0,
+  startX: 0,
+  startY: 0,
+  startDistance: 0,
+  startScale: 1,
+  dragging: false
+};
+
+function applyFullscreenZoom() {
+  const img = document.getElementById('fullscreen-img');
+  if (!img) return;
+  img.style.transform = `translate(${fullscreenZoom.x}px, ${fullscreenZoom.y}px) scale(${fullscreenZoom.scale})`;
+}
+
+function resetFullscreenZoom() {
+  fullscreenZoom.scale = 1;
+  fullscreenZoom.x = 0;
+  fullscreenZoom.y = 0;
+  applyFullscreenZoom();
+}
+
+function zoomFullscreenImage(multiplier) {
+  fullscreenZoom.scale = Math.min(8, Math.max(1, fullscreenZoom.scale * multiplier));
+  if (fullscreenZoom.scale === 1) {
+    fullscreenZoom.x = 0;
+    fullscreenZoom.y = 0;
+  }
+  applyFullscreenZoom();
+}
+
+function getTouchDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+
+function setupFullscreenGestures() {
+  const box = document.getElementById('fullscreen-photo');
+  if (!box || box.dataset.gesturesReady === '1') return;
+  box.dataset.gesturesReady = '1';
+
+  box.addEventListener('wheel', (e) => {
+    if (!box.classList.contains('open')) return;
+    e.preventDefault();
+    zoomFullscreenImage(e.deltaY < 0 ? 1.15 : 0.87);
+  }, { passive: false });
+
+  box.addEventListener('touchstart', (e) => {
+    if (!box.classList.contains('open')) return;
+    if (e.touches.length === 1) {
+      fullscreenZoom.dragging = true;
+      fullscreenZoom.startX = e.touches[0].clientX - fullscreenZoom.x;
+      fullscreenZoom.startY = e.touches[0].clientY - fullscreenZoom.y;
+    }
+    if (e.touches.length === 2) {
+      fullscreenZoom.dragging = false;
+      fullscreenZoom.startDistance = getTouchDistance(e.touches);
+      fullscreenZoom.startScale = fullscreenZoom.scale;
+    }
+  }, { passive: false });
+
+  box.addEventListener('touchmove', (e) => {
+    if (!box.classList.contains('open')) return;
+    e.preventDefault();
+
+    if (e.touches.length === 1 && fullscreenZoom.dragging && fullscreenZoom.scale > 1) {
+      fullscreenZoom.x = e.touches[0].clientX - fullscreenZoom.startX;
+      fullscreenZoom.y = e.touches[0].clientY - fullscreenZoom.startY;
+      applyFullscreenZoom();
+    }
+
+    if (e.touches.length === 2) {
+      const distance = getTouchDistance(e.touches);
+      const nextScale = fullscreenZoom.startScale * (distance / fullscreenZoom.startDistance);
+      fullscreenZoom.scale = Math.min(8, Math.max(1, nextScale));
+      if (fullscreenZoom.scale === 1) {
+        fullscreenZoom.x = 0;
+        fullscreenZoom.y = 0;
+      }
+      applyFullscreenZoom();
+    }
+  }, { passive: false });
+
+  box.addEventListener('touchend', () => {
+    fullscreenZoom.dragging = false;
+    if (fullscreenZoom.scale <= 1.02) resetFullscreenZoom();
+  }, { passive: false });
+}
+
 function openFullscreen(src) {
-  document.getElementById('fullscreen-img').src = src;
+  setupFullscreenGestures();
+  const img = document.getElementById('fullscreen-img');
+  img.src = src;
+  resetFullscreenZoom();
   document.getElementById('fullscreen-photo').classList.add('open');
 }
-function closeFullscreen() { document.getElementById('fullscreen-photo').classList.remove('open'); }
+function closeFullscreen() {
+  document.getElementById('fullscreen-photo').classList.remove('open');
+  resetFullscreenZoom();
+}
 
 // ============================================================
 // HOME
