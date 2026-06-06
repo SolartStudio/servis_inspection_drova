@@ -1631,6 +1631,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openFounderAllEmployees()">
+      <div class="menu-icon">👥</div>
+      <div class="menu-text">
+        <div class="menu-title">Все сотрудники</div>
+        <div class="menu-desc">Полный список всех подразделений</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="goTo('screen-settings')">
       <div class="menu-icon">⚙️</div>
       <div class="menu-text">
@@ -1646,6 +1654,19 @@
   </div>
 </div>
 
+
+
+<!-- ===== SCREEN: FOUNDER ALL EMPLOYEES ===== -->
+<div class="screen" id="screen-founder-all-employees">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Все сотрудники</span>
+  </div>
+  <div class="content">
+    <div class="section-label">Список сотрудников</div>
+    <div id="founder-all-employees-list"></div>
+  </div>
+</div>
 
 
 <!-- ===== SCREEN: FOUNDER BATHMASTERS ===== -->
@@ -2960,9 +2981,14 @@ function saveFine(fine) {
 
 async function deleteStaff(staffId) {
   const id = String(staffId);
+  const person = getStaff().find(s => String(s.id) === id);
   const staff = getStaff().filter(s => String(s.id) !== id);
   appCache.staff = staff;
   LocalDB.set("staff", staff);
+
+  if (person && person.role) {
+    clearStaffRoleSession(person.role);
+  }
 
   const currentWaiterId = getCurrentWaiterId();
   if (String(currentWaiterId) === id) {
@@ -3257,6 +3283,7 @@ function refreshScreen(id) {
   if (id === 'screen-technician-menu') renderTechnicianMenu();
   if (id === 'screen-technician-repairs') renderTechnicianRepairs();
   if (id === 'screen-founder-repairs') renderFounderRepairs();
+  if (id === 'screen-founder-all-employees') renderFounderAllEmployees();
   if (id === 'screen-repair-view') renderRepairView();
   if (id === 'screen-founder-bathmasters') renderFounderBathmasters();
   if (id === 'screen-founder-fines') renderFounderFines();
@@ -5291,6 +5318,83 @@ function openFounderBathmasters() {
   goTo('screen-founder-bathmasters');
 }
 
+function getAllEmployeesForFounder() {
+  const staffEmployees = getStaff().map(s => ({ ...s, _employeeType: 'staff', _key: 'staff:' + String(s.id) }));
+  const adminEmployees = getAdminProfiles().map(a => ({ ...a, _employeeType: 'admin', _key: 'admin:' + String(a.id), role: 'admin', roleLabel: 'Администратор' }));
+  return [...staffEmployees, ...adminEmployees].sort((a, b) => {
+    const roleCmp = String(getStaffRole(a)).localeCompare(String(getStaffRole(b)), 'ru');
+    if (roleCmp !== 0) return roleCmp;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'ru');
+  });
+}
+
+function findFounderEmployee(employeeKey) {
+  const raw = String(employeeKey || '');
+  if (raw.startsWith('admin:')) {
+    const id = raw.slice(6);
+    const admin = getAdminProfiles().find(a => String(a.id) === id);
+    return admin ? { ...admin, _employeeType: 'admin', _key: raw, role: 'admin', roleLabel: 'Администратор' } : null;
+  }
+  if (raw.startsWith('staff:')) {
+    const id = raw.slice(6);
+    const staff = getStaff().find(s => String(s.id) === id);
+    return staff ? { ...staff, _employeeType: 'staff', _key: raw } : null;
+  }
+  const staff = getStaff().find(s => String(s.id) === raw);
+  if (staff) return { ...staff, _employeeType: 'staff', _key: 'staff:' + String(staff.id) };
+  const admin = getAdminProfiles().find(a => String(a.id) === raw);
+  if (admin) return { ...admin, _employeeType: 'admin', _key: 'admin:' + String(admin.id), role: 'admin', roleLabel: 'Администратор' };
+  return null;
+}
+
+function openFounderAllEmployees() {
+  renderFounderAllEmployees();
+  goTo('screen-founder-all-employees');
+}
+
+function renderFounderAllEmployees() {
+  const list = document.getElementById('founder-all-employees-list');
+  if (!list) return;
+  const employees = getAllEmployeesForFounder();
+
+  if (!employees.length) {
+    list.innerHTML = `<div class="empty">
+      <div class="empty-icon">👥</div>
+      <div class="empty-title">Сотрудников пока нет</div>
+      <div class="empty-sub">Одобренные сотрудники и администраторы появятся здесь</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = employees.map(s => `
+    <div class="staff-item" onclick="openStaffView('${escapeHtml(s._key)}')">
+      <div class="staff-avatar">${escapeHtml((s.name || 'С').charAt(0).toUpperCase())}</div>
+      <div style="flex:1;">
+        <div class="staff-name">${escapeHtml(s.name || 'Сотрудник')}</div>
+        <div class="staff-login">${escapeHtml(getStaffRole(s))}${s.login ? ' · ' + escapeHtml(s.login) : ''}</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  `).join('');
+}
+
+async function deleteAdminProfileById(adminId) {
+  const id = String(adminId);
+  appCache.adminProfiles = getAdminProfiles().filter(a => String(a.id) !== id);
+  LocalDB.set("adminProfiles", appCache.adminProfiles);
+
+  if (String(localStorage.getItem("currentAdminProfileId")) === id) {
+    clearAdminSession();
+    clearCurrentAdminProfile();
+  }
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("adminProfiles").doc(id).delete();
+  }
+
+  refreshVisibleData();
+}
+
 // ============================================================
 // FOUNDER
 // ============================================================
@@ -5725,16 +5829,19 @@ function openShiftView(date, reps) {
 // STAFF VIEW
 // ============================================================
 function openStaffView(staffId) {
-  const staff = getStaff();
-  const s = staff.find(x => x.id === staffId);
+  const s = findFounderEmployee(staffId);
   if (!s) return;
 
-  const reports = getReports().filter(r => r.staffId === staffId);
+  const employeeKey = s._key || ('staff:' + String(s.id));
+  const rawId = String(s.id);
+  const reports = s._employeeType === 'staff' ? getReports().filter(r => String(r.staffId) === rawId) : [];
   const days = new Set(reports.map(r => r.date)).size;
   const dutyCount = s.dutyCount || 0;
-  const fines = getFines().filter(f => String(f.staffId) === String(staffId));
+  const fines = getFines().filter(f => String(f.staffId) === rawId);
+  const repairRequests = s._employeeType === 'staff' ? getRepairRequests().filter(r => String(r.staffId) === rawId) : [];
+  const bathmasterOrders = s.role === 'bathmaster' ? getBathmasterOrders().filter(o => String(o.staffId) === rawId) : [];
 
-  document.getElementById('staff-view-title').textContent = s.name;
+  document.getElementById('staff-view-title').textContent = s.name || 'Сотрудник';
 
   let html = `
     <div class="stat-row">
@@ -5744,15 +5851,31 @@ function openStaffView(staffId) {
     </div>
     <div class="divider"></div>
     <div style="margin-bottom:12px;">
-      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Должность</div>
-      <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${getStaffRole(s)}</div>
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Имя</div>
+      <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${escapeHtml(s.name || '—')}</div>
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Подразделение</div>
+      <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${escapeHtml(getStaffRole(s))}</div>
       <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Telegram</div>
-      <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${s.login || '—'}</div>
-      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Аттестация</div>
-      <div style="font-size:16px;font-weight:500;">${getAttestationBestText(s)}</div>
+      <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${escapeHtml(s.login || '—')}</div>
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Дата добавления</div>
+      <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${escapeHtml(s.createdAt ? new Date(s.createdAt).toLocaleString('ru-RU') : '—')}</div>
+      ${s.approvedAt ? `<div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Одобрен</div><div style="font-size:16px;font-weight:500;margin-bottom:12px;">${escapeHtml(new Date(s.approvedAt).toLocaleString('ru-RU'))}</div>` : ''}
+      ${s._employeeType === 'staff' ? `<div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Аттестация</div><div style="font-size:16px;font-weight:500;">${escapeHtml(getAttestationBestText(s))}</div>` : ''}
     </div>
-    <div class="divider"></div>
-    <div class="section-label">Штрафы</div>`;
+    <div class="divider"></div>`;
+
+  if (s._employeeType === 'staff') {
+    html += `<div class="section-label">Активность</div>
+      <div class="inventory-status">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Поломки</div><div style="font-size:20px;font-weight:700;color:var(--accent);">${repairRequests.length}</div></div>
+          <div><div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Заказы</div><div style="font-size:20px;font-weight:700;color:var(--accent);">${bathmasterOrders.length}</div></div>
+        </div>
+      </div>
+      <div class="divider"></div>`;
+  }
+
+  html += `<div class="section-label">Штрафы</div>`;
 
   if (fines.length === 0) {
     html += `<div class="empty" style="padding:32px 0;">
@@ -5764,14 +5887,14 @@ function openStaffView(staffId) {
       const date = f.date ? formatDateRu(f.date) : new Date(f.createdAt).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
       html += `<div class="card" style="cursor:default;">
         <div class="card-title">${Number(f.amount).toLocaleString('ru-RU')} сум</div>
-        <div class="card-sub">${date}${f.reason ? ' · ' + f.reason : ''}</div>
+        <div class="card-sub">${escapeHtml(date)}${f.reason ? ' · ' + escapeHtml(f.reason) : ''}</div>
       </div>`;
     });
   }
 
   html += `
     <div class="divider"></div>
-    <button class="btn btn-danger" onclick="openDeleteStaffModal('${s.id}')">Удалить сотрудника</button>
+    <button class="btn btn-danger" onclick="openDeleteStaffModal('${escapeHtml(employeeKey)}')">Удалить сотрудника</button>
   `;
 
   document.getElementById('staff-view-content').innerHTML = html;
@@ -5781,21 +5904,34 @@ function openStaffView(staffId) {
 let staffIdToDelete = null;
 
 function openDeleteStaffModal(staffId) {
-  const staff = getStaff();
-  const person = staff.find(s => String(s.id) === String(staffId));
+  const person = findFounderEmployee(staffId);
   if (!person) return;
-  staffIdToDelete = staffId;
-  document.getElementById('delete-staff-sub').textContent = `${person.name} будет удалён из системы. Отчеты останутся в истории.`;
+  staffIdToDelete = person._key || ('staff:' + String(person.id));
+  document.getElementById('delete-staff-sub').textContent = `${person.name || 'Сотрудник'} · ${getStaffRole(person)} будет удалён из системы. Отчеты и история останутся.`;
   openModal('modal-delete-staff');
 }
 
 async function confirmDeleteStaff() {
   if (!staffIdToDelete) return;
-  await deleteStaff(staffIdToDelete);
-  staffIdToDelete = null;
-  closeModal('modal-delete-staff');
-  showToast('Сотрудник удалён ✓');
-  goBack();
+  const key = String(staffIdToDelete);
+
+  try {
+    if (key.startsWith('admin:')) {
+      await deleteAdminProfileById(key.slice(6));
+    } else if (key.startsWith('staff:')) {
+      await deleteStaff(key.slice(6));
+    } else {
+      await deleteStaff(key);
+    }
+
+    staffIdToDelete = null;
+    closeModal('modal-delete-staff');
+    showToast('Сотрудник удалён ✓');
+    goBack();
+  } catch (e) {
+    console.error(e);
+    showToast('Ошибка удаления сотрудника');
+  }
 }
 
 // ============================================================
