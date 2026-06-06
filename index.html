@@ -783,6 +783,34 @@
     color: #777;
     font-weight: 400;
   }
+
+  .notify-badge {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #0f0f0f;
+    font-size: 12px;
+    font-weight: 800;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 22px;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  .notify-badge.show { display: inline-flex; }
+  .menu-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .swipe-delete-card {
+    touch-action: pan-y;
+    transition: transform 0.18s ease, opacity 0.18s ease;
+  }
+
   .export-hint {
     background: var(--surface);
     border: 1px dashed var(--border);
@@ -818,9 +846,9 @@
         <span class="role-name">Массажист</span>
         <span class="role-wip">Тестирование</span>
       </div>
-      <div class="role-card inactive" onclick="openTestingStub('Пармастер')">
+      <div class="role-card active-role" onclick="enterRole('bathmaster')">
         <span class="role-name">Пармастер</span>
-        <span class="role-wip">Тестирование</span>
+        <span style="font-size: 20px;">→</span>
       </div>
       <div class="role-card inactive" onclick="openTestingStub('Техничка')">
         <span class="role-name">Техничка</span>
@@ -898,7 +926,7 @@
       <span id="duty-banner-text">Вы дежурный завтра</span>
     </div>
     <div class="section-label">Меню</div>
-    <div class="menu-item" onclick="goTo('screen-photo-reports')">
+    <div class="menu-item" onclick="openPhotoReportPeriodSelect()">
       <div class="menu-icon">📷</div>
       <div class="menu-text">
         <div class="menu-title">Фотоотчеты</div>
@@ -1067,6 +1095,28 @@
     <span class="header-title" id="waiter-kpi-view-title">KPI</span>
   </div>
   <div class="content content-padded" id="waiter-kpi-view-content"></div>
+</div>
+
+<!-- ===== SCREEN: PHOTO REPORT PERIOD ===== -->
+<div class="screen" id="screen-photo-report-period">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Фотоотчеты</span>
+  </div>
+  <div class="content">
+    <div class="menu-item" onclick="openPhotoReportsByPeriod('morning')">
+      <div class="menu-text">
+        <div class="menu-title">Утро</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openPhotoReportsByPeriod('evening')">
+      <div class="menu-text">
+        <div class="menu-title">Вечер</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  </div>
 </div>
 
 <!-- ===== SCREEN: PHOTO REPORTS (bath list) ===== -->
@@ -1471,18 +1521,26 @@
       <div style="font-size: 24px; font-weight: 700;">Учредитель</div>
     </div>
     <div class="section-label">Меню</div>
-    <div class="menu-item" onclick="goTo('screen-founder-waiters')">
+    <div class="menu-item" onclick="openFounderWaiters()">
       <div class="menu-icon">🧑‍🤝‍🧑</div>
       <div class="menu-text">
-        <div class="menu-title">Официанты</div>
+        <div class="menu-title-row"><div class="menu-title">Официанты</div><span class="notify-badge" id="badge-founder-waiters">0</span></div>
         <div class="menu-desc">Смены и сотрудники</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
-    <div class="menu-item" onclick="goTo('screen-founder-admins')">
+    <div class="menu-item" onclick="openFounderBathmasters()">
+      <div class="menu-icon">🔥</div>
+      <div class="menu-text">
+        <div class="menu-title-row"><div class="menu-title">Пармастера</div><span class="notify-badge" id="badge-founder-bathmasters">0</span></div>
+        <div class="menu-desc">Сотрудники и расходники</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openFounderAdmins()">
       <div class="menu-icon">👔</div>
       <div class="menu-text">
-        <div class="menu-title">Администраторы</div>
+        <div class="menu-title-row"><div class="menu-title">Администраторы</div><span class="notify-badge" id="badge-founder-admins">0</span></div>
         <div class="menu-desc">Сертификаты и статистика</div>
       </div>
       <span class="menu-arrow">›</span>
@@ -1511,6 +1569,117 @@
 </div>
 
 
+
+<!-- ===== SCREEN: FOUNDER BATHMASTERS ===== -->
+<div class="screen" id="screen-founder-bathmasters">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Пармастера</span>
+  </div>
+  <div class="content">
+    <div class="tabs">
+      <div class="tab active" id="tab-bathmaster-staff" onclick="switchBathmasterTab('staff')">Сотрудники</div>
+      <div class="tab" id="tab-bathmaster-consumables" onclick="switchBathmasterTab('consumables')">Расходники <span class="notify-badge" id="badge-tab-bathmaster-consumables">0</span></div>
+    </div>
+    <div id="panel-bathmaster-staff"></div>
+    <div id="panel-bathmaster-consumables" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: BATHMASTER MENU ===== -->
+<div class="screen" id="screen-bathmaster-menu">
+  <div style="padding: 32px 20px 0;">
+    <div class="logo" style="font-size: 22px; letter-spacing: 4px;">drova</div>
+  </div>
+  <div class="content" style="padding-top: 24px;">
+    <div style="margin-bottom: 28px;">
+      <div style="font-size: 13px; color: var(--text-3); margin-bottom: 4px;">Пармастер</div>
+      <div style="font-size: 24px; font-weight: 700;" id="bathmaster-menu-name">—</div>
+    </div>
+    <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="openBathmasterWip('Меню')">
+      <div class="menu-icon">🍽️</div>
+      <div class="menu-text">
+        <div class="menu-title">Меню</div>
+        <div class="menu-desc">Раздел в разработке</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openBathmasterOrder()">
+      <div class="menu-icon">🧾</div>
+      <div class="menu-text">
+        <div class="menu-title">Заказать</div>
+        <div class="menu-desc">Что заканчивается и что купить</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openBathmasterWip('Поломки')">
+      <div class="menu-icon">🛠️</div>
+      <div class="menu-text">
+        <div class="menu-title">Поломки</div>
+        <div class="menu-desc">Раздел в разработке</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openBathmasterWip('KPI')">
+      <div class="menu-icon">📈</div>
+      <div class="menu-text">
+        <div class="menu-title">KPI</div>
+        <div class="menu-desc">Раздел в разработке</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openBathmasterWip('Обучение')">
+      <div class="menu-icon">🎓</div>
+      <div class="menu-text">
+        <div class="menu-title">Обучение</div>
+        <div class="menu-desc">Раздел в разработке</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  </div>
+  <div class="footer" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+    <span class="logo-sm">drova inspector</span>
+    <button class="btn btn-secondary btn-sm" onclick="staffLogout()">Выйти</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: BATHMASTER ORDER ===== -->
+<div class="screen" id="screen-bathmaster-order">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Заказать</span>
+  </div>
+  <div class="content content-padded">
+    <div class="section-label">Сообщение учредителю</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div style="font-size:14px;color:var(--text-2);line-height:1.5;margin-bottom:12px;">
+        Напишите, что заканчивается и что нужно купить. Учредитель увидит имя, дату, время и текст.
+      </div>
+      <div class="field">
+        <label>Что нужно заказать</label>
+        <textarea id="bathmaster-order-text" placeholder="Например: закончился веник, нужно 20 штук; мало одноразовых тапочек; купить масло..."></textarea>
+        <div class="error-msg" id="bathmaster-order-error">Напишите, что нужно заказать</div>
+      </div>
+      <button class="btn btn-primary" onclick="submitBathmasterOrder()">Отправить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: BATHMASTER WIP ===== -->
+<div class="screen" id="screen-bathmaster-wip">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="bathmaster-wip-title">Раздел</span>
+  </div>
+  <div class="wip-screen">
+    <div class="wip-icon">🔧</div>
+    <div class="wip-title">Раздел в разработке</div>
+    <div class="wip-sub">Функционал добавим следующим этапом.</div>
+  </div>
+</div>
+
+
 <!-- ===== SCREEN: FOUNDER ADMINS ===== -->
 <div class="screen" id="screen-founder-admins">
   <div class="header">
@@ -1530,7 +1699,7 @@
     <div class="menu-item" onclick="openFounderAdminStatistics()">
       <div class="menu-icon">📊</div>
       <div class="menu-text">
-        <div class="menu-title">Статистика</div>
+        <div class="menu-title-row"><div class="menu-title">Статистика</div><span class="notify-badge" id="badge-founder-admin-statistics">0</span></div>
         <div class="menu-desc">Отчеты администраторов по датам</div>
       </div>
       <span class="menu-arrow">›</span>
@@ -1613,9 +1782,9 @@
   </div>
   <div class="content">
     <div class="tabs">
-      <div class="tab active" id="tab-shifts" onclick="switchTab('shifts')">Смены</div>
+      <div class="tab active" id="tab-shifts" onclick="switchTab('shifts')">Смены <span class="notify-badge" id="badge-tab-shifts">0</span></div>
       <div class="tab" id="tab-staff" onclick="switchTab('staff')">Сотрудники</div>
-      <div class="tab" id="tab-inventory" onclick="switchTab('inventory')">Инвентаризация</div>
+      <div class="tab" id="tab-inventory" onclick="switchTab('inventory')">Инвентаризация <span class="notify-badge" id="badge-tab-inventory">0</span></div>
     </div>
     <div id="panel-shifts"></div>
     <div id="panel-staff" style="display:none;"></div>
@@ -1798,6 +1967,7 @@ const appCache = {
   accessRequests: [],
   adminStats: [],
   adminProfiles: [],
+  bathmasterOrders: [],
   kpiContent: getDefaultKpiContent()
 };
 
@@ -1963,6 +2133,7 @@ async function initCloud() {
     appCache.accessRequests = LocalDB.get("accessRequests") || [];
     appCache.adminStats = LocalDB.get("adminStats") || [];
     appCache.adminProfiles = LocalDB.get("adminProfiles") || [];
+    appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || [];
     appCache.kpiContent = LocalDB.get("kpiContent") || getDefaultKpiContent();
     return;
   }
@@ -2020,6 +2191,14 @@ async function initCloud() {
     showToast("Ошибка загрузки администраторов");
   });
 
+  db.collection("bathmasterOrders").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    appCache.bathmasterOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    refreshVisibleData();
+  }, (err) => {
+    console.error("bathmaster orders snapshot error", err);
+    showToast("Ошибка загрузки расходников");
+  });
+
   db.collection("settings").doc("main").onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : {};
     appCache.dutyAssignment = data.dutyAssignment || null;
@@ -2037,7 +2216,7 @@ async function initCloud() {
 }
 
 async function loadCloudData() {
-  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, settingsDoc] = await Promise.all([
+  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, settingsDoc] = await Promise.all([
     db.collection("staff").get(),
     db.collection("reports").orderBy("createdAt", "desc").get(),
     db.collection("fines").orderBy("createdAt", "desc").get(),
@@ -2045,6 +2224,7 @@ async function loadCloudData() {
     db.collection("accessRequests").orderBy("createdAt", "desc").get(),
     db.collection("adminStats").orderBy("createdAt", "desc").get(),
     db.collection("adminProfiles").orderBy("createdAt", "desc").get(),
+    db.collection("bathmasterOrders").orderBy("createdAt", "desc").get(),
     db.collection("settings").doc("main").get()
   ]);
 
@@ -2055,6 +2235,7 @@ async function loadCloudData() {
   appCache.accessRequests = accessRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.adminStats = adminStatsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.adminProfiles = adminProfilesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.bathmasterOrders = bathmasterOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   const settings = settingsDoc.exists ? settingsDoc.data() : {};
   appCache.dutyAssignment = settings.dutyAssignment || null;
@@ -2079,6 +2260,7 @@ function refreshVisibleData() {
   if (!current) return;
   refreshScreen(current);
   updateAccessRequestsMenuBadge();
+  updateUnreadBadges();
 }
 
 function getCurrentWaiterId() {
@@ -2276,6 +2458,9 @@ function openRoleAsFounder(role) {
   if (role === 'waiter') {
     renderWaiterMenu();
     goTo('screen-waiter-menu');
+  } else if (role === 'bathmaster') {
+    renderBathmasterMenu();
+    goTo('screen-bathmaster-menu');
   } else {
     openAdminWip(getRoleLabel(role));
   }
@@ -2356,6 +2541,9 @@ function enterRole(role) {
     if (role === 'waiter') {
       renderWaiterMenu();
       goTo('screen-waiter-menu');
+    } else if (role === 'bathmaster') {
+      renderBathmasterMenu();
+      goTo('screen-bathmaster-menu');
     } else {
       openAdminWip(getRoleLabel(role));
     }
@@ -2375,6 +2563,9 @@ function enterRole(role) {
       if (role === 'waiter') {
         renderWaiterMenu();
         goTo('screen-waiter-menu');
+      } else if (role === 'bathmaster') {
+        renderBathmasterMenu();
+        goTo('screen-bathmaster-menu');
       } else {
         openAdminWip(getRoleLabel(role));
       }
@@ -2420,6 +2611,9 @@ async function submitAccessRequest() {
     if (activeAccessRole === 'waiter') {
       renderWaiterMenu();
       goTo('screen-waiter-menu');
+    } else if (activeAccessRole === 'bathmaster') {
+      renderBathmasterMenu();
+      goTo('screen-bathmaster-menu');
     } else {
       openAdminWip(getRoleLabel(activeAccessRole));
     }
@@ -2486,6 +2680,7 @@ function getReports() {
 function setReports(arr) {
   appCache.reports = arr;
   LocalDB.set("reports", arr);
+  updateUnreadBadges();
 
   if (CLOUD_ENABLED && db) {
     arr.forEach(r => {
@@ -2655,6 +2850,7 @@ function getInventoryRecords() {
 async function saveInventoryRecord(record) {
   appCache.inventoryRecords = [record, ...(appCache.inventoryRecords || [])];
   LocalDB.set("inventoryRecords", appCache.inventoryRecords);
+  updateUnreadBadges();
 
   if (CLOUD_ENABLED && db) {
     await db.collection("inventoryRecords").doc(String(record.id)).set(record, { merge: true });
@@ -2668,10 +2864,106 @@ function getAdminStats() {
 async function saveAdminStat(record) {
   appCache.adminStats = [record, ...(appCache.adminStats || [])];
   LocalDB.set("adminStats", appCache.adminStats);
+  updateUnreadBadges();
 
   if (CLOUD_ENABLED && db) {
     await db.collection("adminStats").doc(String(record.id)).set(record, { merge: true });
   }
+}
+
+
+function getBathmasterOrders() {
+  return appCache.bathmasterOrders || [];
+}
+
+async function saveBathmasterOrder(order) {
+  appCache.bathmasterOrders = [order, ...(appCache.bathmasterOrders || [])];
+  LocalDB.set("bathmasterOrders", appCache.bathmasterOrders);
+  updateUnreadBadges();
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("bathmasterOrders").doc(String(order.id)).set(order, { merge: true });
+  }
+}
+
+async function deleteFineById(fineId) {
+  const id = String(fineId);
+  appCache.fines = getFines().filter(f => String(f.id) !== id);
+  LocalDB.set("fines", appCache.fines);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("fines").doc(id).delete();
+  }
+
+  refreshVisibleData();
+}
+
+function getReadMarker(key) {
+  return Number(LocalDB.get("readMarker_" + key) || 0);
+}
+
+function setReadMarker(key) {
+  LocalDB.set("readMarker_" + key, Date.now());
+  updateUnreadBadges();
+}
+
+function getTimeMs(value) {
+  const t = value ? Date.parse(value) : 0;
+  return Number.isFinite(t) ? t : 0;
+}
+
+function getUnreadCounts() {
+  const reportsUnread = getReports().filter(r => getTimeMs(r.createdAt) > getReadMarker("waiterReports")).length;
+  const inventoryUnread = getInventoryRecords().filter(r => getTimeMs(r.createdAt || r.submittedAt) > getReadMarker("waiterInventory")).length;
+  const adminStatsUnread = getAdminStats().filter(r => getTimeMs(r.createdAt) > getReadMarker("adminStats")).length;
+  const bathmasterOrdersUnread = getBathmasterOrders().filter(r => getTimeMs(r.createdAt) > getReadMarker("bathmasterOrders")).length;
+
+  return {
+    reports: reportsUnread,
+    inventory: inventoryUnread,
+    waiters: reportsUnread + inventoryUnread,
+    adminStats: adminStatsUnread,
+    admins: adminStatsUnread,
+    bathmasterOrders: bathmasterOrdersUnread,
+    bathmasters: bathmasterOrdersUnread
+  };
+}
+
+function setBadge(id, count) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const n = Number(count || 0);
+  el.textContent = n > 99 ? "99+" : String(n);
+  el.classList.toggle("show", n > 0);
+}
+
+function updateUnreadBadges() {
+  const c = getUnreadCounts();
+  setBadge("badge-founder-waiters", c.waiters);
+  setBadge("badge-tab-shifts", c.reports);
+  setBadge("badge-tab-inventory", c.inventory);
+
+  setBadge("badge-founder-admins", c.admins);
+  setBadge("badge-founder-admin-statistics", c.adminStats);
+
+  setBadge("badge-founder-bathmasters", c.bathmasters);
+  setBadge("badge-tab-bathmaster-consumables", c.bathmasterOrders);
+}
+
+function markWaiterReportsRead() {
+  setReadMarker("waiterReports");
+}
+
+function markWaiterInventoryRead() {
+  setReadMarker("waiterInventory");
+}
+
+function markAdminStatsRead() {
+  setReadMarker("adminStats");
+}
+
+function markBathmasterOrdersRead() {
+  setReadMarker("bathmasterOrders");
 }
 
 async function uploadReportPhoto(file, sectionKey) {
@@ -2757,6 +3049,8 @@ function refreshScreen(id) {
   if (id === 'screen-admin-fines') renderAdminFines();
   if (id === 'screen-admin-statistics') renderAdminStatisticsForm();
   if (id === 'screen-admin-access-requests') renderAccessRequests();
+  if (id === 'screen-bathmaster-menu') renderBathmasterMenu();
+  if (id === 'screen-founder-bathmasters') renderFounderBathmasters();
   if (id === 'screen-founder-fines') renderFounderFines();
   if (id === 'screen-founder-admin-statistics') renderFounderAdminStatistics();
   if (id === 'screen-founder-admin-statistics-view') renderFounderAdminStatisticsView();
@@ -3457,6 +3751,33 @@ async function saveAdminKpiEditor() {
 // BATHS
 // ============================================================
 const BATHS = ['Первая', 'Добрая', 'Малая', 'Лесная', 'Ханская', 'Байская'];
+let activePhotoReportPeriod = 'morning';
+
+function getPhotoPeriodLabel(period) {
+  return period === 'evening' ? 'Вечер' : 'Утро';
+}
+
+function getPhotoPeriodIcon(period) {
+  return period === 'evening' ? '🌙' : '🌅';
+}
+
+function openPhotoReportPeriodSelect() {
+  goTo('screen-photo-report-period');
+}
+
+function openPhotoReportsByPeriod(period) {
+  activePhotoReportPeriod = period === 'evening' ? 'evening' : 'morning';
+  const title = document.querySelector('#screen-photo-reports .header-title');
+  if (title) title.textContent = `Фотоотчеты · ${getPhotoPeriodLabel(activePhotoReportPeriod)}`;
+  renderBathList();
+  goTo('screen-photo-reports');
+}
+
+function getReportPeriodFromTime(now = new Date()) {
+  const hour = now.getHours();
+  return (hour >= 18 || hour < 6) ? 'evening' : 'morning';
+}
+
 const SECTIONS = [
   { key: 'table', label: 'Стол', limit: 3 },
   { key: 'terrace', label: 'Терраса', limit: 3 },
@@ -3478,12 +3799,12 @@ function renderBathList() {
 }
 
 // Active report state
-let activeReport = { bathIndex: null, photos: {} };
+let activeReport = { bathIndex: null, period: 'morning', photos: {} };
 
 function openBathReport(bathIndex) {
-  activeReport = { bathIndex, photos: {} };
+  activeReport = { bathIndex, period: activePhotoReportPeriod, photos: {} };
   SECTIONS.forEach(s => { activeReport.photos[s.key] = []; });
-  document.getElementById('bath-report-title').textContent = BATHS[bathIndex];
+  document.getElementById('bath-report-title').textContent = `${BATHS[bathIndex]} · ${getPhotoPeriodLabel(activeReport.period)}`;
   renderBathReportContent();
   goTo('screen-bath-report');
 }
@@ -3625,9 +3946,11 @@ async function confirmReport() {
       id: Date.now(),
       bathIndex: activeReport.bathIndex,
       bathName: BATHS[activeReport.bathIndex],
+      reportPeriod: activeReport.period || getReportPeriodFromTime(now),
+      reportPeriodLabel: getPhotoPeriodLabel(activeReport.period || getReportPeriodFromTime(now)),
       staffId: waiter.id,
       staffName: waiter.name,
-      date: getPhotoReportTargetDateKey(now),
+      date: getPhotoReportTargetDateKey(now, activeReport.period || getReportPeriodFromTime(now)),
       calendarDate: toDateKey(now),
       operationalDate: getOperationalDateKey(now),
       time: now.toTimeString().slice(0, 5),
@@ -3755,6 +4078,173 @@ function confirmDuty() {
 
   showToast(`${person.name} назначен(а) дежурным ✓`);
   renderDutyScreen();
+}
+
+
+// ============================================================
+// BATHMASTERS
+// ============================================================
+let activeBathmasterTab = 'staff';
+
+function getCurrentBathmaster() {
+  if (hasFounderSession() && localStorage.getItem("founderActiveRole") === 'bathmaster') {
+    return getFounderActor('bathmaster');
+  }
+
+  const current = getCurrentApprovedStaff();
+  if (!current || current.role !== 'bathmaster') return null;
+  return current;
+}
+
+function renderBathmasterMenu() {
+  const bm = getCurrentBathmaster();
+  if (!bm) {
+    const menu = document.getElementById('screen-bathmaster-menu');
+    const register = document.getElementById('screen-waiter-register');
+    if (menu && menu.classList.contains('active')) {
+      menu.classList.remove('active');
+      register.classList.add('active');
+      screenStack = ['screen-home', 'screen-waiter-register'];
+      showToast('Сотрудник удалён из системы');
+    }
+    return;
+  }
+
+  const nameEl = document.getElementById('bathmaster-menu-name');
+  if (nameEl) nameEl.textContent = bm.name || 'Пармастер';
+}
+
+function openBathmasterOrder() {
+  const field = document.getElementById('bathmaster-order-text');
+  const err = document.getElementById('bathmaster-order-error');
+  if (field) field.value = '';
+  if (err) err.classList.remove('show');
+  goTo('screen-bathmaster-order');
+}
+
+function openBathmasterWip(title) {
+  document.getElementById('bathmaster-wip-title').textContent = title;
+  goTo('screen-bathmaster-wip');
+}
+
+async function submitBathmasterOrder() {
+  const bm = getCurrentBathmaster();
+  const textValue = (document.getElementById('bathmaster-order-text')?.value || '').trim();
+  const err = document.getElementById('bathmaster-order-error');
+
+  if (!bm) {
+    showToast('Войдите как пармастер');
+    return;
+  }
+
+  if (!textValue) {
+    if (err) err.classList.add('show');
+    return;
+  }
+
+  if (err) err.classList.remove('show');
+
+  const now = new Date();
+  const order = {
+    id: Date.now(),
+    staffId: bm.id,
+    staffName: bm.name || 'Пармастер',
+    staffLogin: bm.login || '',
+    staffRole: 'Пармастер',
+    text: textValue,
+    date: toDateKey(now),
+    time: now.toTimeString().slice(0, 5),
+    createdAt: now.toISOString(),
+    status: 'new'
+  };
+
+  try {
+    await saveBathmasterOrder(order);
+    document.getElementById('bathmaster-order-text').value = '';
+    showToast('Заявка отправлена ✓');
+    goBack();
+  } catch (e) {
+    console.error(e);
+    showToast('Ошибка отправки заявки');
+  }
+}
+
+function staffLogout() {
+  showToast('Вы вышли в меню');
+  goHome();
+}
+
+function switchBathmasterTab(tab) {
+  activeBathmasterTab = tab;
+  document.getElementById('tab-bathmaster-staff').classList.toggle('active', tab === 'staff');
+  document.getElementById('tab-bathmaster-consumables').classList.toggle('active', tab === 'consumables');
+  document.getElementById('panel-bathmaster-staff').style.display = tab === 'staff' ? 'block' : 'none';
+  document.getElementById('panel-bathmaster-consumables').style.display = tab === 'consumables' ? 'block' : 'none';
+
+  if (tab === 'staff') renderBathmasterStaff();
+  if (tab === 'consumables') {
+    renderBathmasterConsumables();
+    markBathmasterOrdersRead();
+  }
+}
+
+function renderFounderBathmasters() {
+  renderBathmasterStaff();
+  renderBathmasterConsumables();
+}
+
+function renderBathmasterStaff() {
+  const el = document.getElementById('panel-bathmaster-staff');
+  if (!el) return;
+
+  const staff = getStaff().filter(s => s.role === 'bathmaster');
+
+  if (!staff.length) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">🔥</div>
+      <div class="empty-title">Пока нет пармастеров</div>
+      <div class="empty-sub">Сотрудники появятся после одобрения входа администратором</div>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = staff.map(s => `
+    <div class="staff-item" onclick="openStaffView('${s.id}')">
+      <div class="staff-avatar">${escapeHtml((s.name || 'П').charAt(0).toUpperCase())}</div>
+      <div style="flex:1;">
+        <div class="staff-name">${escapeHtml(s.name || 'Пармастер')}</div>
+        <div class="staff-login">${escapeHtml(getStaffRole(s))}${s.login ? ' · ' + escapeHtml(s.login) : ''}</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  `).join('');
+}
+
+function renderBathmasterConsumables() {
+  const el = document.getElementById('panel-bathmaster-consumables');
+  if (!el) return;
+
+  const orders = getBathmasterOrders().slice().sort((a, b) =>
+    String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+  );
+
+  if (!orders.length) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">🧾</div>
+      <div class="empty-title">Заявок пока нет</div>
+      <div class="empty-sub">Сообщения из раздела “Заказать” появятся здесь</div>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = orders.map(o => {
+    const dateText = o.date ? `${formatDateRu(o.date)}${o.time ? ' · ' + o.time : ''}` : (o.createdAt ? new Date(o.createdAt).toLocaleString('ru-RU') : '');
+    return `<div class="card" style="cursor:default;">
+      <div class="card-title">${escapeHtml(o.staffName || 'Пармастер')}${o.staffLogin ? ' · ' + escapeHtml(o.staffLogin) : ''}</div>
+      <div class="card-sub">${escapeHtml(dateText)}</div>
+      <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(o.text || '')}</div>
+    </div>`;
+  }).join('');
 }
 
 // ============================================================
@@ -4065,6 +4555,7 @@ let activeAdminStatId = null;
 
 function openFounderAdminStatistics() {
   renderFounderAdminStatistics();
+  markAdminStatsRead();
   goTo('screen-founder-admin-statistics');
 }
 
@@ -4140,6 +4631,59 @@ function openFounderAdminWip(title) {
   goTo('screen-founder-admin-wip');
 }
 
+
+let fineSwipeState = { id: null, startX: 0, currentX: 0 };
+
+function startFineSwipe(event, fineId) {
+  const touch = event.touches && event.touches[0];
+  if (!touch) return;
+  fineSwipeState = { id: String(fineId), startX: touch.clientX, currentX: touch.clientX };
+}
+
+function moveFineSwipe(event, fineId) {
+  const touch = event.touches && event.touches[0];
+  if (!touch || fineSwipeState.id !== String(fineId)) return;
+
+  const dx = Math.max(0, touch.clientX - fineSwipeState.startX);
+  fineSwipeState.currentX = touch.clientX;
+
+  const el = document.querySelector(`[data-fine-id="${fineId}"]`);
+  if (el) {
+    el.style.transform = `translateX(${Math.min(dx, 140)}px)`;
+    el.style.opacity = String(Math.max(0.35, 1 - dx / 260));
+  }
+}
+
+async function endFineSwipe(event, fineId) {
+  if (fineSwipeState.id !== String(fineId)) return;
+
+  const dx = Math.max(0, fineSwipeState.currentX - fineSwipeState.startX);
+  const el = document.querySelector(`[data-fine-id="${fineId}"]`);
+
+  if (dx > 110) {
+    if (el) {
+      el.style.transform = 'translateX(100%)';
+      el.style.opacity = '0';
+    }
+    try {
+      await deleteFineById(fineId);
+      showToast('Штраф удалён ✓');
+    } catch (e) {
+      console.error(e);
+      showToast('Ошибка удаления штрафа');
+      if (el) {
+        el.style.transform = '';
+        el.style.opacity = '';
+      }
+    }
+  } else if (el) {
+    el.style.transform = '';
+    el.style.opacity = '';
+  }
+
+  fineSwipeState = { id: null, startX: 0, currentX: 0 };
+}
+
 function openFounderFines() {
   renderFounderFines();
   goTo('screen-founder-fines');
@@ -4170,9 +4714,10 @@ function renderFounderFines() {
 
   list.innerHTML = fines.slice(0, 50).map(f => {
     const date = f.date ? formatDateRu(f.date) : new Date(f.createdAt).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
-    return `<div class="card" style="cursor:default;">
+    return `<div class="card swipe-delete-card" style="cursor:default;" data-fine-id="${f.id}" ontouchstart="startFineSwipe(event, '${f.id}')" ontouchmove="moveFineSwipe(event, '${f.id}')" ontouchend="endFineSwipe(event, '${f.id}')">
       <div class="card-title">${f.staffName}${f.staffRole ? ' · ' + f.staffRole : ''} · ${Number(f.amount).toLocaleString('ru-RU')} сум</div>
       <div class="card-sub">${date}${f.reason ? ' · ' + f.reason : ''}</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните вправо, чтобы удалить</div>
     </div>`;
   }).join('');
 }
@@ -4214,6 +4759,21 @@ function addFounderFine() {
   document.getElementById('founder-fine-reason').value = '';
   showToast('Штраф сохранён ✓');
   renderFounderFines();
+}
+
+
+function openFounderWaiters() {
+  goTo('screen-founder-waiters');
+  if (activeTab === 'shifts') markWaiterReportsRead();
+}
+
+function openFounderAdmins() {
+  goTo('screen-founder-admins');
+}
+
+function openFounderBathmasters() {
+  renderFounderBathmasters();
+  goTo('screen-founder-bathmasters');
 }
 
 // ============================================================
@@ -4266,7 +4826,9 @@ function switchTab(tab) {
   document.getElementById('panel-shifts').style.display = tab === 'shifts' ? 'block' : 'none';
   document.getElementById('panel-staff').style.display = tab === 'staff' ? 'block' : 'none';
   document.getElementById('panel-inventory').style.display = tab === 'inventory' ? 'block' : 'none';
-  if (tab === 'inventory') renderInventoryRecordsList();
+  if (tab === 'shifts') markWaiterReportsRead();
+  if (tab === 'inventory') { renderInventoryRecordsList(); markWaiterInventoryRead(); }
+  updateUnreadBadges();
 }
 
 function renderShifts() {
@@ -4763,11 +5325,12 @@ function getNextShiftDateKey(now = new Date()) {
   return toDateKey(d);
 }
 
-// Фотоотчёт — это подготовка именно к завтрашней смене по календарю.
-// 23:00, 02:00, 03:00, 05:59 — всё летит в дату "завтра".
-function getPhotoReportTargetDateKey(now = new Date()) {
+// Фотоотчеты привязаны к рабочей смене, которая закрывается в 06:00.
+// До 06:00 вечерний отчет относится к сегодняшней смене.
+// С 06:00 и дальше отчет готовится на следующую календарную смену.
+function getPhotoReportTargetDateKey(now = new Date(), period = null) {
   const d = new Date(now);
-  d.setDate(d.getDate() + 1);
+  if (d.getHours() >= 6) d.setDate(d.getDate() + 1);
   return toDateKey(d);
 }
 
@@ -4808,6 +5371,8 @@ async function init() {
   renderFounderAdminStatistics();
   renderInventoryStart();
   renderInventoryRecordsList();
+  renderFounderBathmasters();
+  updateUnreadBadges();
 
   if (!CLOUD_ENABLED) {
     showToast("Firebase config не заполнен");
