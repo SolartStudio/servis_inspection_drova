@@ -850,9 +850,9 @@
         <span class="role-name">Пармастер</span>
         <span style="font-size: 20px;">→</span>
       </div>
-      <div class="role-card inactive" onclick="openTestingStub('Техничка')">
-        <span class="role-name">Техничка</span>
-        <span class="role-wip">Тестирование</span>
+      <div class="role-card active-role" onclick="enterRole('technician')">
+        <span class="role-name">Техник</span>
+        <span style="font-size: 20px;">→</span>
       </div>
       <div class="role-card active-role" onclick="enterAdmin()">
         <span class="role-name">Администратор</span>
@@ -947,6 +947,14 @@
       <div class="menu-text">
         <div class="menu-title">Инвентаризация</div>
         <div class="menu-desc">Учет инвентаря</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openRepairCreate('waiter')">
+      <div class="menu-icon">🛠️</div>
+      <div class="menu-text">
+        <div class="menu-title">Поломки</div>
+        <div class="menu-desc">Заявка технику с фото</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1545,6 +1553,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openFounderRepairs()">
+      <div class="menu-icon">🛠️</div>
+      <div class="menu-text">
+        <div class="menu-title-row"><div class="menu-title">Поломки</div><span class="notify-badge" id="badge-founder-repairs">0</span></div>
+        <div class="menu-desc">Заявки и статусы ремонта</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openFounderFines()">
       <div class="menu-icon">💸</div>
       <div class="menu-text">
@@ -1613,11 +1629,11 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
-    <div class="menu-item" onclick="openBathmasterWip('Поломки')">
+    <div class="menu-item" onclick="openRepairCreate('bathmaster')">
       <div class="menu-icon">🛠️</div>
       <div class="menu-text">
         <div class="menu-title">Поломки</div>
-        <div class="menu-desc">Раздел в разработке</div>
+        <div class="menu-desc">Заявка технику с фото</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1678,6 +1694,36 @@
     <div class="wip-sub">Функционал добавим следующим этапом.</div>
   </div>
 </div>
+
+<!-- ===== SCREEN: TECHNICIAN MENU ===== -->
+<div class="screen" id="screen-technician-menu">
+  <div style="padding: 32px 20px 0;"><div class="logo" style="font-size: 22px; letter-spacing: 4px;">drova</div></div>
+  <div class="content" style="padding-top: 24px;">
+    <div style="margin-bottom: 28px;"><div style="font-size: 13px; color: var(--text-3); margin-bottom: 4px;">Техник</div><div style="font-size: 24px; font-weight: 700;" id="technician-menu-name">—</div></div>
+    <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="openTechnicianRepairs()"><div class="menu-icon">🛠️</div><div class="menu-text"><div class="menu-title-row"><div class="menu-title">Заявки на ремонт</div><span class="notify-badge" id="badge-technician-repairs">0</span></div><div class="menu-desc">Поломки от официантов и пармастеров</div></div><span class="menu-arrow">›</span></div>
+  </div>
+  <div class="footer" style="display:flex; justify-content:space-between; align-items:center; gap:12px;"><span class="logo-sm">drova inspector</span><button class="btn btn-secondary btn-sm" onclick="staffLogout()">Выйти</button></div>
+</div>
+
+<!-- ===== SCREEN: REPAIR CREATE ===== -->
+<div class="screen" id="screen-repair-create">
+  <div class="header"><button class="back-btn" onclick="goBack()">←</button><span class="header-title" id="repair-create-title">Поломки</span></div>
+  <div class="content content-padded"><div class="section-label">Заявка на ремонт</div><div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+    <div class="field"><label>Описание поломки</label><textarea id="repair-create-text" placeholder="Например: течёт кран, не работает свет, сломалась ручка двери..."></textarea><div class="error-msg" id="repair-create-error">Напишите, что сломалось</div></div>
+    <div class="photo-section" style="margin-bottom:0;"><div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="repair-create-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-create-photo-grid" style="display:none;"></div><label class="add-photo-btn" id="repair-create-add-btn"><span>＋</span><span>Добавить фото</span><input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairPhotos(event)"></label></div></div>
+  </div></div>
+  <div class="footer"><button class="btn btn-primary" onclick="submitRepairRequest()">Отправить заявку</button></div>
+</div>
+
+<!-- ===== SCREEN: TECHNICIAN REPAIRS ===== -->
+<div class="screen" id="screen-technician-repairs"><div class="header"><button class="back-btn" onclick="goBack()">←</button><span class="header-title">Заявки на ремонт</span></div><div class="content"><div id="technician-repairs-list"></div></div></div>
+
+<!-- ===== SCREEN: REPAIR VIEW ===== -->
+<div class="screen" id="screen-repair-view"><div class="header"><button class="back-btn" onclick="goBack()">←</button><span class="header-title" id="repair-view-title">Заявка</span></div><div class="content content-padded" id="repair-view-content"></div></div>
+
+<!-- ===== SCREEN: FOUNDER REPAIRS ===== -->
+<div class="screen" id="screen-founder-repairs"><div class="header"><button class="back-btn" onclick="goBack()">←</button><span class="header-title">Поломки</span></div><div class="content"><div id="founder-repairs-list"></div></div></div>
 
 
 <!-- ===== SCREEN: FOUNDER ADMINS ===== -->
@@ -1882,6 +1928,12 @@
 </div>
 
 
+<!-- ===== MODAL: REPAIR CONFIRM ===== -->
+<div class="modal-overlay" id="modal-repair-confirm"><div class="modal"><div class="modal-title">Отправить заявку?</div><div class="modal-sub">Проверьте текст и фото. Техник увидит заявку после отправки.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmRepairRequest()">Да, отправить</button><button class="btn btn-secondary" onclick="closeModal('modal-repair-confirm')">Нет, вернуться</button></div></div></div>
+
+<!-- ===== MODAL: REPAIR CLOSE CONFIRM ===== -->
+<div class="modal-overlay" id="modal-repair-close-confirm"><div class="modal"><div class="modal-title">Закрыть заявку?</div><div class="modal-sub">Заявка будет отмечена как отремонтированная. Фото после ремонта обязательно.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmCloseRepairRequest()">Да, закрыть</button><button class="btn btn-secondary" onclick="closeModal('modal-repair-close-confirm')">Нет, вернуться</button></div></div></div>
+
 <!-- ===== MODAL: EXPORT READY ===== -->
 <div class="modal-overlay" id="modal-export-ready">
   <div class="modal">
@@ -1968,6 +2020,7 @@ const appCache = {
   adminStats: [],
   adminProfiles: [],
   bathmasterOrders: [],
+  repairRequests: [],
   kpiContent: getDefaultKpiContent()
 };
 
@@ -2134,6 +2187,7 @@ async function initCloud() {
     appCache.adminStats = LocalDB.get("adminStats") || [];
     appCache.adminProfiles = LocalDB.get("adminProfiles") || [];
     appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || [];
+    appCache.repairRequests = LocalDB.get("repairRequests") || [];
     appCache.kpiContent = LocalDB.get("kpiContent") || getDefaultKpiContent();
     return;
   }
@@ -2199,6 +2253,14 @@ async function initCloud() {
     showToast("Ошибка загрузки заказов");
   });
 
+  db.collection("repairRequests").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    appCache.repairRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    refreshVisibleData();
+  }, (err) => {
+    console.error("repair requests snapshot error", err);
+    showToast("Ошибка загрузки поломок");
+  });
+
   db.collection("settings").doc("main").onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : {};
     appCache.dutyAssignment = data.dutyAssignment || null;
@@ -2216,7 +2278,7 @@ async function initCloud() {
 }
 
 async function loadCloudData() {
-  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, settingsDoc] = await Promise.all([
+  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, repairRequestsSnap, settingsDoc] = await Promise.all([
     db.collection("staff").get(),
     db.collection("reports").orderBy("createdAt", "desc").get(),
     db.collection("fines").orderBy("createdAt", "desc").get(),
@@ -2225,6 +2287,7 @@ async function loadCloudData() {
     db.collection("adminStats").orderBy("createdAt", "desc").get(),
     db.collection("adminProfiles").orderBy("createdAt", "desc").get(),
     db.collection("bathmasterOrders").orderBy("createdAt", "desc").get(),
+    db.collection("repairRequests").orderBy("createdAt", "desc").get(),
     db.collection("settings").doc("main").get()
   ]);
 
@@ -2236,6 +2299,7 @@ async function loadCloudData() {
   appCache.adminStats = adminStatsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.adminProfiles = adminProfilesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.bathmasterOrders = bathmasterOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.repairRequests = repairRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   const settings = settingsDoc.exists ? settingsDoc.data() : {};
   appCache.dutyAssignment = settings.dutyAssignment || null;
@@ -2329,10 +2393,11 @@ const ROLE_LABELS = {
   stoker: 'Топник',
   masseur: 'Массажист',
   cleaner: 'Техничка',
-  bathmaster: 'Пармастер'
+  bathmaster: 'Пармастер',
+  technician: 'Техник'
 };
 
-const EMPLOYEE_ROLES = ['waiter', 'cook', 'stoker', 'masseur', 'cleaner', 'bathmaster'];
+const EMPLOYEE_ROLES = ['waiter', 'cook', 'stoker', 'masseur', 'cleaner', 'bathmaster', 'technician'];
 
 let activeAccessRole = 'waiter';
 
@@ -2353,7 +2418,8 @@ function getRolePrepositional(role) {
     stoker: 'топников',
     masseur: 'массажистов',
     cleaner: 'техничек',
-    bathmaster: 'пармастеров'
+    bathmaster: 'пармастеров',
+    technician: 'техников'
   };
   return forms[role] || String(getRoleLabel(role)).toLowerCase();
 }
@@ -2461,6 +2527,9 @@ function openRoleAsFounder(role) {
   } else if (role === 'bathmaster') {
     renderBathmasterMenu();
     goTo('screen-bathmaster-menu');
+  } else if (role === 'technician') {
+    renderTechnicianMenu();
+    goTo('screen-technician-menu');
   } else {
     openAdminWip(getRoleLabel(role));
   }
@@ -2566,6 +2635,9 @@ function enterRole(role) {
       } else if (role === 'bathmaster') {
         renderBathmasterMenu();
         goTo('screen-bathmaster-menu');
+      } else if (role === 'technician') {
+        renderTechnicianMenu();
+        goTo('screen-technician-menu');
       } else {
         openAdminWip(getRoleLabel(role));
       }
@@ -2614,6 +2686,9 @@ async function submitAccessRequest() {
     } else if (activeAccessRole === 'bathmaster') {
       renderBathmasterMenu();
       goTo('screen-bathmaster-menu');
+    } else if (activeAccessRole === 'technician') {
+      renderTechnicianMenu();
+      goTo('screen-technician-menu');
     } else {
       openAdminWip(getRoleLabel(activeAccessRole));
     }
@@ -2886,6 +2961,24 @@ async function saveBathmasterOrder(order) {
   }
 }
 
+function getRepairRequests() { return appCache.repairRequests || []; }
+
+async function saveRepairRequest(req) {
+  const arr = getRepairRequests().filter(r => String(r.id) !== String(req.id));
+  arr.unshift(req);
+  appCache.repairRequests = arr;
+  LocalDB.set("repairRequests", arr);
+  updateUnreadBadges();
+  if (CLOUD_ENABLED && db) await db.collection("repairRequests").doc(String(req.id)).set(req, { merge: true });
+}
+
+async function updateRepairRequest(req) {
+  appCache.repairRequests = getRepairRequests().map(r => String(r.id) === String(req.id) ? req : r);
+  LocalDB.set("repairRequests", appCache.repairRequests);
+  updateUnreadBadges();
+  if (CLOUD_ENABLED && db) await db.collection("repairRequests").doc(String(req.id)).set(req, { merge: true });
+}
+
 async function deleteFineById(fineId) {
   const id = String(fineId);
   appCache.fines = getFines().filter(f => String(f.id) !== id);
@@ -2917,6 +3010,8 @@ function getUnreadCounts() {
   const inventoryUnread = getInventoryRecords().filter(r => getTimeMs(r.createdAt || r.submittedAt) > getReadMarker("waiterInventory")).length;
   const adminStatsUnread = getAdminStats().filter(r => getTimeMs(r.createdAt) > getReadMarker("adminStats")).length;
   const bathmasterOrdersUnread = getBathmasterOrders().filter(r => getTimeMs(r.createdAt) > getReadMarker("bathmasterOrders")).length;
+  const repairUnreadForFounder = getRepairRequests().filter(r => getTimeMs(r.createdAt) > getReadMarker("founderRepairs")).length;
+  const repairUnreadForTechnician = getRepairRequests().filter(r => r.status === 'new').length;
 
   return {
     reports: reportsUnread,
@@ -2925,7 +3020,9 @@ function getUnreadCounts() {
     adminStats: adminStatsUnread,
     admins: adminStatsUnread,
     bathmasterOrders: bathmasterOrdersUnread,
-    bathmasters: bathmasterOrdersUnread
+    bathmasters: bathmasterOrdersUnread,
+    repairsFounder: repairUnreadForFounder,
+    repairsTechnician: repairUnreadForTechnician
   };
 }
 
@@ -2948,6 +3045,8 @@ function updateUnreadBadges() {
 
   setBadge("badge-founder-bathmasters", c.bathmasters);
   setBadge("badge-tab-bathmaster-consumables", c.bathmasterOrders);
+  setBadge("badge-founder-repairs", c.repairsFounder);
+  setBadge("badge-technician-repairs", c.repairsTechnician);
 }
 
 function markWaiterReportsRead() {
@@ -2964,6 +3063,10 @@ function markAdminStatsRead() {
 
 function markBathmasterOrdersRead() {
   setReadMarker("bathmasterOrders");
+}
+
+function markFounderRepairsRead() {
+  setReadMarker("founderRepairs");
 }
 
 async function uploadReportPhoto(file, sectionKey) {
@@ -3050,6 +3153,10 @@ function refreshScreen(id) {
   if (id === 'screen-admin-statistics') renderAdminStatisticsForm();
   if (id === 'screen-admin-access-requests') renderAccessRequests();
   if (id === 'screen-bathmaster-menu') renderBathmasterMenu();
+  if (id === 'screen-technician-menu') renderTechnicianMenu();
+  if (id === 'screen-technician-repairs') renderTechnicianRepairs();
+  if (id === 'screen-founder-repairs') renderFounderRepairs();
+  if (id === 'screen-repair-view') renderRepairView();
   if (id === 'screen-founder-bathmasters') renderFounderBathmasters();
   if (id === 'screen-founder-fines') renderFounderFines();
   if (id === 'screen-founder-admin-statistics') renderFounderAdminStatistics();
@@ -4091,6 +4198,225 @@ function confirmDuty() {
   renderDutyScreen();
 }
 
+
+// ============================================================
+// REPAIRS
+// ============================================================
+let activeRepairSourceRole = 'waiter';
+let activeRepairPhotos = [];
+let activeRepairViewId = null;
+let activeRepairClosePhotos = [];
+let activeRepairPhotoSet = [];
+let activeRepairFixedPhotoSet = [];
+
+function getCurrentTechnician() {
+  if (hasFounderSession() && localStorage.getItem("founderActiveRole") === 'technician') return getFounderActor('technician');
+  const current = getCurrentApprovedStaff();
+  if (!current || current.role !== 'technician') return null;
+  return current;
+}
+
+function getRepairActor(sourceRole) {
+  if (sourceRole === 'bathmaster') return getCurrentBathmaster();
+  return getWaiter();
+}
+
+function renderTechnicianMenu() {
+  const tech = getCurrentTechnician();
+  if (!tech) {
+    const menu = document.getElementById('screen-technician-menu');
+    const register = document.getElementById('screen-waiter-register');
+    if (menu && menu.classList.contains('active')) {
+      menu.classList.remove('active');
+      register.classList.add('active');
+      screenStack = ['screen-home', 'screen-waiter-register'];
+      showToast('Сотрудник удалён из системы');
+    }
+    return;
+  }
+  const nameEl = document.getElementById('technician-menu-name');
+  if (nameEl) nameEl.textContent = tech.name || 'Техник';
+  updateUnreadBadges();
+}
+
+function openRepairCreate(sourceRole) {
+  const actor = getRepairActor(sourceRole);
+  if (!actor) { showToast('Сначала войдите в подразделение'); return; }
+  activeRepairSourceRole = sourceRole;
+  activeRepairPhotos = [];
+  const title = document.getElementById('repair-create-title');
+  const text = document.getElementById('repair-create-text');
+  const err = document.getElementById('repair-create-error');
+  if (title) title.textContent = `Поломки · ${getRoleLabel(sourceRole)}`;
+  if (text) text.value = '';
+  if (err) err.classList.remove('show');
+  renderRepairCreatePhotos();
+  goTo('screen-repair-create');
+}
+
+function renderRepairCreatePhotos() {
+  const grid = document.getElementById('repair-create-photo-grid');
+  const count = document.getElementById('repair-create-photo-count');
+  const addBtn = document.getElementById('repair-create-add-btn');
+  if (!grid || !count || !addBtn) return;
+  count.textContent = `${activeRepairPhotos.length} / 3`;
+  grid.style.display = activeRepairPhotos.length ? 'grid' : 'none';
+  addBtn.classList.toggle('hidden', activeRepairPhotos.length >= 3);
+  grid.innerHTML = activeRepairPhotos.map((photo, idx) => `<div class="photo-thumb" onclick="openFullscreen('${photo.preview_url}')"><img src="${photo.preview_url}" alt=""><button class="remove-photo" onclick="event.stopPropagation(); removeRepairPhoto(${idx})">✕</button></div>`).join('');
+}
+
+function handleRepairPhotos(event) {
+  const file = Array.from(event.target.files || [])[0];
+  if (!file) return;
+  if (activeRepairPhotos.length >= 3) { showToast('Лимит фото: 3'); event.target.value = ''; return; }
+  if (!file.type || !file.type.startsWith('image/')) { showToast('Нужно сделать фото'); event.target.value = ''; return; }
+  activeRepairPhotos.push({ type: 'local', file, preview_url: URL.createObjectURL(file), addedAt: new Date().toISOString() });
+  renderRepairCreatePhotos();
+  event.target.value = '';
+}
+function removeRepairPhoto(index) { activeRepairPhotos.splice(index, 1); renderRepairCreatePhotos(); }
+
+function submitRepairRequest() {
+  const textValue = (document.getElementById('repair-create-text')?.value || '').trim();
+  const err = document.getElementById('repair-create-error');
+  if (!textValue) { if (err) err.classList.add('show'); return; }
+  if (err) err.classList.remove('show');
+  openModal('modal-repair-confirm');
+}
+
+async function uploadRepairPhotos(photos, sectionKey) {
+  const uploaded = [];
+  for (const photo of photos || []) {
+    if (photo && photo.type === 'local' && photo.file) uploaded.push(await uploadReportPhoto(photo.file, sectionKey));
+    else uploaded.push(photo);
+  }
+  return uploaded;
+}
+
+async function confirmRepairRequest() {
+  closeModal('modal-repair-confirm');
+  const actor = getRepairActor(activeRepairSourceRole);
+  const textValue = (document.getElementById('repair-create-text')?.value || '').trim();
+  if (!actor || !textValue) { showToast('Нет данных для заявки'); return; }
+  try {
+    showToast(activeRepairPhotos.length ? 'Отправляем фото...' : 'Отправляем заявку...');
+    const photos = await uploadRepairPhotos(activeRepairPhotos, 'repair');
+    const now = new Date();
+    const req = { id: Date.now(), sourceRole: activeRepairSourceRole, sourceRoleLabel: getRoleLabel(activeRepairSourceRole), staffId: actor.id, staffName: actor.name || getRoleLabel(activeRepairSourceRole), staffLogin: actor.login || '', text: textValue, photos, fixedPhotos: [], status: 'new', date: toDateKey(now), time: now.toTimeString().slice(0, 5), createdAt: now.toISOString(), technicianReadAt: null, repairedAt: null };
+    await saveRepairRequest(req);
+    activeRepairPhotos = [];
+    document.getElementById('repair-create-text').value = '';
+    showToast('Заявка отправлена ✓');
+    goBack();
+  } catch (e) { console.error(e); showToast('Ошибка отправки заявки'); }
+}
+
+function getRepairStatusText(req) { if (!req) return 'Новая заявка'; if (req.status === 'repaired') return 'Отремонтировано'; if (req.status === 'read_by_technician') return 'Прочитано техником'; return 'Новая заявка'; }
+function getRepairStatusColor(req) { if (!req) return 'var(--accent)'; if (req.status === 'repaired') return 'var(--success)'; if (req.status === 'read_by_technician') return 'var(--text-2)'; return 'var(--accent)'; }
+
+function openTechnicianRepairs() { renderTechnicianRepairs(); goTo('screen-technician-repairs'); }
+
+function renderTechnicianRepairs() {
+  const list = document.getElementById('technician-repairs-list');
+  if (!list) return;
+  const items = getRepairRequests().slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  if (!items.length) { list.innerHTML = `<div class="empty"><div class="empty-icon">🛠️</div><div class="empty-title">Заявок пока нет</div><div class="empty-sub">Новые поломки появятся здесь</div></div>`; return; }
+  list.innerHTML = items.map(req => {
+    const dateText = req.date ? `${formatDateRu(req.date)}${req.time ? ' · ' + req.time : ''}` : '';
+    const unread = req.status === 'new' ? '<span class="notify-badge show">1</span>' : '';
+    return `<div class="shift-card" onclick="openRepairView('${req.id}', 'technician')"><div class="shift-date" style="display:flex;align-items:center;gap:8px;">${escapeHtml(req.staffName || 'Сотрудник')} ${unread}</div><div class="shift-meta">${escapeHtml(req.sourceRoleLabel || '')} · ${escapeHtml(dateText)} · <span style="color:${getRepairStatusColor(req)};font-weight:700;">${getRepairStatusText(req)}</span></div><div style="font-size:14px;line-height:1.45;margin-top:10px;color:var(--text-2);">${escapeHtml((req.text || '').slice(0, 120))}</div></div>`;
+  }).join('');
+}
+
+async function openRepairView(reqId, mode) {
+  activeRepairViewId = String(reqId);
+  localStorage.setItem('repairViewMode', mode || 'technician');
+  activeRepairClosePhotos = [];
+  const req = getRepairRequests().find(r => String(r.id) === String(reqId));
+  if (req && mode === 'technician' && req.status === 'new') {
+    req.status = 'read_by_technician';
+    req.technicianReadAt = new Date().toISOString();
+    await updateRepairRequest(req);
+  }
+  renderRepairView();
+  goTo('screen-repair-view');
+}
+
+function openRepairPhoto(kind, index) {
+  const arr = kind === 'fixed' ? activeRepairFixedPhotoSet : activeRepairPhotoSet;
+  const photo = arr[index];
+  if (photo) openFullscreen(getPhotoDisplaySrc(photo));
+}
+
+function renderRepairView() {
+  const req = getRepairRequests().find(r => String(r.id) === String(activeRepairViewId));
+  const title = document.getElementById('repair-view-title');
+  const content = document.getElementById('repair-view-content');
+  if (!title || !content) return;
+  if (!req) { title.textContent = 'Заявка'; content.innerHTML = `<div class="empty"><div class="empty-icon">🛠️</div><div class="empty-title">Заявка не найдена</div></div>`; return; }
+  const mode = localStorage.getItem('repairViewMode') || 'technician';
+  const dateText = req.date ? `${formatDateRu(req.date)}${req.time ? ' · ' + req.time : ''}` : '';
+  title.textContent = 'Поломка';
+  activeRepairPhotoSet = req.photos || [];
+  activeRepairFixedPhotoSet = req.fixedPhotos || [];
+  const photosHtml = activeRepairPhotoSet.length ? `<div class="section-label">Фото поломки</div><div class="report-photo-grid" style="margin-bottom:16px;">${activeRepairPhotoSet.map((photo, idx) => `<div class="report-photo-thumb" onclick="openRepairPhoto('main', ${idx})"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : `<div class="doc-placeholder">Фото поломки не прикрепляли.</div>`;
+  const fixedPhotosHtml = activeRepairFixedPhotoSet.length ? `<div class="section-label">Фото после ремонта</div><div class="report-photo-grid" style="margin-bottom:16px;">${activeRepairFixedPhotoSet.map((photo, idx) => `<div class="report-photo-thumb" onclick="openRepairPhoto('fixed', ${idx})"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+  const closeBlock = mode === 'technician' && req.status !== 'repaired' ? `<div class="section-label">Закрытие заявки</div><div class="photo-section"><div class="photo-section-header"><span class="photo-section-title">Фото после починки</span><span class="photo-count" id="repair-close-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-close-photo-grid" style="display:none;"></div><label class="add-photo-btn" id="repair-close-add-btn"><span>＋</span><span>Добавить фото после ремонта</span><input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairClosePhotos(event)"></label></div></div><button class="btn btn-primary" onclick="closeRepairRequestWithPhoto()">Закрыть заявку</button>` : '';
+  content.innerHTML = `<div class="inventory-status"><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">От кого</div><div style="font-size:18px;font-weight:700;margin-bottom:12px;">${escapeHtml(req.staffName || '—')}${req.staffLogin ? ' · ' + escapeHtml(req.staffLogin) : ''}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Подразделение</div><div style="font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(req.sourceRoleLabel || '—')}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Дата</div><div style="font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(dateText)}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Статус</div><div style="font-size:16px;font-weight:800;color:${getRepairStatusColor(req)};">${getRepairStatusText(req)}</div></div><div class="section-label">Описание</div><div class="doc-placeholder" style="white-space:pre-line;color:var(--text);">${escapeHtml(req.text || '')}</div>${photosHtml}${fixedPhotosHtml}${closeBlock}`;
+  if (mode === 'technician' && req.status !== 'repaired') renderRepairClosePhotos();
+}
+
+function renderRepairClosePhotos() {
+  const grid = document.getElementById('repair-close-photo-grid');
+  const count = document.getElementById('repair-close-photo-count');
+  const addBtn = document.getElementById('repair-close-add-btn');
+  if (!grid || !count || !addBtn) return;
+  count.textContent = `${activeRepairClosePhotos.length} / 3`;
+  grid.style.display = activeRepairClosePhotos.length ? 'grid' : 'none';
+  addBtn.classList.toggle('hidden', activeRepairClosePhotos.length >= 3);
+  grid.innerHTML = activeRepairClosePhotos.map((photo, idx) => `<div class="photo-thumb" onclick="openFullscreen('${photo.preview_url}')"><img src="${photo.preview_url}" alt=""><button class="remove-photo" onclick="event.stopPropagation(); removeRepairClosePhoto(${idx})">✕</button></div>`).join('');
+}
+
+function handleRepairClosePhotos(event) {
+  const file = Array.from(event.target.files || [])[0];
+  if (!file) return;
+  if (activeRepairClosePhotos.length >= 3) { showToast('Лимит фото: 3'); event.target.value = ''; return; }
+  if (!file.type || !file.type.startsWith('image/')) { showToast('Нужно сделать фото'); event.target.value = ''; return; }
+  activeRepairClosePhotos.push({ type: 'local', file, preview_url: URL.createObjectURL(file), addedAt: new Date().toISOString() });
+  renderRepairClosePhotos();
+  event.target.value = '';
+}
+function removeRepairClosePhoto(index) { activeRepairClosePhotos.splice(index, 1); renderRepairClosePhotos(); }
+function closeRepairRequestWithPhoto() { if (!activeRepairClosePhotos.length) { showToast('Добавьте фото после ремонта'); return; } openModal('modal-repair-close-confirm'); }
+
+async function confirmCloseRepairRequest() {
+  closeModal('modal-repair-close-confirm');
+  const req = getRepairRequests().find(r => String(r.id) === String(activeRepairViewId));
+  const tech = getCurrentTechnician();
+  if (!req || !tech) { showToast('Заявка не найдена'); return; }
+  try {
+    showToast('Отправляем фото...');
+    const photos = await uploadRepairPhotos(activeRepairClosePhotos, 'repairFixed');
+    req.fixedPhotos = photos;
+    req.status = 'repaired';
+    req.repairedAt = new Date().toISOString();
+    req.technicianId = tech.id;
+    req.technicianName = tech.name || 'Техник';
+    await updateRepairRequest(req);
+    activeRepairClosePhotos = [];
+    showToast('Заявка закрыта ✓');
+    renderRepairView();
+  } catch (e) { console.error(e); showToast('Ошибка закрытия заявки'); }
+}
+
+function openFounderRepairs() { renderFounderRepairs(); markFounderRepairsRead(); goTo('screen-founder-repairs'); }
+function renderFounderRepairs() {
+  const list = document.getElementById('founder-repairs-list');
+  if (!list) return;
+  const items = getRepairRequests().slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  if (!items.length) { list.innerHTML = `<div class="empty"><div class="empty-icon">🛠️</div><div class="empty-title">Поломок пока нет</div><div class="empty-sub">Заявки от официантов и пармастеров появятся здесь</div></div>`; return; }
+  list.innerHTML = items.map(req => { const dateText = req.date ? `${formatDateRu(req.date)}${req.time ? ' · ' + req.time : ''}` : ''; return `<div class="shift-card" onclick="openRepairView('${req.id}', 'founder')"><div class="shift-date">${escapeHtml(req.staffName || 'Сотрудник')}</div><div class="shift-meta">${escapeHtml(req.sourceRoleLabel || '')} · ${escapeHtml(dateText)} · <span style="color:${getRepairStatusColor(req)};font-weight:700;">${getRepairStatusText(req)}</span></div><div style="font-size:14px;line-height:1.45;margin-top:10px;color:var(--text-2);">${escapeHtml((req.text || '').slice(0, 120))}</div></div>`; }).join('');
+}
 
 // ============================================================
 // BATHMASTERS
@@ -5383,6 +5709,7 @@ async function init() {
   renderInventoryStart();
   renderInventoryRecordsList();
   renderFounderBathmasters();
+  renderFounderRepairs();
   updateUnreadBadges();
 
   if (!CLOUD_ENABLED) {
