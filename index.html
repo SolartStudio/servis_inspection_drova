@@ -1051,13 +1051,21 @@
   </div>
   <div class="content content-padded">
     <div style="margin-bottom: 32px;">
-      <div style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Вход</div>
-      <div style="font-size: 14px; color: var(--text-2);">Введите пароль администратора</div>
+      <div style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Вход администратора</div>
+      <div style="font-size: 14px; color: var(--text-2); line-height: 1.6;">При первом входе введите Telegram логин, имя и пароль администратора. После успешного входа повторная авторизация не нужна до смены пароля.</div>
+    </div>
+    <div class="field">
+      <label>Telegram логин</label>
+      <input type="text" id="admin-login" placeholder="@username" autocomplete="off" autocorrect="off" autocapitalize="off">
+    </div>
+    <div class="field">
+      <label>Имя</label>
+      <input type="text" id="admin-name" placeholder="Имя администратора">
     </div>
     <div class="field">
       <label>Пароль</label>
       <input type="password" id="admin-pwd" placeholder="••••" autocomplete="off" onkeydown="if(event.key==='Enter') checkAdminPwd()">
-      <div class="error-msg" id="admin-error">Неверный пароль</div>
+      <div class="error-msg" id="admin-error">Заполните логин, имя и пароль</div>
     </div>
     <button class="btn btn-primary" onclick="checkAdminPwd()">Войти</button>
   </div>
@@ -1628,7 +1636,8 @@ const appCache = {
   inventoryDraft: null,
   inventoryRecords: [],
   accessRequests: [],
-  adminStats: []
+  adminStats: [],
+  adminProfiles: []
 };
 
 const LocalDB = {
@@ -1663,10 +1672,11 @@ function hasFounderSession() {
   return true;
 }
 
-function setAdminSession() {
+function setAdminSession(profile = null) {
   LocalDB.set("adminSession", {
     ok: true,
     passwordToken: getAdminPassword(),
+    adminId: profile && profile.id ? String(profile.id) : (localStorage.getItem("currentAdminProfileId") || null),
     createdAt: new Date().toISOString()
   });
 }
@@ -1687,6 +1697,51 @@ function hasAdminSession() {
 
   return true;
 }
+function getAdminProfiles() {
+  return appCache.adminProfiles || [];
+}
+
+function setAdminProfiles(arr) {
+  appCache.adminProfiles = arr;
+  LocalDB.set("adminProfiles", arr);
+}
+
+function findAdminProfileByLogin(login) {
+  const normalized = normalizeLogin(login);
+  return getAdminProfiles().find(a => normalizeLogin(a.login) === normalized);
+}
+
+async function saveAdminProfile(profile) {
+  const arr = getAdminProfiles().filter(a => String(a.id) !== String(profile.id));
+  arr.unshift(profile);
+  setAdminProfiles(arr);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("adminProfiles").doc(String(profile.id)).set(profile, { merge: true });
+  }
+}
+
+function setCurrentAdminProfile(profile) {
+  localStorage.setItem("currentAdminProfileId", String(profile.id));
+  LocalDB.set("adminProfile", profile);
+}
+
+function clearCurrentAdminProfile() {
+  localStorage.removeItem("currentAdminProfileId");
+  LocalDB.remove("adminProfile");
+}
+
+function getCurrentAdminProfile() {
+  const id = localStorage.getItem("currentAdminProfileId");
+  const cloudProfile = id ? getAdminProfiles().find(a => String(a.id) === String(id)) : null;
+  return cloudProfile || LocalDB.get("adminProfile") || null;
+}
+
+function getAdminDisplayName() {
+  const profile = getCurrentAdminProfile();
+  return profile && profile.name ? profile.name : 'Администратор';
+}
+
 
 function getFounderActor(role = 'founder') {
   return {
@@ -1712,6 +1767,7 @@ async function initCloud() {
     appCache.inventoryRecords = LocalDB.get("inventoryRecords") || [];
     appCache.accessRequests = LocalDB.get("accessRequests") || [];
     appCache.adminStats = LocalDB.get("adminStats") || [];
+    appCache.adminProfiles = LocalDB.get("adminProfiles") || [];
     return;
   }
 
@@ -1760,6 +1816,14 @@ async function initCloud() {
     showToast("Ошибка загрузки статистики");
   });
 
+  db.collection("adminProfiles").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    appCache.adminProfiles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    refreshVisibleData();
+  }, (err) => {
+    console.error("admin profiles snapshot error", err);
+    showToast("Ошибка загрузки администраторов");
+  });
+
   db.collection("settings").doc("main").onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : {};
     appCache.dutyAssignment = data.dutyAssignment || null;
@@ -1775,13 +1839,14 @@ async function initCloud() {
 }
 
 async function loadCloudData() {
-  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, settingsDoc] = await Promise.all([
+  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, settingsDoc] = await Promise.all([
     db.collection("staff").get(),
     db.collection("reports").orderBy("createdAt", "desc").get(),
     db.collection("fines").orderBy("createdAt", "desc").get(),
     db.collection("inventoryRecords").orderBy("createdAt", "desc").get(),
     db.collection("accessRequests").orderBy("createdAt", "desc").get(),
     db.collection("adminStats").orderBy("createdAt", "desc").get(),
+    db.collection("adminProfiles").orderBy("createdAt", "desc").get(),
     db.collection("settings").doc("main").get()
   ]);
 
@@ -1791,6 +1856,7 @@ async function loadCloudData() {
   appCache.inventoryRecords = inventorySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.accessRequests = accessRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.adminStats = adminStatsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.adminProfiles = adminProfilesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   const settings = settingsDoc.exists ? settingsDoc.data() : {};
   appCache.dutyAssignment = settings.dutyAssignment || null;
@@ -2279,6 +2345,7 @@ function setAdminPassword(pwd) {
   appCache.adminPassword = pwd;
   LocalDB.set("adminPassword", pwd);
   clearAdminSession();
+  clearCurrentAdminProfile();
 
   if (CLOUD_ENABLED && db) {
     db.collection("settings").doc("main").set({
@@ -2555,6 +2622,11 @@ function enterAdmin() {
   }
 
   goTo('screen-admin-login');
+  const savedAdmin = getCurrentAdminProfile();
+  const adminLogin = document.getElementById('admin-login');
+  const adminName = document.getElementById('admin-name');
+  if (adminLogin) adminLogin.value = savedAdmin && savedAdmin.login ? savedAdmin.login : '';
+  if (adminName) adminName.value = savedAdmin && savedAdmin.name ? savedAdmin.name : '';
   document.getElementById('admin-pwd').value = '';
   document.getElementById('admin-error').classList.remove('show');
 }
@@ -3395,19 +3467,50 @@ async function declineAccessRequest(requestId) {
 // ============================================================
 // ADMIN
 // ============================================================
-function checkAdminPwd() {
+async function checkAdminPwd() {
+  const login = normalizeLogin(document.getElementById('admin-login')?.value || '');
+  const name = (document.getElementById('admin-name')?.value || '').trim();
   const input = document.getElementById('admin-pwd').value;
   const err = document.getElementById('admin-error');
 
-  if (input === getAdminPassword()) {
-    err.classList.remove('show');
-    setAdminSession();
+  if (!login || !name || !input) {
+    err.textContent = 'Заполните логин, имя и пароль';
+    err.classList.add('show');
+    return;
+  }
+
+  if (input !== getAdminPassword()) {
+    err.textContent = 'Неверный пароль';
+    err.classList.add('show');
+    document.getElementById('admin-pwd').value = '';
+    return;
+  }
+
+  err.classList.remove('show');
+
+  const existing = findAdminProfileByLogin(login);
+  const now = new Date().toISOString();
+  const profile = {
+    ...(existing || {}),
+    id: existing ? existing.id : Date.now(),
+    login,
+    name,
+    role: 'admin',
+    roleLabel: 'Администратор',
+    updatedAt: now,
+    createdAt: existing && existing.createdAt ? existing.createdAt : now
+  };
+
+  try {
+    await saveAdminProfile(profile);
+    setCurrentAdminProfile(profile);
+    setAdminSession(profile);
     screenStack.pop();
     document.getElementById('screen-admin-login').classList.remove('active');
     goTo('screen-admin-menu');
-  } else {
-    err.classList.add('show');
-    document.getElementById('admin-pwd').value = '';
+  } catch (e) {
+    console.error(e);
+    showToast('Ошибка сохранения администратора');
   }
 }
 
@@ -3424,6 +3527,9 @@ function openAdminStatistics() {
 function renderAdminStatisticsForm() {
   const dateInput = document.getElementById('admin-stat-date');
   if (dateInput && !dateInput.value) dateInput.value = toDateKey(new Date());
+
+  const nameInput = document.getElementById('admin-stat-name');
+  if (nameInput && !nameInput.value) nameInput.value = getAdminDisplayName();
 
   const err = document.getElementById('admin-stat-error');
   if (err) err.classList.remove('show');
