@@ -595,6 +595,25 @@
     display: flex; align-items: center; justify-content: center;
     z-index: 205;
   }
+  .fullscreen-back {
+    position: absolute;
+    top: 16px; left: 16px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    min-width: 96px;
+    height: 40px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px;
+    z-index: 205;
+    backdrop-filter: blur(6px);
+  }
+  .fullscreen-back:active,
+  .fullscreen-close:active { background: rgba(255,255,255,0.28); }
   .fullscreen-zoom-controls {
     position: absolute;
     left: 50%;
@@ -1024,7 +1043,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.052 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.053 тестирование</div>
   </div>
 </div>
 
@@ -2167,6 +2186,7 @@
 
 <!-- FULLSCREEN PHOTO -->
 <div class="fullscreen-photo" id="fullscreen-photo">
+  <button class="fullscreen-back" onclick="closeFullscreen()">← Назад</button>
   <button class="fullscreen-close" onclick="closeFullscreen()">✕</button>
   <img id="fullscreen-img" src="" alt="">
   <div class="fullscreen-zoom-controls">
@@ -2222,7 +2242,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.052";
+const APP_VERSION = "1.053";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -5862,23 +5882,23 @@ function renderShifts() {
 }
 
 function renderStaff() {
-  const staff = getStaff();
+  const staff = getStaff().filter(s => String(s.role || 'waiter') === 'waiter');
   const el = document.getElementById('panel-staff');
   el.innerHTML = '';
 
   if (staff.length === 0) {
     el.innerHTML = `<div class="empty">
       <div class="empty-icon">👤</div>
-      <div class="empty-title">Пока нет сотрудников</div>
-      <div class="empty-sub">Сотрудники появятся после регистрации</div>
+      <div class="empty-title">Пока нет официантов</div>
+      <div class="empty-sub">Официанты появятся после регистрации и одобрения входа</div>
     </div>`;
     return;
   }
 
   staff.forEach(s => {
     const reports = getReports();
-    const reportCount = reports.filter(r => r.staffId === s.id).length;
-    const days = new Set(reports.filter(r => r.staffId === s.id).map(r => r.date)).size;
+    const reportCount = reports.filter(r => String(r.staffId) === String(s.id)).length;
+    const days = new Set(reports.filter(r => String(r.staffId) === String(s.id)).map(r => r.date)).size;
     const dutyCount = s.dutyCount || 0;
 
     const div = document.createElement('div');
