@@ -1090,7 +1090,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.062 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.063 тестирование</div>
   </div>
 </div>
 
@@ -2502,7 +2502,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.062";
+const APP_VERSION = "1.063";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -3963,78 +3963,88 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 
 
 // ============================================================
-// UNIFIED CAMERA CAPTURE — Android + iOS + Telegram Mini App
+// HYBRID CAMERA CAPTURE — iOS native camera + Android in-app camera
 // ============================================================
 let cameraStream = null;
 let cameraTarget = null;
 let cameraSectionKey = null;
 let cameraShotBlob = null;
 let cameraShotUrl = null;
-let cameraPermissionKnown = false;
-
-const CAMERA_PERMISSION_KEY = "drovaCameraPermissionGranted";
-const CAMERA_PERMISSION_TIME_KEY = "drovaCameraPermissionGrantedAt";
 
 function isCameraSupported() {
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 }
 
-function markCameraPermissionGranted() {
-  cameraPermissionKnown = true;
-  try {
-    localStorage.setItem(CAMERA_PERMISSION_KEY, "1");
-    localStorage.setItem(CAMERA_PERMISSION_TIME_KEY, new Date().toISOString());
-  } catch (e) {}
+function isIOSDevice() {
+  const ua = navigator.userAgent || '';
+  const platform = navigator.platform || '';
+  return /iPad|iPhone|iPod/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
-function hasSavedCameraPermission() {
-  try { return localStorage.getItem(CAMERA_PERMISSION_KEY) === "1"; }
-  catch (e) { return cameraPermissionKnown; }
+function addLocalPhotoToCameraTarget(localPhoto) {
+  if (!localPhoto) return false;
+
+  if (cameraTarget === 'report' && cameraSectionKey) {
+    return addReportCameraPhoto(cameraSectionKey, localPhoto);
+  }
+  if (cameraTarget === 'repairCreate') {
+    return addRepairCameraPhoto(localPhoto);
+  }
+  if (cameraTarget === 'repairClose') {
+    return addRepairCloseCameraPhoto(localPhoto);
+  }
+  if (cameraTarget === 'founderTask') {
+    return addFounderTaskCameraPhoto(localPhoto);
+  }
+  if (cameraTarget === 'waiterTaskClose') {
+    return addWaiterTaskCloseCameraPhoto(localPhoto);
+  }
+  if (cameraTarget === 'employeeProfile') {
+    return addEmployeeProfileCameraPhoto(localPhoto);
+  }
+
+  showToast('Раздел фото не найден');
+  return false;
 }
 
-function clearSavedCameraPermission() {
-  cameraPermissionKnown = false;
-  try {
-    localStorage.removeItem(CAMERA_PERMISSION_KEY);
-    localStorage.removeItem(CAMERA_PERMISSION_TIME_KEY);
-  } catch (e) {}
-}
+function openNativeCameraInput(target, sectionKey = null) {
+  cameraTarget = target;
+  cameraSectionKey = sectionKey;
 
-function hasLiveCameraStream() {
-  return !!(cameraStream && cameraStream.getTracks().some(track => track.readyState === 'live'));
-}
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.setAttribute('capture', 'environment');
+  input.style.position = 'fixed';
+  input.style.left = '-9999px';
+  input.style.opacity = '0';
 
-function getCameraConstraints() {
-  return {
-    audio: false,
-    video: {
-      facingMode: { ideal: 'environment' },
-      width: { ideal: 1600 },
-      height: { ideal: 1200 }
+  input.onchange = () => {
+    const file = input.files && input.files[0] ? input.files[0] : null;
+    input.remove();
+    if (!file) return;
+
+    const previewUrl = URL.createObjectURL(file);
+    const localPhoto = {
+      type: 'local',
+      file,
+      preview_url: previewUrl,
+      addedAt: new Date().toISOString()
+    };
+
+    if (addLocalPhotoToCameraTarget(localPhoto)) {
+      showToast('Фото добавлено');
+    } else {
+      URL.revokeObjectURL(previewUrl);
     }
   };
-}
 
-async function ensureCameraStream() {
-  if (hasLiveCameraStream()) return cameraStream;
+  input.oncancel = () => {
+    input.remove();
+  };
 
-  // Важно: если пользователь уже разрешал камеру на этом устройстве,
-  // мы не делаем никаких дополнительных промежуточных запросов/проверок,
-  // а сразу переиспользуем стандартный доступ браузера/Telegram WebView.
-  cameraStream = await navigator.mediaDevices.getUserMedia(getCameraConstraints());
-  markCameraPermissionGranted();
-  return cameraStream;
-}
-
-async function refreshCameraPermissionState() {
-  if (!navigator.permissions || !navigator.permissions.query) return;
-  try {
-    const status = await navigator.permissions.query({ name: 'camera' });
-    if (status && status.state === 'granted') markCameraPermissionGranted();
-    if (status && status.state === 'denied') clearSavedCameraPermission();
-  } catch (e) {
-    // iOS/Telegram часто не поддерживают Permissions API для камеры. Не шумим.
-  }
+  document.body.appendChild(input);
+  input.click();
 }
 
 async function openCameraModal(target, sectionKey = null) {
@@ -4044,6 +4054,13 @@ async function openCameraModal(target, sectionKey = null) {
   if (cameraShotUrl) {
     URL.revokeObjectURL(cameraShotUrl);
     cameraShotUrl = null;
+  }
+
+  // iOS/Telegram раньше работал стабильно через нативный camera picker.
+  // Не трогаем его getUserMedia: возвращаем старое поведение для iPhone/iPad.
+  if (isIOSDevice()) {
+    openNativeCameraInput(target, sectionKey);
+    return;
   }
 
   const overlay = document.getElementById('camera-overlay');
@@ -4075,20 +4092,23 @@ async function openCameraModal(target, sectionKey = null) {
   }
 
   try {
-    await refreshCameraPermissionState();
-    await ensureCameraStream();
+    if (!cameraStream || !cameraStream.getTracks().some(track => track.readyState === 'live')) {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1600 },
+          height: { ideal: 1200 }
+        }
+      });
+    }
     video.srcObject = cameraStream;
     await video.play();
   } catch (err) {
     console.error('camera error', err);
     video.style.display = 'none';
     shotBtn.style.display = 'none';
-
-    const savedText = hasSavedCameraPermission()
-      ? 'Разрешение уже было сохранено на этом устройстве, но Telegram/OS сбросили доступ после перезапуска Mini App. Проверьте разрешение камеры для Telegram и откройте Mini App заново.'
-      : 'Камера не открылась. Разрешите камеру для Telegram. После первого разрешения приложение будет переиспользовать доступ без закрытия камеры.';
-
-    error.textContent = savedText;
+    error.textContent = 'Камера не открылась. Проверьте: Telegram → разрешения → Камера. Затем закройте и снова откройте Mini App.';
     error.style.display = 'block';
   }
 }
@@ -4191,21 +4211,7 @@ function useCameraShot() {
     addedAt: new Date().toISOString()
   };
 
-  let used = false;
-
-  if (cameraTarget === 'report' && cameraSectionKey) {
-    used = addReportCameraPhoto(cameraSectionKey, localPhoto);
-  } else if (cameraTarget === 'repairCreate') {
-    used = addRepairCameraPhoto(localPhoto);
-  } else if (cameraTarget === 'repairClose') {
-    used = addRepairCloseCameraPhoto(localPhoto);
-  } else if (cameraTarget === 'founderTask') {
-    used = addFounderTaskCameraPhoto(localPhoto);
-  } else if (cameraTarget === 'waiterTaskClose') {
-    used = addWaiterTaskCloseCameraPhoto(localPhoto);
-  } else if (cameraTarget === 'employeeProfile') {
-    used = addEmployeeProfileCameraPhoto(localPhoto);
-  }
+  const used = addLocalPhotoToCameraTarget(localPhoto);
 
   if (!used) return;
 
@@ -4250,18 +4256,8 @@ function addRepairCloseCameraPhoto(localPhoto) {
   return true;
 }
 
-// Не останавливаем камеру при pagehide/visibilitychange: Telegram Mini App может
-// скрывать/показывать WebView без полного закрытия, и stop() снова провоцирует
-// системный запрос разрешения. Поток закрывается только если ОС сама выгрузит WebView.
-window.addEventListener('visibilitychange', () => {
-  if (!document.hidden && hasLiveCameraStream()) {
-    const video = document.getElementById('camera-video');
-    if (video) {
-      video.srcObject = cameraStream;
-      video.play().catch(() => {});
-    }
-  }
-});
+window.addEventListener('pagehide', stopCameraStream);
+window.addEventListener('beforeunload', stopCameraStream);
 
 // ============================================================
 // FULLSCREEN PHOTO
@@ -7804,7 +7800,6 @@ async function init() {
     showToast("Worker URL не заполнен");
   }
   initTheme();
-  refreshCameraPermissionState();
 }
 
 // ============================================================
