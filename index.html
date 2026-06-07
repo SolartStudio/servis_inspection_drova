@@ -1037,9 +1037,9 @@
         <span class="role-name">Официант</span>
         <span style="font-size: 20px;">→</span>
       </div>
-      <div class="role-card inactive" onclick="openTestingStub('Массажист')">
+      <div class="role-card active-role" onclick="enterRole('masseur')">
         <span class="role-name">Массажист</span>
-        <span class="role-wip">Тестирование</span>
+        <span style="font-size: 20px;">→</span>
       </div>
       <div class="role-card active-role" onclick="enterRole('bathmaster')">
         <span class="role-name">Пармастер</span>
@@ -1048,6 +1048,10 @@
       <div class="role-card active-role" onclick="enterRole('technician')">
         <span class="role-name">Техник</span>
         <span style="font-size: 20px;">→</span>
+      </div>
+      <div class="role-card inactive" onclick="openTestingStub('Технички')">
+        <span class="role-name">Технички</span>
+        <span class="role-wip">Тестирование</span>
       </div>
       <div class="role-card active-role" onclick="enterAdmin()">
         <span class="role-name">Администратор</span>
@@ -1065,7 +1069,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.055 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.056 тестирование</div>
   </div>
 </div>
 
@@ -1890,6 +1894,14 @@
       <div style="font-size: 24px; font-weight: 700;" id="bathmaster-menu-name">—</div>
     </div>
     <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="openBathmasterWip('Задачи')">
+      <div class="menu-icon">✅</div>
+      <div class="menu-text">
+        <div class="menu-title">Задачи</div>
+        <div class="menu-desc">Раздел в разработке</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openBathmasterMenuJpg()">
       <div class="menu-icon">🍽️</div>
       <div class="menu-text">
@@ -1974,13 +1986,56 @@
   </div>
 </div>
 
+<!-- ===== SCREEN: MASSEUR MENU ===== -->
+<div class="screen" id="screen-masseur-menu">
+  <div style="padding: 32px 20px 0;">
+    <div class="logo" style="font-size: 22px; letter-spacing: 4px;">drova</div>
+  </div>
+  <div class="content" style="padding-top: 24px;">
+    <div style="margin-bottom: 28px;">
+      <div style="font-size: 13px; color: var(--text-3); margin-bottom: 4px;">Массажист</div>
+      <div style="font-size: 24px; font-weight: 700;" id="masseur-menu-name">—</div>
+    </div>
+    <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="openAdminWip('Задачи · Массажист')">
+      <div class="menu-icon">✅</div>
+      <div class="menu-text"><div class="menu-title">Задачи</div><div class="menu-desc">Раздел в разработке</div></div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openAdminWip('Меню · Массажист')">
+      <div class="menu-icon">🍽️</div>
+      <div class="menu-text"><div class="menu-title">Меню</div><div class="menu-desc">Раздел в разработке</div></div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openAdminWip('Фотоотчеты · Массажист')">
+      <div class="menu-icon">📷</div>
+      <div class="menu-text"><div class="menu-title">Фотоотчеты</div><div class="menu-desc">Раздел в разработке</div></div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openRepairCreate('masseur')">
+      <div class="menu-icon">🛠️</div>
+      <div class="menu-text"><div class="menu-title">Поломки</div><div class="menu-desc">Заявка технику с фото</div></div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openBathmasterOrder('masseur')">
+      <div class="menu-icon">🧾</div>
+      <div class="menu-text"><div class="menu-title">Заказать</div><div class="menu-desc">Что заканчивается и что купить</div></div>
+      <span class="menu-arrow">›</span>
+    </div>
+  </div>
+  <div class="footer" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+    <span class="logo-sm">drova inspector</span>
+    <button class="btn btn-secondary btn-sm" onclick="staffLogout()">Выйти</button>
+  </div>
+</div>
+
 <!-- ===== SCREEN: TECHNICIAN MENU ===== -->
 <div class="screen" id="screen-technician-menu">
   <div style="padding: 32px 20px 0;"><div class="logo" style="font-size: 22px; letter-spacing: 4px;">drova</div></div>
   <div class="content" style="padding-top: 24px;">
     <div style="margin-bottom: 28px;"><div style="font-size: 13px; color: var(--text-3); margin-bottom: 4px;">Техник</div><div style="font-size: 24px; font-weight: 700;" id="technician-menu-name">—</div></div>
     <div class="section-label">Меню</div>
-    <div class="menu-item" onclick="openTechnicianRepairs()"><div class="menu-icon">🛠️</div><div class="menu-text"><div class="menu-title-row"><div class="menu-title">Заявки на ремонт</div><span class="notify-badge" id="badge-technician-repairs">0</span></div><div class="menu-desc">Поломки от официантов и пармастеров</div></div><span class="menu-arrow">›</span></div>
+    <div class="menu-item" onclick="openTechnicianRepairs()"><div class="menu-icon">🛠️</div><div class="menu-text"><div class="menu-title-row"><div class="menu-title">Заявки на ремонт</div><span class="notify-badge" id="badge-technician-repairs">0</span></div><div class="menu-desc">Поломки от официантов, пармастеров и массажистов</div></div><span class="menu-arrow">›</span></div>
   </div>
   <div class="footer" style="display:flex; justify-content:space-between; align-items:center; gap:12px;"><span class="logo-sm">drova inspector</span><button class="btn btn-secondary btn-sm" onclick="staffLogout()">Выйти</button></div>
 </div>
@@ -2315,7 +2370,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.055";
+const APP_VERSION = "1.056";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2887,6 +2942,9 @@ function openRoleAsFounder(role) {
   } else if (role === 'bathmaster') {
     renderBathmasterMenu();
     goTo('screen-bathmaster-menu');
+  } else if (role === 'masseur') {
+    renderMasseurMenu();
+    goTo('screen-masseur-menu');
   } else if (role === 'technician') {
     renderTechnicianMenu();
     goTo('screen-technician-menu');
@@ -2973,6 +3031,9 @@ function enterRole(role) {
     } else if (role === 'bathmaster') {
       renderBathmasterMenu();
       goTo('screen-bathmaster-menu');
+    } else if (role === 'masseur') {
+      renderMasseurMenu();
+      goTo('screen-masseur-menu');
     } else if (role === 'technician') {
       renderTechnicianMenu();
       goTo('screen-technician-menu');
@@ -3378,7 +3439,7 @@ function getUnreadCounts() {
   const reportsUnread = getReports().filter(r => getTimeMs(r.createdAt) > getReadMarker("waiterReports")).length;
   const inventoryUnread = getInventoryRecords().filter(r => getTimeMs(r.createdAt || r.submittedAt) > getReadMarker("waiterInventory")).length;
   const adminStatsUnread = getAdminStats().filter(r => getTimeMs(r.createdAt) > getReadMarker("adminStats")).length;
-  const bathmasterOrdersUnread = getBathmasterOrders().filter(r => getTimeMs(r.createdAt) > getReadMarker("bathmasterOrders")).length;
+  const bathmasterOrdersUnread = getBathmasterOrders().filter(r => String(r.sourceRole || 'bathmaster') === 'bathmaster' && getTimeMs(r.createdAt) > getReadMarker("bathmasterOrders")).length;
   const repairUnreadForFounder = getRepairRequests().filter(r => getTimeMs(r.createdAt) > getReadMarker("founderRepairs")).length;
   const repairUnreadForTechnician = getRepairRequests().filter(r => r.status === 'new').length;
   const waiterTasksUnread = getUnreadTasksForCurrentWaiter().length;
@@ -3530,6 +3591,7 @@ function refreshScreen(id) {
   if (id === 'screen-bathmaster-order') renderBathmasterOrderHistory();
   if (id === 'screen-repair-create') renderRepairHistoryForCurrentActor();
   if (id === 'screen-bathmaster-menu') renderBathmasterMenu();
+  if (id === 'screen-masseur-menu') renderMasseurMenu();
   if (id === 'screen-technician-menu') renderTechnicianMenu();
   if (id === 'screen-technician-repairs') renderTechnicianRepairs();
   if (id === 'screen-founder-repairs') renderFounderRepairs();
@@ -5136,6 +5198,7 @@ function getCurrentTechnician() {
 
 function getRepairActor(sourceRole) {
   if (sourceRole === 'bathmaster') return getCurrentBathmaster();
+  if (sourceRole === 'masseur') return getCurrentMasseur();
   return getWaiter();
 }
 
@@ -5369,7 +5432,7 @@ function renderFounderRepairs() {
   const list = document.getElementById('founder-repairs-list');
   if (!list) return;
   const items = getRepairRequests().slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-  if (!items.length) { list.innerHTML = `<div class="empty"><div class="empty-icon">🛠️</div><div class="empty-title">Поломок пока нет</div><div class="empty-sub">Заявки от официантов и пармастеров появятся здесь</div></div>`; return; }
+  if (!items.length) { list.innerHTML = `<div class="empty"><div class="empty-icon">🛠️</div><div class="empty-title">Поломок пока нет</div><div class="empty-sub">Заявки от официантов, пармастеров и массажистов появятся здесь</div></div>`; return; }
   list.innerHTML = items.map(req => { const dateText = req.date ? `${formatDateRu(req.date)}${req.time ? ' · ' + req.time : ''}` : ''; return `<div class="shift-card" onclick="openRepairView('${req.id}', 'founder')"><div class="shift-date">${escapeHtml(req.staffName || 'Сотрудник')}</div><div class="shift-meta">${escapeHtml(req.sourceRoleLabel || '')} · ${escapeHtml(dateText)} · <span style="color:${getRepairStatusColor(req)};font-weight:700;">${getRepairStatusText(req)}</span></div><div style="font-size:14px;line-height:1.45;margin-top:10px;color:var(--text-2);">${escapeHtml((req.text || '').slice(0, 120))}</div></div>`; }).join('');
 }
 
@@ -5377,6 +5440,43 @@ function renderFounderRepairs() {
 // BATHMASTERS
 // ============================================================
 let activeBathmasterTab = 'staff';
+let activeOrderSourceRole = 'bathmaster';
+
+function getCurrentMasseur() {
+  if (hasFounderSession() && localStorage.getItem("founderActiveRole") === 'masseur') {
+    return getFounderActor('masseur');
+  }
+
+  const current = getCurrentApprovedStaffForRole('masseur');
+  if (!current || current.role !== 'masseur') return null;
+  return current;
+}
+
+function renderMasseurMenu() {
+  const ms = getCurrentMasseur();
+  if (!ms) {
+    const menu = document.getElementById('screen-masseur-menu');
+    const register = document.getElementById('screen-waiter-register');
+    if (menu && menu.classList.contains('active')) {
+      menu.classList.remove('active');
+      register.classList.add('active');
+      screenStack = ['screen-home', 'screen-waiter-register'];
+      showToast('Сотрудник удалён из системы');
+    }
+    return;
+  }
+  const nameEl = document.getElementById('masseur-menu-name');
+  if (nameEl) nameEl.textContent = ms.name || 'Массажист';
+}
+
+function getOrderActor(sourceRole = activeOrderSourceRole || 'bathmaster') {
+  if (sourceRole === 'masseur') return getCurrentMasseur();
+  return getCurrentBathmaster();
+}
+
+function getOrderRoleLabel(sourceRole = activeOrderSourceRole || 'bathmaster') {
+  return sourceRole === 'masseur' ? 'Массажист' : 'Пармастер';
+}
 
 function getCurrentBathmaster() {
   if (hasFounderSession() && localStorage.getItem("founderActiveRole") === 'bathmaster') {
@@ -5406,9 +5506,14 @@ function renderBathmasterMenu() {
   if (nameEl) nameEl.textContent = bm.name || 'Пармастер';
 }
 
-function openBathmasterOrder() {
+function openBathmasterOrder(sourceRole = 'bathmaster') {
+  activeOrderSourceRole = sourceRole;
+  const actor = getOrderActor(sourceRole);
+  if (!actor) { showToast('Сначала войдите в подразделение'); return; }
+  const header = document.querySelector('#screen-bathmaster-order .header-title');
   const field = document.getElementById('bathmaster-order-text');
   const err = document.getElementById('bathmaster-order-error');
+  if (header) header.textContent = sourceRole === 'masseur' ? 'Заказать · Массажист' : 'Заказать';
   if (field) field.value = '';
   if (err) err.classList.remove('show');
   renderBathmasterOrderHistory();
@@ -5427,7 +5532,11 @@ function renderBathmasterOrderHistory() {
   const el = document.getElementById('bathmaster-order-history');
   if (!el) return;
 
-  const orders = getBathmasterOrders().slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  const currentOrderRole = activeOrderSourceRole || 'bathmaster';
+  const orders = getBathmasterOrders()
+    .filter(o => String(o.sourceRole || 'bathmaster') === String(currentOrderRole))
+    .slice()
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   if (!orders.length) {
     el.innerHTML = `<div class="empty" style="padding:32px 0;"><div class="empty-icon">🧾</div><div class="empty-title">История пустая</div><div class="empty-sub">Здесь появятся заказы пармастеров</div></div>`;
     return;
@@ -5459,12 +5568,13 @@ function openBathmasterWip(title) {
 }
 
 async function submitBathmasterOrder() {
-  const bm = getCurrentBathmaster();
+  const sourceRole = activeOrderSourceRole || 'bathmaster';
+  const bm = getOrderActor(sourceRole);
   const textValue = (document.getElementById('bathmaster-order-text')?.value || '').trim();
   const err = document.getElementById('bathmaster-order-error');
 
   if (!bm) {
-    showToast('Войдите как пармастер');
+    showToast('Войдите в подразделение');
     return;
   }
 
@@ -5481,7 +5591,9 @@ async function submitBathmasterOrder() {
     staffId: bm.id,
     staffName: bm.name || 'Пармастер',
     staffLogin: bm.login || '',
-    staffRole: 'Пармастер',
+    sourceRole,
+    sourceRoleLabel: getOrderRoleLabel(sourceRole),
+    staffRole: getOrderRoleLabel(sourceRole),
     text: textValue,
     date: toDateKey(now),
     time: now.toTimeString().slice(0, 5),
@@ -5556,9 +5668,10 @@ function renderBathmasterConsumables() {
   const el = document.getElementById('panel-bathmaster-consumables');
   if (!el) return;
 
-  const orders = getBathmasterOrders().slice().sort((a, b) =>
-    String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
-  );
+  const orders = getBathmasterOrders()
+    .filter(o => String(o.sourceRole || 'bathmaster') === 'bathmaster')
+    .slice()
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 
   if (!orders.length) {
     el.innerHTML = `<div class="empty">
