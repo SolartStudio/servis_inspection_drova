@@ -784,7 +784,18 @@
   /* HOME FOOTER */
   .home-footer {
     padding: 20px;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .app-version {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-align: right;
+    white-space: nowrap;
+    letter-spacing: 0.2px;
   }
 
   /* WIP SCREEN */
@@ -1013,6 +1024,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
+    <div class="app-version" id="app-version-label">Версия 1.052 тестирование</div>
   </div>
 </div>
 
@@ -1069,6 +1081,14 @@
       <span id="duty-banner-text">Вы дежурный завтра</span>
     </div>
     <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="openWaiterWip('Задачи')">
+      <div class="menu-icon">✅</div>
+      <div class="menu-text">
+        <div class="menu-title">Задачи</div>
+        <div class="menu-desc">Раздел в разработке</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openPhotoReportPeriodSelect()">
       <div class="menu-icon">📷</div>
       <div class="menu-text">
@@ -1130,6 +1150,14 @@
       <div class="menu-text">
         <div class="menu-title">KPI</div>
         <div class="menu-desc">Поощрения и штрафы</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openWaiterWip('График')">
+      <div class="menu-icon">📅</div>
+      <div class="menu-text">
+        <div class="menu-title">График</div>
+        <div class="menu-desc">Раздел в разработке</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1520,7 +1548,7 @@
     <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
       <div class="field">
         <label>Число</label>
-        <input type="date" id="admin-stat-date">
+        <input type="date" id="admin-stat-date" onchange="this.dataset.manual='1'">
       </div>
       <div class="field">
         <label>Имя</label>
@@ -2192,6 +2220,17 @@ const TELEGRAM_PHOTO_WORKER_URL = "https://drova-telegram-storage.swiftkartofel.
 
 const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
+
+// App version marker for rollback/testing notes.
+const APP_VERSION = "1.052";
+const APP_CHANNEL = "тестирование";
+const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
+window.DROVA_INSPECTOR_VERSION = {
+  version: APP_VERSION,
+  channel: APP_CHANNEL,
+  label: APP_VERSION_LABEL,
+  updatedAt: "2026-06-07"
+};
 
 let db = null;
 
@@ -4236,6 +4275,10 @@ function getKpiSectionTitle(section) {
   return section === 'fines' ? 'Штрафы' : 'Поощрения';
 }
 
+function openWaiterWip(title) {
+  openAdminWip(title || 'Раздел');
+}
+
 function openWaiterKpi() {
   goTo('screen-waiter-kpi');
 }
@@ -4345,6 +4388,7 @@ const SECTIONS = [
   { key: 'menu', label: 'Меню', limit: 3 },
   { key: 'remotes', label: 'Пульты', limit: 3 },
   { key: 'flowers', label: 'Цветы', limit: 5 },
+  { key: 'station', label: 'Стейшн', limit: 3 },
 ];
 
 function renderBathList() {
@@ -5254,7 +5298,10 @@ function openAdminStatistics() {
 
 function renderAdminStatisticsForm() {
   const dateInput = document.getElementById('admin-stat-date');
-  if (dateInput && !dateInput.value) dateInput.value = toDateKey(new Date());
+  if (dateInput) {
+    dateInput.value = toDateKey(new Date());
+    dateInput.dataset.manual = '0';
+  }
 
   const nameInput = document.getElementById('admin-stat-name');
   if (nameInput && !nameInput.value) nameInput.value = getAdminDisplayName();
@@ -5264,7 +5311,8 @@ function renderAdminStatisticsForm() {
 }
 
 async function submitAdminStatistics() {
-  const date = document.getElementById('admin-stat-date').value;
+  const dateInput = document.getElementById('admin-stat-date');
+  const date = dateInput && dateInput.dataset.manual === '1' ? dateInput.value : toDateKey(new Date());
   const name = document.getElementById('admin-stat-name').value.trim();
   const calls = Number(document.getElementById('admin-stat-calls').value || 0);
   const telegram = Number(document.getElementById('admin-stat-telegram').value || 0);
@@ -5307,6 +5355,11 @@ async function submitAdminStatistics() {
     document.getElementById('admin-stat-telegram').value = '';
     document.getElementById('admin-stat-bookings-total').value = '';
     document.getElementById('admin-stat-bookings-pv').value = '';
+    const dateField = document.getElementById('admin-stat-date');
+    if (dateField) {
+      dateField.value = toDateKey(new Date());
+      dateField.dataset.manual = '0';
+    }
     showToast('Статистика отправлена ✓');
     goBack();
   } catch (e) {
@@ -6316,6 +6369,9 @@ function formatDateWithWeekdayRu(dateKey) {
 // INIT
 // ============================================================
 async function init() {
+  const versionEl = document.getElementById('app-version-label');
+  if (versionEl) versionEl.textContent = APP_VERSION_LABEL;
+
   await initCloud();
 
   renderBathList();
