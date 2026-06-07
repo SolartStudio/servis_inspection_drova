@@ -1090,7 +1090,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.057 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.058 тестирование</div>
   </div>
 </div>
 
@@ -1744,12 +1744,16 @@
   <div class="content content-padded">
     <div style="margin-bottom: 32px;">
       <div style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Вход</div>
-      <div style="font-size: 14px; color: var(--text-2);">Введите пароль для доступа</div>
+      <div style="font-size: 14px; color: var(--text-2);">Введите имя и пароль для доступа</div>
+    </div>
+    <div class="field">
+      <label>Имя учредителя</label>
+      <input type="text" id="founder-name" placeholder="Ваше имя" autocomplete="name">
     </div>
     <div class="field">
       <label>Пароль</label>
       <input type="password" id="founder-pwd" placeholder="••••" autocomplete="off" onkeydown="if(event.key==='Enter') checkFounderPwd()">
-      <div class="error-msg" id="founder-error">Неверный пароль</div>
+      <div class="error-msg" id="founder-error">Введите имя и пароль</div>
     </div>
     <button class="btn btn-primary" onclick="checkFounderPwd()">Войти</button>
   </div>
@@ -2391,7 +2395,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.057";
+const APP_VERSION = "1.058";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2461,17 +2465,24 @@ async function setKpiText(role, section, textValue) {
   }
 }
 
-function setFounderSession() {
+function setFounderSession(founderProfile = null) {
   LocalDB.set("founderSession", {
     ok: true,
     passwordToken: getFounderPassword(),
+    founderId: founderProfile && founderProfile.id ? String(founderProfile.id) : (localStorage.getItem("currentFounderId") || null),
     createdAt: new Date().toISOString()
   });
+  if (founderProfile && founderProfile.id) {
+    localStorage.setItem("currentFounderId", String(founderProfile.id));
+    LocalDB.set("founderProfile", founderProfile);
+  }
 }
 
 function clearFounderSession() {
   LocalDB.remove("founderSession");
   localStorage.removeItem("founderActiveRole");
+  localStorage.removeItem("currentFounderId");
+  LocalDB.remove("founderProfile");
 }
 
 function hasFounderSession() {
@@ -2557,12 +2568,53 @@ function getAdminDisplayName() {
   return profile && profile.name ? profile.name : 'Администратор';
 }
 
+function findFounderProfileByName(name) {
+  const normalized = String(name || '').trim().toLowerCase();
+  if (!normalized) return null;
+  return getStaff().find(s => String(s.role || '') === 'founder' && String(s.name || '').trim().toLowerCase() === normalized) || null;
+}
+
+async function ensureFounderEmployee(name) {
+  const cleanName = String(name || '').trim() || 'Учредитель';
+  const existing = findFounderProfileByName(cleanName);
+  const now = new Date().toISOString();
+  const founder = existing ? { ...existing, name: cleanName, role: 'founder', roleLabel: 'Учредитель', updatedAt: now } : {
+    id: 'founder_' + Date.now(),
+    login: 'founder',
+    name: cleanName,
+    role: 'founder',
+    roleLabel: 'Учредитель',
+    approvedAt: now,
+    createdAt: now,
+    updatedAt: now
+  };
+
+  const arr = getStaff().filter(s => String(s.id) !== String(founder.id));
+  arr.push(founder);
+  appCache.staff = arr;
+  LocalDB.set("staff", arr);
+  if (CLOUD_ENABLED && db) {
+    await db.collection("staff").doc(String(founder.id)).set(founder, { merge: true });
+  }
+  localStorage.setItem("currentFounderId", String(founder.id));
+  LocalDB.set("founderProfile", founder);
+  return founder;
+}
+
+function getCurrentFounderProfile() {
+  const id = localStorage.getItem("currentFounderId") || (LocalDB.get("founderSession") || {}).founderId;
+  const cloud = id ? getStaff().find(s => String(s.id) === String(id) && String(s.role || '') === 'founder') : null;
+  return cloud || LocalDB.get("founderProfile") || null;
+}
+
 
 function getFounderActor(role = 'founder') {
+  const profile = getCurrentFounderProfile();
   return {
-    id: 'founder-session',
-    login: 'founder',
-    name: 'Учредитель',
+    ...(profile || {}),
+    id: profile && profile.id ? profile.id : 'founder-session',
+    login: profile && profile.login ? profile.login : 'founder',
+    name: profile && profile.name ? profile.name : 'Учредитель',
     role,
     roleLabel: role === 'founder' ? 'Учредитель' : `Учредитель · ${getRoleLabel(role)}`,
     isFounderSession: true
@@ -3159,6 +3211,8 @@ async function submitAccessRequest() {
 
   try {
     await saveAccessRequest(req);
+    notifyRole('admin', `✅ Новая заявка на вход\n\n${req.roleLabel}: ${req.name} · ${req.login}\n\nОткройте Drova Inspector → Администратор → Одобрить вход`);
+    notifyFounders(`✅ Новая заявка на вход\n\n${req.roleLabel}: ${req.name} · ${req.login}`);
     setSavedAccessRequest({ id: req.id, role: req.role, login: req.login, name: req.name });
     showAccessPending(req.role, req.login);
     showToast('Заявка отправлена');
@@ -3624,6 +3678,27 @@ function getTelegramIdsForRole(role) {
     .filter(Boolean);
 }
 
+function getFounderTelegramIds() {
+  return getTelegramIdsForRole('founder');
+}
+
+function getTelegramIdForStaff(staff) {
+  return staff ? String(staff.telegramId || staff.chatId || staff.telegramID || '').trim() : '';
+}
+
+function notifyRole(role, textValue) {
+  return notifyTelegramUsers(getTelegramIdsForRole(role), textValue);
+}
+
+function notifyFounders(textValue) {
+  return notifyTelegramUsers(getFounderTelegramIds(), textValue);
+}
+
+function notifyStaffMember(staff, textValue) {
+  const id = getTelegramIdForStaff(staff);
+  return id ? notifyTelegramUsers([id], textValue) : Promise.resolve({ ok:false, sent:0, skipped:true });
+}
+
 
 // ============================================================
 // NAVIGATION
@@ -3707,7 +3782,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 
 
 // ============================================================
-// ANDROID CAMERA CAPTURE — вместо input file/capture
+// UNIFIED CAMERA CAPTURE — Android + iOS + Telegram Mini App
 // ============================================================
 let cameraStream = null;
 let cameraTarget = null;
@@ -3757,15 +3832,16 @@ async function openCameraModal(target, sectionKey = null) {
   }
 
   try {
-    stopCameraStream();
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1600 },
-        height: { ideal: 1200 }
-      }
-    });
+    if (!cameraStream || !cameraStream.getTracks().some(track => track.readyState === 'live')) {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1600 },
+          height: { ideal: 1200 }
+        }
+      });
+    }
     video.srcObject = cameraStream;
     await video.play();
   } catch (err) {
@@ -3787,7 +3863,8 @@ function stopCameraStream() {
 }
 
 function closeCameraModal() {
-  stopCameraStream();
+  // Поток камеры намеренно НЕ закрываем после каждого фото.
+  // Так Android/iOS/Telegram меньше провоцируются на повторный запрос разрешения.
   const overlay = document.getElementById('camera-overlay');
   const preview = document.getElementById('camera-preview');
   if (overlay) overlay.classList.remove('open');
@@ -3825,7 +3902,7 @@ function takeCameraShot() {
     if (cameraShotUrl) URL.revokeObjectURL(cameraShotUrl);
     cameraShotUrl = URL.createObjectURL(blob);
 
-    stopCameraStream();
+    // Камеру не останавливаем: следующий снимок использует тот же stream.
     preview.src = cameraShotUrl;
     preview.style.display = 'block';
     video.style.display = 'none';
@@ -3840,7 +3917,14 @@ function retakeCameraShot() {
     cameraShotUrl = null;
   }
   cameraShotBlob = null;
-  openCameraModal(cameraTarget, cameraSectionKey);
+  const video = document.getElementById('camera-video');
+  const preview = document.getElementById('camera-preview');
+  const shotBtn = document.getElementById('camera-shot-btn');
+  const actionRow = document.getElementById('camera-action-row');
+  if (preview) { preview.style.display = 'none'; preview.src = ''; }
+  if (video) { video.style.display = 'block'; if (cameraStream) video.srcObject = cameraStream; video.play().catch(() => {}); }
+  if (shotBtn) shotBtn.style.display = 'block';
+  if (actionRow) actionRow.style.display = 'none';
 }
 
 function buildCameraFile(prefix) {
@@ -3925,6 +4009,9 @@ function addRepairCloseCameraPhoto(localPhoto) {
   renderRepairClosePhotos();
   return true;
 }
+
+window.addEventListener('pagehide', stopCameraStream);
+window.addEventListener('beforeunload', stopCameraStream);
 
 // ============================================================
 // FULLSCREEN PHOTO
@@ -4052,6 +4139,9 @@ function enterFounder() {
   }
 
   goTo('screen-founder-login');
+  const founderNameInput = document.getElementById('founder-name');
+  const founderProfile = getCurrentFounderProfile();
+  if (founderNameInput) founderNameInput.value = founderProfile && founderProfile.name ? founderProfile.name : '';
   document.getElementById('founder-pwd').value = '';
   document.getElementById('founder-error').classList.remove('show');
 }
@@ -4389,6 +4479,7 @@ async function confirmInventorySubmit() {
 
   try {
     await saveInventoryRecord(record);
+    notifyFounders(`📦 Новая инвентаризация\n\n${record.staffName || 'Официант'} · ${formatDateRu(record.date)}\nОткройте Учредитель → Официанты → Инвентаризация`);
     await clearInventoryDraft();
     showToast('Инвентаризация отправлена ✓');
     goBack();
@@ -4708,6 +4799,7 @@ async function confirmFounderTask() {
         if (res && res.sent) showToast(`Задача отправлена, уведомлений: ${res.sent}`);
       });
     }
+    notifyFounders(`✅ Создана задача для официантов\n\n${textValue}`);
 
     activeFounderTaskPhotos = [];
     const field = document.getElementById('founder-task-text');
@@ -4833,6 +4925,7 @@ async function confirmCloseFounderTaskByWaiter() {
     task.closeText = closeText;
     task.closePhotos = photos;
     await updateFounderTask(task);
+    notifyFounders(`✅ Задача закрыта\n\n${task.closedByName || 'Официант'} закрыл задачу: ${task.text || ''}`);
     activeWaiterTaskClosePhotos = [];
     renderWaiterTaskView();
     showToast('Задача закрыта ✓');
@@ -5149,6 +5242,7 @@ async function confirmReport() {
     const reports = getReports();
     reports.push(report);
     setReports(reports);
+    notifyFounders(`📷 Новый фотоотчёт\n\n${report.staffName} · ${report.bathName} · ${getPhotoPeriodLabel(report.period)}\n${formatDateRu(report.date)} · ${report.time}`);
 
     showToast('Отчет отправлен ✓');
 
@@ -5264,6 +5358,9 @@ function confirmDuty() {
     assignedAt: new Date().toISOString()
   });
 
+  notifyStaffMember(person, `🌅 Вы назначены дежурным\n\nДата: ${formatDateRu(targetDate)}${tasks ? '\n\nЗадачи:\n' + tasks : ''}`);
+  notifyFounders(`🌅 Назначен дежурный\n\n${person.name} · ${formatDateRu(targetDate)}${tasks ? '\n\nЗадачи:\n' + tasks : ''}`);
+
   showToast(`${person.name} назначен(а) дежурным ✓`);
   renderDutyScreen();
 }
@@ -5376,6 +5473,8 @@ async function confirmRepairRequest() {
     const now = new Date();
     const req = { id: Date.now(), sourceRole: activeRepairSourceRole, sourceRoleLabel: getRoleLabel(activeRepairSourceRole), staffId: actor.id, staffName: actor.name || getRoleLabel(activeRepairSourceRole), staffLogin: actor.login || '', text: textValue, photos, fixedPhotos: [], status: 'new', date: toDateKey(now), time: now.toTimeString().slice(0, 5), createdAt: now.toISOString(), technicianReadAt: null, repairedAt: null };
     await saveRepairRequest(req);
+    notifyRole('technician', `🛠️ Новая заявка на ремонт\n\n${req.sourceRoleLabel}: ${req.staffName}\n${req.text}\n\nОткройте Drova Inspector → Техник → Заявки на ремонт`);
+    notifyFounders(`🛠️ Новая заявка на ремонт\n\n${req.sourceRoleLabel}: ${req.staffName}\n${req.text}`);
     activeRepairPhotos = [];
     document.getElementById('repair-create-text').value = '';
     renderRepairCreatePhotos();
@@ -5511,6 +5610,7 @@ async function confirmCloseRepairRequest() {
     req.technicianId = tech.id;
     req.technicianName = tech.name || 'Техник';
     await updateRepairRequest(req);
+    notifyFounders(`✅ Ремонт закрыт\n\n${req.technicianName} закрыл заявку: ${req.text || ''}`);
     activeRepairClosePhotos = [];
     showToast('Заявка закрыта ✓');
     renderRepairView();
@@ -5693,6 +5793,7 @@ async function submitBathmasterOrder() {
 
   try {
     await saveBathmasterOrder(order);
+    notifyFounders(`🧾 Новый заказ от ${order.sourceRoleLabel}\n\n${order.staffName}: ${order.text}`);
     document.getElementById('bathmaster-order-text').value = '';
     renderBathmasterOrderHistory();
     showToast('Заявка отправлена ✓');
@@ -5861,6 +5962,7 @@ async function approveAccessRequest(requestId) {
   }
 
   await deleteAccessRequest(req.id);
+  notifyFounders(`✅ Вход подтверждён\n\n${staffMember.roleLabel || getRoleLabel(staffMember.role)}: ${staffMember.name}`);
   showToast('Вход подтверждён ✓');
   renderAccessRequests();
 }
@@ -6325,8 +6427,11 @@ function openFounderBathmasters() {
 function getAllEmployeesForFounder() {
   const staffEmployees = getStaff().map(s => ({ ...s, _employeeType: 'staff', _key: 'staff:' + String(s.id) }));
   const adminEmployees = getAdminProfiles().map(a => ({ ...a, _employeeType: 'admin', _key: 'admin:' + String(a.id), role: 'admin', roleLabel: 'Администратор' }));
+  const roleOrder = { founder: 0, waiter: 1, masseur: 2, bathmaster: 3, technician: 4, admin: 5, cleaner: 6, stoker: 7, cook: 8 };
   return [...staffEmployees, ...adminEmployees].sort((a, b) => {
-    const roleCmp = String(getStaffRole(a)).localeCompare(String(getStaffRole(b)), 'ru');
+    const ar = String(a.role || 'waiter');
+    const br = String(b.role || 'waiter');
+    const roleCmp = (roleOrder[ar] ?? 50) - (roleOrder[br] ?? 50);
     if (roleCmp !== 0) return roleCmp;
     return String(a.name || '').localeCompare(String(b.name || ''), 'ru');
   });
@@ -6402,18 +6507,33 @@ async function deleteAdminProfileById(adminId) {
 // ============================================================
 // FOUNDER
 // ============================================================
-function checkFounderPwd() {
+async function checkFounderPwd() {
+  const nameInput = document.getElementById('founder-name');
+  const name = (nameInput ? nameInput.value : '').trim();
   const input = document.getElementById('founder-pwd').value;
   const err = document.getElementById('founder-error');
+
+  if (!name || !input) {
+    err.textContent = 'Введите имя и пароль';
+    err.classList.add('show');
+    return;
+  }
+
   if (input === getFounderPassword()) {
     err.classList.remove('show');
-    setFounderSession();
-    localStorage.setItem("founderActiveRole", 'founder');
-    // Replace login screen with menu
-    screenStack.pop();
-    document.getElementById('screen-founder-login').classList.remove('active');
-    goTo('screen-founder-menu');
+    try {
+      const founderProfile = await ensureFounderEmployee(name);
+      setFounderSession(founderProfile);
+      localStorage.setItem("founderActiveRole", 'founder');
+      screenStack.pop();
+      document.getElementById('screen-founder-login').classList.remove('active');
+      goTo('screen-founder-menu');
+    } catch (e) {
+      console.error(e);
+      showToast('Ошибка входа учредителя');
+    }
   } else {
+    err.textContent = 'Неверный пароль';
     err.classList.add('show');
     document.getElementById('founder-pwd').value = '';
   }
