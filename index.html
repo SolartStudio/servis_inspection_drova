@@ -413,6 +413,7 @@
   }
   .add-photo-btn:active { border-color: var(--accent); }
   .add-photo-btn.hidden { display: none; }
+  .photo-actions.hidden { display: none !important; }
 
   /* TABS */
   .tabs {
@@ -1796,7 +1797,7 @@
   <div class="header"><button class="back-btn" onclick="goBack()">←</button><span class="header-title" id="repair-create-title">Поломки</span></div>
   <div class="content content-padded"><div class="section-label">Заявка на ремонт</div><div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
     <div class="field"><label>Описание поломки</label><textarea id="repair-create-text" placeholder="Например: течёт кран, не работает свет, сломалась ручка двери..."></textarea><div class="error-msg" id="repair-create-error">Напишите, что сломалось</div></div>
-    <div class="photo-section" style="margin-bottom:0;"><div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="repair-create-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-create-photo-grid" style="display:none;"></div><label class="add-photo-btn" id="repair-create-add-btn"><span>＋</span><span>Добавить фото</span><input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairPhotos(event)"></label></div></div>
+    <div class="photo-section" style="margin-bottom:0;"><div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="repair-create-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-create-photo-grid" style="display:none;"></div><div id="repair-create-add-btn" class="photo-actions"><label class="add-photo-btn"><span>📷</span><span>Сделать фото</span><input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairPhotos(event)"></label></div></div></div>
   </div>
     <div class="section-label">История заявок</div>
     <div id="repair-create-history"></div>
@@ -4084,7 +4085,7 @@ function renderBathReportContent() {
         ${photos.length > 0 ? `<div class="photo-grid" id="grid-${section.key}">${thumbsHtml}</div>` : `<div class="photo-grid" id="grid-${section.key}" style="display:${photos.length===0?'none':'grid'}"></div>`}
         <label class="add-photo-btn ${atLimit ? 'hidden' : ''}" id="add-btn-${section.key}">
           <span>＋</span>
-          <span>Добавить фото</span>
+          <span>Сделать фото</span>
           <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotos(event, '${section.key}')">
         </label>
       </div>`;
@@ -4526,7 +4527,7 @@ function renderRepairView() {
   activeRepairFixedPhotoSet = req.fixedPhotos || [];
   const photosHtml = activeRepairPhotoSet.length ? `<div class="section-label">Фото поломки</div><div class="report-photo-grid" style="margin-bottom:16px;">${activeRepairPhotoSet.map((photo, idx) => `<div class="report-photo-thumb" onclick="openRepairPhoto('main', ${idx})"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : `<div class="doc-placeholder">Фото поломки не прикрепляли.</div>`;
   const fixedPhotosHtml = activeRepairFixedPhotoSet.length ? `<div class="section-label">Фото после ремонта</div><div class="report-photo-grid" style="margin-bottom:16px;">${activeRepairFixedPhotoSet.map((photo, idx) => `<div class="report-photo-thumb" onclick="openRepairPhoto('fixed', ${idx})"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
-  const closeBlock = mode === 'technician' && req.status !== 'repaired' ? `<div class="section-label">Закрытие заявки</div><div class="photo-section"><div class="photo-section-header"><span class="photo-section-title">Фото после починки</span><span class="photo-count" id="repair-close-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-close-photo-grid" style="display:none;"></div><label class="add-photo-btn" id="repair-close-add-btn"><span>＋</span><span>Добавить фото после ремонта</span><input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairClosePhotos(event)"></label></div></div><button class="btn btn-primary" onclick="closeRepairRequestWithPhoto()">Закрыть заявку</button>` : '';
+  const closeBlock = mode === 'technician' && req.status !== 'repaired' ? `<div class="section-label">Закрытие заявки</div><div class="photo-section"><div class="photo-section-header"><span class="photo-section-title">Фото после починки</span><span class="photo-count" id="repair-close-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-close-photo-grid" style="display:none;"></div><div id="repair-close-add-btn" class="photo-actions"><label class="add-photo-btn"><span>📷</span><span>Сделать фото</span><input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairClosePhotos(event)"></label></div></div></div><button class="btn btn-primary" onclick="closeRepairRequestWithPhoto()">Закрыть заявку</button>` : '';
   content.innerHTML = `<div class="inventory-status"><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">От кого</div><div style="font-size:18px;font-weight:700;margin-bottom:12px;">${escapeHtml(req.staffName || '—')}${req.staffLogin ? ' · ' + escapeHtml(req.staffLogin) : ''}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Подразделение</div><div style="font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(req.sourceRoleLabel || '—')}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Дата</div><div style="font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(dateText)}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Статус</div><div style="font-size:16px;font-weight:800;color:${getRepairStatusColor(req)};">${getRepairStatusText(req)}</div></div><div class="section-label">Описание</div><div class="doc-placeholder" style="white-space:pre-line;color:var(--text);">${escapeHtml(req.text || '')}</div>${photosHtml}${fixedPhotosHtml}${closeBlock}`;
   if (mode === 'technician' && req.status !== 'repaired') renderRepairClosePhotos();
 }
