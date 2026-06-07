@@ -1090,7 +1090,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.064 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.065 тестирование</div>
   </div>
 </div>
 
@@ -2494,7 +2494,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.064";
+const APP_VERSION = "1.065";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2527,9 +2527,62 @@ const appCache = {
 
 const LocalDB = {
   get: (key) => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
-  set: (key, val) => localStorage.setItem(key, JSON.stringify(val)),
-  remove: (key) => localStorage.removeItem(key),
+  set: (key, val) => {
+    try { localStorage.setItem(key, JSON.stringify(val)); }
+    catch (e) { try { sessionStorage.setItem(key, JSON.stringify(val)); } catch (_) {} }
+  },
+  remove: (key) => {
+    try { localStorage.removeItem(key); } catch (_) {}
+    try { sessionStorage.removeItem(key); } catch (_) {}
+  },
 };
+
+// На телефонах Telegram WebView иногда перезапускает Mini App, а Firebase ещё не успевает
+// отдать settings. Поэтому пароли и сессии поднимаем из локальной копии сразу,
+// иначе приложение само сбрасывает вход до загрузки базы. Браво, гонка состояний.
+appCache.founderPassword = LocalDB.get("founderPassword") || appCache.founderPassword || "5552";
+appCache.adminPassword = LocalDB.get("adminPassword") || appCache.adminPassword || "3235";
+
+function getTelegramWebAppUser() {
+  try {
+    return window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe
+      ? (window.Telegram.WebApp.initDataUnsafe.user || null)
+      : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function getTelegramWebAppChatId() {
+  const user = getTelegramWebAppUser();
+  return user && user.id ? String(user.id) : '';
+}
+
+function getTelegramWebAppUsername() {
+  const user = getTelegramWebAppUser();
+  if (!user || !user.username) return '';
+  return normalizeLogin(user.username);
+}
+
+function fillTelegramMeta(target) {
+  const data = { ...(target || {}) };
+  const tgId = getTelegramWebAppChatId();
+  const tgLogin = getTelegramWebAppUsername();
+  if (tgId && !data.telegramId && !data.chatId && !data.telegramID) {
+    data.telegramId = tgId;
+    data.chatId = tgId;
+  }
+  if (tgLogin && (!data.login || data.login === '@username' || data.login === 'founder')) {
+    data.login = tgLogin;
+  }
+  return data;
+}
+
+function saveLastScreen(screenId) {
+  if (!screenId || screenId === 'screen-home') return;
+  LocalDB.set('lastActiveScreen', { screenId, at: Date.now() });
+}
+
 
 function getDefaultKpiContent() {
   return {
@@ -2705,7 +2758,7 @@ async function ensureFounderEmployee(name) {
   const cleanName = String(name || '').trim() || 'Учредитель';
   const existing = findFounderProfileByName(cleanName);
   const now = new Date().toISOString();
-  const founder = existing ? { ...existing, name: cleanName, role: 'founder', roleLabel: 'Учредитель', updatedAt: now } : {
+  const founder = fillTelegramMeta(existing ? { ...existing, name: cleanName, role: 'founder', roleLabel: 'Учредитель', updatedAt: now } : {
     id: 'founder_' + Date.now(),
     login: 'founder',
     name: cleanName,
@@ -2714,7 +2767,7 @@ async function ensureFounderEmployee(name) {
     approvedAt: now,
     createdAt: now,
     updatedAt: now
-  };
+  });
 
   const arr = getStaff().filter(s => String(s.id) !== String(founder.id));
   arr.push(founder);
@@ -2777,6 +2830,7 @@ async function initCloud() {
 
   db.collection("staff").onSnapshot((snapshot) => {
     appCache.staff = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    LocalDB.set("staff", appCache.staff);
     refreshVisibleData();
   }, (err) => {
     console.error("staff snapshot error", err);
@@ -2817,6 +2871,7 @@ async function initCloud() {
 
   db.collection("adminProfiles").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
     appCache.adminProfiles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    LocalDB.set("adminProfiles", appCache.adminProfiles);
     refreshVisibleData();
   }, (err) => {
     console.error("admin profiles snapshot error", err);
@@ -2841,6 +2896,7 @@ async function initCloud() {
 
   db.collection("founderTasks").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
     appCache.founderTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    LocalDB.set("founderTasks", appCache.founderTasks);
     refreshVisibleData();
   }, (err) => {
     console.error("founder tasks snapshot error", err);
@@ -2850,8 +2906,10 @@ async function initCloud() {
   db.collection("settings").doc("main").onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : {};
     appCache.dutyAssignment = data.dutyAssignment || null;
-    appCache.founderPassword = data.founderPassword || "5552";
-    appCache.adminPassword = data.adminPassword || "3235";
+    appCache.founderPassword = data.founderPassword || LocalDB.get("founderPassword") || "5552";
+    appCache.adminPassword = data.adminPassword || LocalDB.get("adminPassword") || "3235";
+    LocalDB.set("founderPassword", appCache.founderPassword);
+    LocalDB.set("adminPassword", appCache.adminPassword);
     appCache.inventoryDraft = data.inventoryDraft || null;
     appCache.kpiContent = data.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
     appCache.stopList = data.stopList || LocalDB.get("stopList") || getDefaultStopList();
@@ -2890,11 +2948,16 @@ async function loadCloudData() {
   appCache.bathmasterOrders = bathmasterOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.repairRequests = repairRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.founderTasks = founderTasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  LocalDB.set("staff", appCache.staff);
+  LocalDB.set("adminProfiles", appCache.adminProfiles);
+  LocalDB.set("founderTasks", appCache.founderTasks);
 
   const settings = settingsDoc.exists ? settingsDoc.data() : {};
   appCache.dutyAssignment = settings.dutyAssignment || null;
-  appCache.founderPassword = settings.founderPassword || "5552";
-  appCache.adminPassword = settings.adminPassword || "3235";
+  appCache.founderPassword = settings.founderPassword || LocalDB.get("founderPassword") || "5552";
+  appCache.adminPassword = settings.adminPassword || LocalDB.get("adminPassword") || "3235";
+  LocalDB.set("founderPassword", appCache.founderPassword);
+  LocalDB.set("adminPassword", appCache.adminPassword);
   appCache.inventoryDraft = settings.inventoryDraft || null;
   appCache.kpiContent = settings.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
   appCache.stopList = settings.stopList || LocalDB.get("stopList") || getDefaultStopList();
@@ -3015,7 +3078,8 @@ function getRolePrepositional(role) {
     masseur: 'массажистов',
     cleaner: 'техничек',
     bathmaster: 'пармастеров',
-    technician: 'техников'
+    technician: 'техников',
+    admin: 'администраторов'
   };
   return forms[role] || String(getRoleLabel(role)).toLowerCase();
 }
@@ -3349,7 +3413,7 @@ async function submitAccessRequest() {
     return;
   }
 
-  const req = {
+  const req = fillTelegramMeta({
     id: Date.now(),
     role: activeAccessRole,
     roleLabel: getRoleLabel(activeAccessRole),
@@ -3357,7 +3421,7 @@ async function submitAccessRequest() {
     name,
     status: 'pending',
     createdAt: new Date().toISOString()
-  };
+  });
 
   try {
     await saveAccessRequest(req);
@@ -3862,7 +3926,11 @@ function getTelegramIdsForRole(role) {
 }
 
 function getFounderTelegramIds() {
-  return getTelegramIdsForRole('founder');
+  const ids = getTelegramIdsForRole('founder');
+  const current = getCurrentFounderProfile();
+  const currentId = getTelegramIdForStaff(current) || getTelegramWebAppChatId();
+  if (currentId) ids.push(currentId);
+  return [...new Set(ids.map(v => String(v || '').trim()).filter(Boolean))];
 }
 
 function getTelegramIdForStaff(staff) {
@@ -3870,7 +3938,7 @@ function getTelegramIdForStaff(staff) {
 }
 
 function notifyRole(role, textValue) {
-  return notifyTelegramUsers(getTelegramIdsForRole(role), textValue);
+  return notifyTelegramUsers([...new Set(getTelegramIdsForRole(role))], textValue);
 }
 
 function notifyFounders(textValue) {
@@ -3893,6 +3961,7 @@ function goTo(screenId) {
   document.getElementById(current).classList.remove('active');
   document.getElementById(screenId).classList.add('active');
   screenStack.push(screenId);
+  saveLastScreen(screenId);
   window.scrollTo(0, 0);
 }
 
@@ -5208,16 +5277,19 @@ async function confirmFounderTask() {
     };
     await saveFounderTask(task);
 
-    const telegramIds = getTelegramIdsForRole(targetRole);
-    if (telegramIds.length) {
-      const notifyText = `✅ Новая задача для ${targetRoleLabel.toLowerCase()}
+    const telegramIds = [...new Set(getTelegramIdsForRole(targetRole))];
+    const notifyText = `✅ Новая задача для ${targetRoleLabel.toLowerCase()}
 
 ${textValue}
 
 Откройте Drova Inspector → Задачи`;
+    if (telegramIds.length) {
       notifyTelegramUsers(telegramIds, notifyText).then(res => {
         if (res && res.sent) showToast(`Задача отправлена, уведомлений: ${res.sent}`);
+        else console.warn('task notify skipped or failed', targetRole, res);
       });
+    } else {
+      console.warn('task notify skipped: no telegram ids for role', targetRole);
     }
     notifyFounders(`✅ Создана задача для ${targetRoleLabel.toLowerCase()}
 
@@ -6398,7 +6470,7 @@ async function approveAccessRequest(requestId) {
     roleLabel: req.roleLabel || getRoleLabel(req.role),
     approvedAt: new Date().toISOString(),
     createdAt: req.createdAt || new Date().toISOString()
-  };
+  });
 
   if (!existing) {
     const staff = getStaff();
@@ -6444,7 +6516,7 @@ async function checkAdminPwd() {
 
   const existing = findAdminProfileByLogin(login);
   const now = new Date().toISOString();
-  const profile = {
+  const profile = fillTelegramMeta({
     ...(existing || {}),
     id: existing ? existing.id : Date.now(),
     login,
@@ -6453,7 +6525,7 @@ async function checkAdminPwd() {
     roleLabel: 'Администратор',
     updatedAt: now,
     createdAt: existing && existing.createdAt ? existing.createdAt : now
-  };
+  });
 
   try {
     await saveAdminProfile(profile);
@@ -7788,7 +7860,28 @@ async function init() {
   const versionEl = document.getElementById('app-version-label');
   if (versionEl) versionEl.textContent = APP_VERSION_LABEL;
 
-  await initCloud();
+  try {
+    await initCloud();
+  } catch (e) {
+    console.error('initCloud failed', e);
+    appCache.staff = LocalDB.get("staff") || appCache.staff || [];
+    appCache.reports = LocalDB.get("reports") || appCache.reports || [];
+    appCache.dutyAssignment = LocalDB.get("dutyAssignment") || appCache.dutyAssignment || null;
+    appCache.founderPassword = LocalDB.get("founderPassword") || appCache.founderPassword || "5552";
+    appCache.adminPassword = LocalDB.get("adminPassword") || appCache.adminPassword || "3235";
+    appCache.fines = LocalDB.get("fines") || appCache.fines || [];
+    appCache.inventoryDraft = LocalDB.get("inventoryDraft") || appCache.inventoryDraft || null;
+    appCache.inventoryRecords = LocalDB.get("inventoryRecords") || appCache.inventoryRecords || [];
+    appCache.accessRequests = LocalDB.get("accessRequests") || appCache.accessRequests || [];
+    appCache.adminStats = LocalDB.get("adminStats") || appCache.adminStats || [];
+    appCache.adminProfiles = LocalDB.get("adminProfiles") || appCache.adminProfiles || [];
+    appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || appCache.bathmasterOrders || [];
+    appCache.repairRequests = LocalDB.get("repairRequests") || appCache.repairRequests || [];
+    appCache.founderTasks = LocalDB.get("founderTasks") || appCache.founderTasks || [];
+    appCache.kpiContent = LocalDB.get("kpiContent") || appCache.kpiContent || getDefaultKpiContent();
+    appCache.stopList = LocalDB.get("stopList") || appCache.stopList || getDefaultStopList();
+    showToast('Связь с базой нестабильна, открыта локальная копия');
+  }
 
   renderBathList();
 
@@ -7846,7 +7939,20 @@ function toggleTheme() {
 }
 
 
-init();
+window.addEventListener('error', (event) => {
+  console.error('Drova Inspector error', event.error || event.message);
+  showToast('Ошибка экрана. Данные не удалены, откройте раздел ещё раз');
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Drova Inspector promise error', event.reason);
+  showToast('Ошибка связи или сохранения. Попробуйте ещё раз');
+});
+
+init().catch((e) => {
+  console.error('init fatal', e);
+  showToast('Ошибка запуска. Перезагрузите Mini App');
+});
 
 </script>
 </body>
