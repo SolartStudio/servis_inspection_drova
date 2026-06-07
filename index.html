@@ -1090,7 +1090,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.060 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.062 тестирование</div>
   </div>
 </div>
 
@@ -1806,7 +1806,7 @@
       <div class="menu-icon">💆</div>
       <div class="menu-text">
         <div class="menu-title-row"><div class="menu-title">Массажисты</div><span class="notify-badge" id="badge-founder-masseurs">0</span></div>
-        <div class="menu-desc">Задачи и заказы</div>
+        <div class="menu-desc">Сотрудники и заказы</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1925,10 +1925,10 @@
   </div>
   <div class="content">
     <div class="tabs">
-      <div class="tab active" id="tab-masseur-tasks" onclick="switchMasseurTab('tasks')">Задачи</div>
+      <div class="tab active" id="tab-masseur-staff" onclick="switchMasseurTab('staff')">Сотрудники</div>
       <div class="tab" id="tab-masseur-orders" onclick="switchMasseurTab('orders')">Заказы <span class="notify-badge" id="badge-tab-masseur-orders">0</span></div>
     </div>
-    <div id="panel-masseur-tasks"></div>
+    <div id="panel-masseur-staff"></div>
     <div id="panel-masseur-orders" style="display:none;"></div>
   </div>
 </div>
@@ -2502,7 +2502,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.060";
+const APP_VERSION = "1.062";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -3970,9 +3970,71 @@ let cameraTarget = null;
 let cameraSectionKey = null;
 let cameraShotBlob = null;
 let cameraShotUrl = null;
+let cameraPermissionKnown = false;
+
+const CAMERA_PERMISSION_KEY = "drovaCameraPermissionGranted";
+const CAMERA_PERMISSION_TIME_KEY = "drovaCameraPermissionGrantedAt";
 
 function isCameraSupported() {
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+
+function markCameraPermissionGranted() {
+  cameraPermissionKnown = true;
+  try {
+    localStorage.setItem(CAMERA_PERMISSION_KEY, "1");
+    localStorage.setItem(CAMERA_PERMISSION_TIME_KEY, new Date().toISOString());
+  } catch (e) {}
+}
+
+function hasSavedCameraPermission() {
+  try { return localStorage.getItem(CAMERA_PERMISSION_KEY) === "1"; }
+  catch (e) { return cameraPermissionKnown; }
+}
+
+function clearSavedCameraPermission() {
+  cameraPermissionKnown = false;
+  try {
+    localStorage.removeItem(CAMERA_PERMISSION_KEY);
+    localStorage.removeItem(CAMERA_PERMISSION_TIME_KEY);
+  } catch (e) {}
+}
+
+function hasLiveCameraStream() {
+  return !!(cameraStream && cameraStream.getTracks().some(track => track.readyState === 'live'));
+}
+
+function getCameraConstraints() {
+  return {
+    audio: false,
+    video: {
+      facingMode: { ideal: 'environment' },
+      width: { ideal: 1600 },
+      height: { ideal: 1200 }
+    }
+  };
+}
+
+async function ensureCameraStream() {
+  if (hasLiveCameraStream()) return cameraStream;
+
+  // Важно: если пользователь уже разрешал камеру на этом устройстве,
+  // мы не делаем никаких дополнительных промежуточных запросов/проверок,
+  // а сразу переиспользуем стандартный доступ браузера/Telegram WebView.
+  cameraStream = await navigator.mediaDevices.getUserMedia(getCameraConstraints());
+  markCameraPermissionGranted();
+  return cameraStream;
+}
+
+async function refreshCameraPermissionState() {
+  if (!navigator.permissions || !navigator.permissions.query) return;
+  try {
+    const status = await navigator.permissions.query({ name: 'camera' });
+    if (status && status.state === 'granted') markCameraPermissionGranted();
+    if (status && status.state === 'denied') clearSavedCameraPermission();
+  } catch (e) {
+    // iOS/Telegram часто не поддерживают Permissions API для камеры. Не шумим.
+  }
 }
 
 async function openCameraModal(target, sectionKey = null) {
@@ -4013,23 +4075,20 @@ async function openCameraModal(target, sectionKey = null) {
   }
 
   try {
-    if (!cameraStream || !cameraStream.getTracks().some(track => track.readyState === 'live')) {
-      cameraStream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1600 },
-          height: { ideal: 1200 }
-        }
-      });
-    }
+    await refreshCameraPermissionState();
+    await ensureCameraStream();
     video.srcObject = cameraStream;
     await video.play();
   } catch (err) {
     console.error('camera error', err);
     video.style.display = 'none';
     shotBtn.style.display = 'none';
-    error.textContent = 'Камера не открылась. Проверьте: Telegram → разрешения → Камера. Затем закройте и снова откройте Mini App.';
+
+    const savedText = hasSavedCameraPermission()
+      ? 'Разрешение уже было сохранено на этом устройстве, но Telegram/OS сбросили доступ после перезапуска Mini App. Проверьте разрешение камеры для Telegram и откройте Mini App заново.'
+      : 'Камера не открылась. Разрешите камеру для Telegram. После первого разрешения приложение будет переиспользовать доступ без закрытия камеры.';
+
+    error.textContent = savedText;
     error.style.display = 'block';
   }
 }
@@ -4191,8 +4250,18 @@ function addRepairCloseCameraPhoto(localPhoto) {
   return true;
 }
 
-window.addEventListener('pagehide', stopCameraStream);
-window.addEventListener('beforeunload', stopCameraStream);
+// Не останавливаем камеру при pagehide/visibilitychange: Telegram Mini App может
+// скрывать/показывать WebView без полного закрытия, и stop() снова провоцирует
+// системный запрос разрешения. Поток закрывается только если ОС сама выгрузит WebView.
+window.addEventListener('visibilitychange', () => {
+  if (!document.hidden && hasLiveCameraStream()) {
+    const video = document.getElementById('camera-video');
+    if (video) {
+      video.srcObject = cameraStream;
+      video.play().catch(() => {});
+    }
+  }
+});
 
 // ============================================================
 // FULLSCREEN PHOTO
@@ -6772,46 +6841,59 @@ function addFounderFine() {
 }
 
 
-let activeMasseurTab = 'tasks';
+let activeMasseurTab = 'staff';
 
 function openFounderMasseurs() {
-  activeMasseurTab = 'tasks';
+  activeMasseurTab = 'staff';
   renderFounderMasseurs();
   goTo('screen-founder-masseurs');
 }
 
 function switchMasseurTab(tab) {
   activeMasseurTab = tab;
-  const tasksTab = document.getElementById('tab-masseur-tasks');
+  const staffTab = document.getElementById('tab-masseur-staff');
   const ordersTab = document.getElementById('tab-masseur-orders');
-  const tasksPanel = document.getElementById('panel-masseur-tasks');
+  const staffPanel = document.getElementById('panel-masseur-staff');
   const ordersPanel = document.getElementById('panel-masseur-orders');
-  if (tasksTab) tasksTab.classList.toggle('active', tab === 'tasks');
+  if (staffTab) staffTab.classList.toggle('active', tab === 'staff');
   if (ordersTab) ordersTab.classList.toggle('active', tab === 'orders');
-  if (tasksPanel) tasksPanel.style.display = tab === 'tasks' ? 'block' : 'none';
+  if (staffPanel) staffPanel.style.display = tab === 'staff' ? 'block' : 'none';
   if (ordersPanel) ordersPanel.style.display = tab === 'orders' ? 'block' : 'none';
-  if (tab === 'tasks') renderMasseurTasksForFounder();
+  if (tab === 'staff') renderMasseurStaffForFounder();
   if (tab === 'orders') renderMasseurOrdersForFounder();
 }
 
 function renderFounderMasseurs() {
-  renderMasseurTasksForFounder();
+  renderMasseurStaffForFounder();
   renderMasseurOrdersForFounder();
-  switchMasseurTab(activeMasseurTab || 'tasks');
+  switchMasseurTab(activeMasseurTab || 'staff');
 }
 
-function renderMasseurTasksForFounder() {
-  const el = document.getElementById('panel-masseur-tasks');
+function renderMasseurStaffForFounder() {
+  const el = document.getElementById('panel-masseur-staff');
   if (!el) return;
-  el.innerHTML = `
-    <div class="menu-item" onclick="openFounderTaskDepartment('masseur')">
-      <div class="menu-icon">✅</div>
-      <div class="menu-text">
-        <div class="menu-title">Задачи</div>
-        <div class="menu-desc">Раздел задач массажистов подготовлен, пока в тестировании</div>
+
+  const staff = getStaff().filter(s => s.role === 'masseur');
+
+  if (!staff.length) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">💆</div>
+      <div class="empty-title">Пока нет массажистов</div>
+      <div class="empty-sub">Сотрудники появятся после одобрения входа администратором</div>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = staff.map(s => `
+    <div class="staff-item" onclick="openStaffView('${s.id}')">
+      <div class="staff-avatar">${escapeHtml((s.name || 'М').charAt(0).toUpperCase())}</div>
+      <div style="flex:1;">
+        <div class="staff-name">${escapeHtml(s.name || 'Массажист')}</div>
+        <div class="staff-login">${escapeHtml(getStaffRole(s))}${s.login ? ' · ' + escapeHtml(s.login) : ''}</div>
       </div>
       <span class="menu-arrow">›</span>
-    </div>`;
+    </div>
+  `).join('');
 }
 
 function renderMasseurOrdersForFounder() {
@@ -7722,6 +7804,7 @@ async function init() {
     showToast("Worker URL не заполнен");
   }
   initTheme();
+  refreshCameraPermissionState();
 }
 
 // ============================================================
