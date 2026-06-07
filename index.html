@@ -1090,7 +1090,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.058 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.059 тестирование</div>
   </div>
 </div>
 
@@ -1155,6 +1155,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openWaiterWip('Стоп лист')">
+      <div class="menu-icon">⛔</div>
+      <div class="menu-text">
+        <div class="menu-title">Стоп лист</div>
+        <div class="menu-desc">Раздел в разработке</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openPhotoReportPeriodSelect()">
       <div class="menu-icon">📷</div>
       <div class="menu-text">
@@ -1187,30 +1195,6 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
-    <div class="menu-item" onclick="openWaiterDocs('algorithm')">
-      <div class="menu-icon">🧭</div>
-      <div class="menu-text">
-        <div class="menu-title">Алгоритм работы</div>
-        <div class="menu-desc">Порядок действий на смене</div>
-      </div>
-      <span class="menu-arrow">›</span>
-    </div>
-    <div class="menu-item" onclick="openWaiterDocs('instructions')">
-      <div class="menu-icon">📘</div>
-      <div class="menu-text">
-        <div class="menu-title">Должностные инструкции</div>
-        <div class="menu-desc">Материалы для просмотра</div>
-      </div>
-      <span class="menu-arrow">›</span>
-    </div>
-    <div class="menu-item" id="waiter-attestation-menu-item" onclick="openWaiterAttestation()">
-      <div class="menu-icon">🎓</div>
-      <div class="menu-text">
-        <div class="menu-title">Аттестация</div>
-        <div class="menu-desc" id="waiter-attestation-menu-desc">Лучший результат: пока нет</div>
-      </div>
-      <span class="menu-arrow">›</span>
-    </div>
     <div class="menu-item" onclick="openWaiterKpi()">
       <div class="menu-icon">📈</div>
       <div class="menu-text">
@@ -1227,7 +1211,31 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
-  </div>
+    <div class="menu-item" id="waiter-attestation-menu-item" onclick="openWaiterAttestation()">
+      <div class="menu-icon">🎓</div>
+      <div class="menu-text">
+        <div class="menu-title">Аттестация</div>
+        <div class="menu-desc" id="waiter-attestation-menu-desc">Лучший результат: пока нет</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openWaiterDocs('algorithm')">
+      <div class="menu-icon">🧭</div>
+      <div class="menu-text">
+        <div class="menu-title">Алгоритм работы</div>
+        <div class="menu-desc">Порядок действий на смене</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openWaiterDocs('instructions')">
+      <div class="menu-icon">📘</div>
+      <div class="menu-text">
+        <div class="menu-title">Должностные инструкции</div>
+        <div class="menu-desc">Материалы для просмотра</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+</div>
   <div class="footer" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
     <span class="logo-sm">drova inspector</span>
     <button class="btn btn-secondary btn-sm" onclick="waiterLogout()">Выйти</button>
@@ -1460,6 +1468,14 @@
       <div style="font-size: 24px; font-weight: 700;">Администратор</div>
     </div>
     <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="openAdminWip('Задачи')">
+      <div class="menu-icon">✅</div>
+      <div class="menu-text">
+        <div class="menu-title">Задачи</div>
+        <div class="menu-desc">Раздел в тестировании</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="goTo('screen-duty')">
       <div class="menu-icon">🌅</div>
       <div class="menu-text">
@@ -1786,6 +1802,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openFounderMasseurs()">
+      <div class="menu-icon">💆</div>
+      <div class="menu-text">
+        <div class="menu-title-row"><div class="menu-title">Массажисты</div><span class="notify-badge" id="badge-founder-masseurs">0</span></div>
+        <div class="menu-desc">Задачи и заказы</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openFounderBathmasters()">
       <div class="menu-icon">🔥</div>
       <div class="menu-text">
@@ -1847,17 +1871,9 @@
 <div class="screen" id="screen-founder-tasks">
   <div class="header">
     <button class="back-btn" onclick="goBack()">←</button>
-    <span class="header-title">Задачи</span>
+    <span class="header-title" id="founder-tasks-title">Задачи</span>
   </div>
-  <div class="content">
-    <div class="tabs founder-task-tabs">
-      <div class="tab active" id="tab-founder-task-waiter" onclick="switchFounderTaskTab('waiter')">Официанты</div>
-      <div class="tab" id="tab-founder-task-masseur" onclick="switchFounderTaskTab('masseur')">Массажисты</div>
-      <div class="tab" id="tab-founder-task-bathmaster" onclick="switchFounderTaskTab('bathmaster')">Пармастера</div>
-      <div class="tab" id="tab-founder-task-technician" onclick="switchFounderTaskTab('technician')">Техник</div>
-    </div>
-    <div id="founder-tasks-content"></div>
-  </div>
+  <div class="content" id="founder-tasks-content"></div>
 </div>
 
 <!-- ===== SCREEN: WAITER TASKS ===== -->
@@ -1891,6 +1907,22 @@
   </div>
 </div>
 
+
+<!-- ===== SCREEN: FOUNDER MASSEURS ===== -->
+<div class="screen" id="screen-founder-masseurs">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Массажисты</span>
+  </div>
+  <div class="content">
+    <div class="tabs">
+      <div class="tab active" id="tab-masseur-tasks" onclick="switchMasseurTab('tasks')">Задачи</div>
+      <div class="tab" id="tab-masseur-orders" onclick="switchMasseurTab('orders')">Заказы <span class="notify-badge" id="badge-tab-masseur-orders">0</span></div>
+    </div>
+    <div id="panel-masseur-tasks"></div>
+    <div id="panel-masseur-orders" style="display:none;"></div>
+  </div>
+</div>
 
 <!-- ===== SCREEN: FOUNDER BATHMASTERS ===== -->
 <div class="screen" id="screen-founder-bathmasters">
@@ -2096,6 +2128,14 @@
   </div>
   <div class="content">
     <div class="section-label">Разделы</div>
+    <div class="menu-item" onclick="openFounderTaskDepartment('admin')">
+      <div class="menu-icon">✅</div>
+      <div class="menu-text">
+        <div class="menu-title">Задачи</div>
+        <div class="menu-desc">Раздел задач администраторов</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openFounderAdminWip('Сертификаты')">
       <div class="menu-icon">📜</div>
       <div class="menu-text">
@@ -2292,7 +2332,7 @@
 
 
 <!-- ===== MODAL: FOUNDER TASK CONFIRM ===== -->
-<div class="modal-overlay" id="modal-founder-task-confirm"><div class="modal"><div class="modal-title">Отправить задачу?</div><div class="modal-sub">Официанты увидят задачу в своём разделе. Фото отправятся после подтверждения.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmFounderTask()">Да, отправить</button><button class="btn btn-secondary" onclick="closeModal('modal-founder-task-confirm')">Нет, вернуться</button></div></div></div>
+<div class="modal-overlay" id="modal-founder-task-confirm"><div class="modal"><div class="modal-title">Отправить задачу?</div><div class="modal-sub">Сотрудники выбранного подразделения увидят задачу в своём разделе. Фото отправятся после подтверждения.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmFounderTask()">Да, отправить</button><button class="btn btn-secondary" onclick="closeModal('modal-founder-task-confirm')">Нет, вернуться</button></div></div></div>
 
 <!-- ===== MODAL: CLOSE TASK CONFIRM ===== -->
 <div class="modal-overlay" id="modal-close-task-confirm"><div class="modal"><div class="modal-title">Закрыть задачу?</div><div class="modal-sub">Учредитель увидит, кто закрыл задачу, время и прикрепленные фото.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmCloseFounderTaskByWaiter()">Да, закрыть</button><button class="btn btn-secondary" onclick="closeModal('modal-close-task-confirm')">Нет, вернуться</button></div></div></div>
@@ -2395,7 +2435,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.058";
+const APP_VERSION = "1.059";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -3752,6 +3792,7 @@ function refreshScreen(id) {
   if (id === 'screen-founder-all-employees') renderFounderAllEmployees();
   if (id === 'screen-repair-view') renderRepairView();
   if (id === 'screen-founder-bathmasters') renderFounderBathmasters();
+  if (id === 'screen-founder-masseurs') renderFounderMasseurs();
   if (id === 'screen-founder-fines') renderFounderFines();
   if (id === 'screen-founder-admin-statistics') renderFounderAdminStatistics();
   if (id === 'screen-founder-admin-statistics-view') renderFounderAdminStatisticsView();
@@ -4651,24 +4692,27 @@ function getTaskRoleLabel(role) {
   if (role === 'masseur') return 'Массажисты';
   if (role === 'bathmaster') return 'Пармастера';
   if (role === 'technician') return 'Техник';
+  if (role === 'admin') return 'Администраторы';
   return getRoleLabel(role);
 }
 
 function openFounderTasks() {
-  activeFounderTaskRole = 'waiter';
+  activeFounderTaskRole = null;
   activeFounderTaskPhotos = [];
   renderFounderTasks();
   goTo('screen-founder-tasks');
 }
 
-function switchFounderTaskTab(role) {
+function openFounderTaskDepartment(role) {
   activeFounderTaskRole = role;
-  ['waiter','masseur','bathmaster','technician'].forEach(r => {
-    const el = document.getElementById('tab-founder-task-' + r);
-    if (el) el.classList.toggle('active', r === role);
-  });
   activeFounderTaskPhotos = [];
+  const tasksScreen = document.getElementById('screen-founder-tasks');
+  if (tasksScreen && !tasksScreen.classList.contains('active')) goTo('screen-founder-tasks');
   renderFounderTasks();
+}
+
+function switchFounderTaskTab(role) {
+  openFounderTaskDepartment(role);
 }
 
 function renderFounderTaskPhotos() {
@@ -4697,12 +4741,50 @@ function removeFounderTaskPhoto(index) {
   renderFounderTaskPhotos();
 }
 
+function renderFounderTaskDepartments() {
+  const el = document.getElementById('founder-tasks-content');
+  const title = document.getElementById('founder-tasks-title');
+  if (title) title.textContent = 'Задачи';
+  if (!el) return;
+  const departments = [
+    { role: 'waiter', icon: '🍽️', title: 'Официанты', desc: 'Активно: создание задач и история' },
+    { role: 'masseur', icon: '💆', title: 'Массажисты', desc: 'Раздел в разработке' },
+    { role: 'bathmaster', icon: '🔥', title: 'Пармастера', desc: 'Раздел в разработке' },
+    { role: 'admin', icon: '👔', title: 'Администраторы', desc: 'Раздел в разработке' },
+    { role: 'technician', icon: '🛠️', title: 'Техник', desc: 'Раздел в разработке' }
+  ];
+  el.innerHTML = `<div class="section-label">Подразделения</div>` + departments.map(d => `
+    <div class="menu-item" onclick="openFounderTaskDepartment('${d.role}')">
+      <div class="menu-icon">${d.icon}</div>
+      <div class="menu-text">
+        <div class="menu-title">${d.title}</div>
+        <div class="menu-desc">${d.desc}</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>`).join('');
+}
+
 function renderFounderTasks() {
   const el = document.getElementById('founder-tasks-content');
+  const title = document.getElementById('founder-tasks-title');
   if (!el) return;
 
+  if (!activeFounderTaskRole) {
+    renderFounderTaskDepartments();
+    return;
+  }
+
+  const roleLabel = getTaskRoleLabel(activeFounderTaskRole);
+  if (title) title.textContent = `Задачи · ${roleLabel}`;
+
   if (activeFounderTaskRole !== 'waiter') {
-    el.innerHTML = `<div class="wip-screen" style="padding:42px 0;"><div class="wip-icon">🔧</div><div class="wip-title">Раздел в разработке</div><div class="wip-sub">Сейчас активны только задачи для официантов.</div></div>`;
+    el.innerHTML = `
+      <button class="btn btn-secondary" style="margin-bottom:16px;" onclick="activeFounderTaskRole=null; activeFounderTaskPhotos=[]; renderFounderTasks();">← К подразделениям</button>
+      <div class="wip-screen" style="padding:42px 0;">
+        <div class="wip-icon">🔧</div>
+        <div class="wip-title">Раздел в разработке</div>
+        <div class="wip-sub">Сейчас активны только задачи для официантов. Этот раздел подготовлен под ${escapeHtml(roleLabel)}.</div>
+      </div>`;
     return;
   }
 
@@ -4733,6 +4815,7 @@ function renderFounderTasks() {
   }).join('') : `<div class="empty" style="padding:34px 0;"><div class="empty-icon">✅</div><div class="empty-title">Задач пока нет</div><div class="empty-sub">Создайте срочную задачу для официантов</div></div>`;
 
   el.innerHTML = `
+    <button class="btn btn-secondary" style="margin-bottom:16px;" onclick="activeFounderTaskRole=null; activeFounderTaskPhotos=[]; renderFounderTasks();">← К подразделениям</button>
     <div class="section-label">Новая задача · Официанты</div>
     <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom:20px;">
       <div class="field">
@@ -4775,11 +4858,13 @@ async function confirmFounderTask() {
   try {
     showToast(activeFounderTaskPhotos.length ? 'Отправляем фото...' : 'Отправляем задачу...');
     const now = new Date();
+    const targetRole = activeFounderTaskRole || 'waiter';
+    const targetRoleLabel = getTaskRoleLabel(targetRole);
     const photos = await uploadTaskPhotos(activeFounderTaskPhotos, 'founderTask');
     const task = {
       id: Date.now(),
-      targetRole: 'waiter',
-      targetRoleLabel: 'Официанты',
+      targetRole,
+      targetRoleLabel,
       text: textValue,
       photos,
       status: 'open',
@@ -4792,14 +4877,20 @@ async function confirmFounderTask() {
     };
     await saveFounderTask(task);
 
-    const telegramIds = getTelegramIdsForRole('waiter');
+    const telegramIds = getTelegramIdsForRole(targetRole);
     if (telegramIds.length) {
-      const notifyText = `✅ Новая задача для официантов\n\n${textValue}\n\nОткройте Drova Inspector → Задачи`;
+      const notifyText = `✅ Новая задача для ${targetRoleLabel.toLowerCase()}
+
+${textValue}
+
+Откройте Drova Inspector → Задачи`;
       notifyTelegramUsers(telegramIds, notifyText).then(res => {
         if (res && res.sent) showToast(`Задача отправлена, уведомлений: ${res.sent}`);
       });
     }
-    notifyFounders(`✅ Создана задача для официантов\n\n${textValue}`);
+    notifyFounders(`✅ Создана задача для ${targetRoleLabel.toLowerCase()}
+
+${textValue}`);
 
     activeFounderTaskPhotos = [];
     const field = document.getElementById('founder-task-text');
@@ -6409,6 +6500,71 @@ function addFounderFine() {
   renderFounderFines();
 }
 
+
+let activeMasseurTab = 'tasks';
+
+function openFounderMasseurs() {
+  activeMasseurTab = 'tasks';
+  renderFounderMasseurs();
+  goTo('screen-founder-masseurs');
+}
+
+function switchMasseurTab(tab) {
+  activeMasseurTab = tab;
+  const tasksTab = document.getElementById('tab-masseur-tasks');
+  const ordersTab = document.getElementById('tab-masseur-orders');
+  const tasksPanel = document.getElementById('panel-masseur-tasks');
+  const ordersPanel = document.getElementById('panel-masseur-orders');
+  if (tasksTab) tasksTab.classList.toggle('active', tab === 'tasks');
+  if (ordersTab) ordersTab.classList.toggle('active', tab === 'orders');
+  if (tasksPanel) tasksPanel.style.display = tab === 'tasks' ? 'block' : 'none';
+  if (ordersPanel) ordersPanel.style.display = tab === 'orders' ? 'block' : 'none';
+  if (tab === 'tasks') renderMasseurTasksForFounder();
+  if (tab === 'orders') renderMasseurOrdersForFounder();
+}
+
+function renderFounderMasseurs() {
+  renderMasseurTasksForFounder();
+  renderMasseurOrdersForFounder();
+  switchMasseurTab(activeMasseurTab || 'tasks');
+}
+
+function renderMasseurTasksForFounder() {
+  const el = document.getElementById('panel-masseur-tasks');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="menu-item" onclick="openFounderTaskDepartment('masseur')">
+      <div class="menu-icon">✅</div>
+      <div class="menu-text">
+        <div class="menu-title">Задачи</div>
+        <div class="menu-desc">Раздел задач массажистов подготовлен, пока в тестировании</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>`;
+}
+
+function renderMasseurOrdersForFounder() {
+  const el = document.getElementById('panel-masseur-orders');
+  if (!el) return;
+  const orders = getBathmasterOrders()
+    .filter(o => String(o.sourceRole || '') === 'masseur')
+    .slice()
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+  if (!orders.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🧾</div><div class="empty-title">Заказов пока нет</div><div class="empty-sub">Заказы от массажистов появятся здесь</div></div>`;
+    return;
+  }
+
+  el.innerHTML = orders.map(o => {
+    const dateText = o.date ? `${formatDateRu(o.date)}${o.time ? ' · ' + o.time : ''}` : (o.createdAt ? new Date(o.createdAt).toLocaleString('ru-RU') : '');
+    return `<div class="card" style="cursor:default;">
+      <div class="card-title">${escapeHtml(o.staffName || 'Массажист')}${o.staffLogin ? ' · ' + escapeHtml(o.staffLogin) : ''}</div>
+      <div class="card-sub">${escapeHtml(dateText)} · <span style="color:${getBathmasterOrderStatusColor(o)};font-weight:700;">${getBathmasterOrderStatusText(o)}</span></div>
+      <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(o.text || '')}</div>
+    </div>`;
+  }).join('');
+}
 
 function openFounderWaiters() {
   goTo('screen-founder-waiters');
