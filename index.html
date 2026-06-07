@@ -1090,7 +1090,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.063 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.064 тестирование</div>
   </div>
 </div>
 
@@ -1468,11 +1468,11 @@
       <div style="font-size: 24px; font-weight: 700;">Администратор</div>
     </div>
     <div class="section-label">Меню</div>
-    <div class="menu-item" onclick="openAdminWip('Задачи')">
+    <div class="menu-item" onclick="openStaffTasks('admin')">
       <div class="menu-icon">✅</div>
       <div class="menu-text">
-        <div class="menu-title">Задачи</div>
-        <div class="menu-desc">Раздел в тестировании</div>
+        <div class="menu-title-row"><div class="menu-title">Задачи</div><span class="notify-badge" id="badge-admin-tasks">0</span></div>
+        <div class="menu-desc">Срочные задачи от учредителя</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1960,11 +1960,11 @@
       <div style="font-size: 24px; font-weight: 700;" id="bathmaster-menu-name">—</div>
     </div>
     <div class="section-label">Меню</div>
-    <div class="menu-item" onclick="openBathmasterWip('Задачи')">
+    <div class="menu-item" onclick="openStaffTasks('bathmaster')">
       <div class="menu-icon">✅</div>
       <div class="menu-text">
-        <div class="menu-title">Задачи</div>
-        <div class="menu-desc">Раздел в разработке</div>
+        <div class="menu-title-row"><div class="menu-title">Задачи</div><span class="notify-badge" id="badge-bathmaster-tasks">0</span></div>
+        <div class="menu-desc">Срочные задачи от учредителя</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -2063,9 +2063,9 @@
       <div style="font-size: 24px; font-weight: 700;" id="masseur-menu-name">—</div>
     </div>
     <div class="section-label">Меню</div>
-    <div class="menu-item" onclick="openAdminWip('Задачи · Массажист')">
+    <div class="menu-item" onclick="openStaffTasks('masseur')">
       <div class="menu-icon">✅</div>
-      <div class="menu-text"><div class="menu-title">Задачи</div><div class="menu-desc">Раздел в разработке</div></div>
+      <div class="menu-text"><div class="menu-title-row"><div class="menu-title">Задачи</div><span class="notify-badge" id="badge-masseur-tasks">0</span></div><div class="menu-desc">Срочные задачи от учредителя</div></div>
       <span class="menu-arrow">›</span>
     </div>
     <div class="menu-item" onclick="openMasseurMenuJpg()">
@@ -2195,14 +2195,6 @@
   </div>
   <div class="content">
     <div class="section-label">Разделы</div>
-    <div class="menu-item" onclick="openFounderTaskDepartment('admin')">
-      <div class="menu-icon">✅</div>
-      <div class="menu-text">
-        <div class="menu-title">Задачи</div>
-        <div class="menu-desc">Раздел задач администраторов</div>
-      </div>
-      <span class="menu-arrow">›</span>
-    </div>
     <div class="menu-item" onclick="openFounderAdminWip('Сертификаты')">
       <div class="menu-icon">📜</div>
       <div class="menu-text">
@@ -2502,7 +2494,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.063";
+const APP_VERSION = "1.064";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -3710,7 +3702,10 @@ function getUnreadCounts() {
   const bathmasterOrdersUnread = getBathmasterOrders().filter(r => String(r.sourceRole || 'bathmaster') === 'bathmaster' && getTimeMs(r.createdAt) > getReadMarker("bathmasterOrders")).length;
   const repairUnreadForFounder = getRepairRequests().filter(r => getTimeMs(r.createdAt) > getReadMarker("founderRepairs")).length;
   const repairUnreadForTechnician = getRepairRequests().filter(r => r.status === 'new').length;
-  const waiterTasksUnread = getUnreadTasksForCurrentWaiter().length;
+  const waiterTasksUnread = getUnreadTasksForRole('waiter').length;
+  const bathmasterTasksUnread = getUnreadTasksForRole('bathmaster').length;
+  const masseurTasksUnread = getUnreadTasksForRole('masseur').length;
+  const adminTasksUnread = getUnreadTasksForRole('admin').length;
   const stopListUnread = getUnreadStopListForCurrentWaiter();
 
   return {
@@ -3724,6 +3719,9 @@ function getUnreadCounts() {
     repairsFounder: repairUnreadForFounder,
     repairsTechnician: repairUnreadForTechnician,
     waiterTasks: waiterTasksUnread,
+    bathmasterTasks: bathmasterTasksUnread,
+    masseurTasks: masseurTasksUnread,
+    adminTasks: adminTasksUnread,
     stopList: stopListUnread
   };
 }
@@ -3750,6 +3748,9 @@ function updateUnreadBadges() {
   setBadge("badge-founder-repairs", c.repairsFounder);
   setBadge("badge-technician-repairs", c.repairsTechnician);
   setBadge("badge-waiter-tasks", c.waiterTasks);
+  setBadge("badge-bathmaster-tasks", c.bathmasterTasks);
+  setBadge("badge-masseur-tasks", c.masseurTasks);
+  setBadge("badge-admin-tasks", c.adminTasks);
   setBadge("badge-waiter-stoplist", c.stopList);
 }
 
@@ -3848,9 +3849,14 @@ async function notifyTelegramUsers(telegramIds, textValue) {
 }
 
 function getTelegramIdsForRole(role) {
-  return getStaff()
-    .filter(s => String(s.role || '') === String(role || ''))
-    .map(s => s.telegramId || s.chatId || s.telegramID)
+  const roleKey = String(role || '');
+  const staffIds = getStaff()
+    .filter(s => String(s.role || '') === roleKey)
+    .map(s => s.telegramId || s.chatId || s.telegramID);
+  const adminIds = roleKey === 'admin'
+    ? getAdminProfiles().map(a => a.telegramId || a.chatId || a.telegramID)
+    : [];
+  return [...staffIds, ...adminIds]
     .map(v => String(v || '').trim())
     .filter(Boolean);
 }
@@ -5084,9 +5090,9 @@ function renderFounderTaskDepartments() {
   if (!el) return;
   const departments = [
     { role: 'waiter', icon: '🍽️', title: 'Официанты', desc: 'Активно: создание задач и история' },
-    { role: 'masseur', icon: '💆', title: 'Массажисты', desc: 'Раздел в разработке' },
-    { role: 'bathmaster', icon: '🔥', title: 'Пармастера', desc: 'Раздел в разработке' },
-    { role: 'admin', icon: '👔', title: 'Администраторы', desc: 'Раздел в разработке' },
+    { role: 'masseur', icon: '💆', title: 'Массажисты', desc: 'Активно: создание задач и история' },
+    { role: 'bathmaster', icon: '🔥', title: 'Пармастера', desc: 'Активно: создание задач и история' },
+    { role: 'admin', icon: '👔', title: 'Администраторы', desc: 'Активно: создание задач и история' },
     { role: 'technician', icon: '🛠️', title: 'Техник', desc: 'Раздел в разработке' }
   ];
   el.innerHTML = `<div class="section-label">Подразделения</div>` + departments.map(d => `
@@ -5113,19 +5119,8 @@ function renderFounderTasks() {
   const roleLabel = getTaskRoleLabel(activeFounderTaskRole);
   if (title) title.textContent = `Задачи · ${roleLabel}`;
 
-  if (activeFounderTaskRole !== 'waiter') {
-    el.innerHTML = `
-      <button class="btn btn-secondary" style="margin-bottom:16px;" onclick="activeFounderTaskRole=null; activeFounderTaskPhotos=[]; renderFounderTasks();">← К подразделениям</button>
-      <div class="wip-screen" style="padding:42px 0;">
-        <div class="wip-icon">🔧</div>
-        <div class="wip-title">Раздел в разработке</div>
-        <div class="wip-sub">Сейчас активны только задачи для официантов. Этот раздел подготовлен под ${escapeHtml(roleLabel)}.</div>
-      </div>`;
-    return;
-  }
-
   const tasks = getFounderTasks()
-    .filter(t => String(t.targetRole || 'waiter') === 'waiter')
+    .filter(t => String(t.targetRole || 'waiter') === String(activeFounderTaskRole))
     .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 
   const listHtml = tasks.length ? tasks.map(task => {
@@ -5148,11 +5143,11 @@ function renderFounderTasks() {
       ${task.closeText ? `<div class="doc-placeholder" style="white-space:pre-line;color:var(--text);margin-top:12px;">${escapeHtml(task.closeText)}</div>` : ''}
       ${closePhotosHtml}
     </div>`;
-  }).join('') : `<div class="empty" style="padding:34px 0;"><div class="empty-icon">✅</div><div class="empty-title">Задач пока нет</div><div class="empty-sub">Создайте срочную задачу для официантов</div></div>`;
+  }).join('') : `<div class="empty" style="padding:34px 0;"><div class="empty-icon">✅</div><div class="empty-title">Задач пока нет</div><div class="empty-sub">Создайте срочную задачу для ${escapeHtml(roleLabel.toLowerCase())}</div></div>`;
 
   el.innerHTML = `
     <button class="btn btn-secondary" style="margin-bottom:16px;" onclick="activeFounderTaskRole=null; activeFounderTaskPhotos=[]; renderFounderTasks();">← К подразделениям</button>
-    <div class="section-label">Новая задача · Официанты</div>
+    <div class="section-label">Новая задача · ${escapeHtml(roleLabel)}</div>
     <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom:20px;">
       <div class="field">
         <label>Текст задачи</label>
@@ -5239,32 +5234,52 @@ ${textValue}`);
   }
 }
 
+function getCurrentTaskStaff(role) {
+  if (role === 'waiter') return getWaiter();
+  if (role === 'admin') return getCurrentAdminProfile();
+  return getCurrentApprovedStaffForRole(role);
+}
+
+function getUnreadTasksForRole(role) {
+  const staff = getCurrentTaskStaff(role);
+  if (!staff || staff.isFounderSession) return [];
+  return getFounderTasks().filter(t => String(t.targetRole || 'waiter') === String(role) && t.status !== 'closed' && !(t.readBy || []).some(r => String(r.staffId) === String(staff.id)));
+}
+
 function getUnreadTasksForCurrentWaiter() {
-  const waiter = getWaiter();
-  if (!waiter || waiter.isFounderSession) return [];
-  return getFounderTasks().filter(t => String(t.targetRole || 'waiter') === 'waiter' && t.status !== 'closed' && !(t.readBy || []).some(r => String(r.staffId) === String(waiter.id)));
+  return getUnreadTasksForRole('waiter');
 }
 
 function openWaiterTasks() {
+  openStaffTasks('waiter');
+}
+
+function openStaffTasks(role) {
+  activeStaffTaskRole = role || 'waiter';
   renderWaiterTasks();
   goTo('screen-waiter-tasks');
 }
 
+let activeStaffTaskRole = 'waiter';
+
 function renderWaiterTasks() {
   const el = document.getElementById('waiter-tasks-content');
+  const title = document.querySelector('#screen-waiter-tasks .header-title');
   if (!el) return;
-  const waiter = getWaiter();
-  if (!waiter) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">👤</div><div class="empty-title">Нет сотрудника</div><div class="empty-sub">Войдите как официант</div></div>`;
+  const role = activeStaffTaskRole || 'waiter';
+  const staff = getCurrentTaskStaff(role);
+  if (title) title.textContent = `Задачи · ${getRoleLabel(role)}`;
+  if (!staff) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">👤</div><div class="empty-title">Нет сотрудника</div><div class="empty-sub">Войдите как ${escapeHtml(getRoleLabel(role).toLowerCase())}</div></div>`;
     return;
   }
-  const tasks = getFounderTasks().filter(t => String(t.targetRole || 'waiter') === 'waiter').sort((a,b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  const tasks = getFounderTasks().filter(t => String(t.targetRole || 'waiter') === String(role)).sort((a,b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   if (!tasks.length) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Задач пока нет</div><div class="empty-sub">Срочные задачи от учредителя появятся здесь</div></div>`;
     return;
   }
   el.innerHTML = tasks.map(task => {
-    const isRead = (task.readBy || []).some(r => String(r.staffId) === String(waiter.id));
+    const isRead = (task.readBy || []).some(r => String(r.staffId) === String(staff.id));
     const unread = !isRead && task.status !== 'closed' ? '<span class="notify-badge show">1</span>' : '';
     const status = task.status === 'closed' ? 'Закрыта' : (isRead ? 'Прочитано' : 'Новая');
     const dateText = task.date ? `${formatDateRu(task.date)}${task.time ? ' · ' + task.time : ''}` : '';
@@ -5276,10 +5291,12 @@ async function openWaiterTaskView(taskId) {
   activeWaiterTaskId = String(taskId);
   activeWaiterTaskClosePhotos = [];
   const task = getFounderTasks().find(t => String(t.id) === String(taskId));
-  const waiter = getWaiter();
-  if (task && waiter && !waiter.isFounderSession && !(task.readBy || []).some(r => String(r.staffId) === String(waiter.id))) {
+  const role = task ? String(task.targetRole || 'waiter') : (activeStaffTaskRole || 'waiter');
+  activeStaffTaskRole = role;
+  const staff = getCurrentTaskStaff(role);
+  if (task && staff && !staff.isFounderSession && !(task.readBy || []).some(r => String(r.staffId) === String(staff.id))) {
     task.readBy = task.readBy || [];
-    task.readBy.push({ staffId: waiter.id, name: waiter.name || 'Официант', login: waiter.login || '', readAt: new Date().toISOString() });
+    task.readBy.push({ staffId: staff.id, name: staff.name || getRoleLabel(role), login: staff.login || '', role, readAt: new Date().toISOString() });
     await updateFounderTask(task);
   }
   renderWaiterTaskView();
@@ -5335,7 +5352,8 @@ function closeFounderTaskByWaiter() {
 async function confirmCloseFounderTaskByWaiter() {
   closeModal('modal-close-task-confirm');
   const task = getFounderTasks().find(t => String(t.id) === String(activeWaiterTaskId));
-  const waiter = getWaiter();
+  const role = String(task && task.targetRole || activeStaffTaskRole || 'waiter');
+  const waiter = getCurrentTaskStaff(role);
   if (!task || !waiter) {
     showToast('Задача не найдена');
     return;
@@ -5347,12 +5365,12 @@ async function confirmCloseFounderTaskByWaiter() {
     task.status = 'closed';
     task.closedAt = new Date().toISOString();
     task.closedById = waiter.id;
-    task.closedByName = waiter.name || 'Официант';
+    task.closedByName = waiter.name || getRoleLabel(role);
     task.closedByLogin = waiter.login || '';
     task.closeText = closeText;
     task.closePhotos = photos;
     await updateFounderTask(task);
-    notifyFounders(`✅ Задача закрыта\n\n${task.closedByName || 'Официант'} закрыл задачу: ${task.text || ''}`);
+    notifyFounders(`✅ Задача закрыта\n\n${task.closedByName || getRoleLabel(role)} закрыл задачу: ${task.text || ''}`);
     activeWaiterTaskClosePhotos = [];
     renderWaiterTaskView();
     showToast('Задача закрыта ✓');
