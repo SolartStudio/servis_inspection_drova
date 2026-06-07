@@ -1082,15 +1082,15 @@
         <span class="role-name">Топник</span>
         <span class="role-wip">Тестирование</span>
       </div>
-      <div class="role-card inactive" onclick="openTestingStub('Повар')">
+      <div class="role-card active-role" onclick="enterRole('cook')">
         <span class="role-name">Повар</span>
-        <span class="role-wip">Тестирование</span>
+        <span style="font-size: 20px;">→</span>
       </div>
     </div>
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.059 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.060 тестирование</div>
   </div>
 </div>
 
@@ -1155,11 +1155,11 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
-    <div class="menu-item" onclick="openWaiterWip('Стоп лист')">
+    <div class="menu-item" onclick="openWaiterStopList()">
       <div class="menu-icon">⛔</div>
       <div class="menu-text">
-        <div class="menu-title">Стоп лист</div>
-        <div class="menu-desc">Раздел в разработке</div>
+        <div class="menu-title-row"><div class="menu-title">Стоп лист</div><span class="notify-badge" id="badge-waiter-stoplist">0</span></div>
+        <div class="menu-desc">Актуальный стоп-лист от повара</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1894,6 +1894,15 @@
   <div class="content content-padded" id="waiter-task-view-content"></div>
 </div>
 
+<!-- ===== SCREEN: WAITER STOP LIST ===== -->
+<div class="screen" id="screen-waiter-stoplist">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Стоп лист</span>
+  </div>
+  <div class="content content-padded" id="waiter-stoplist-content"></div>
+</div>
+
 
 <!-- ===== SCREEN: FOUNDER ALL EMPLOYEES ===== -->
 <div class="screen" id="screen-founder-all-employees">
@@ -2059,9 +2068,9 @@
       <div class="menu-text"><div class="menu-title">Задачи</div><div class="menu-desc">Раздел в разработке</div></div>
       <span class="menu-arrow">›</span>
     </div>
-    <div class="menu-item" onclick="openAdminWip('Меню · Массажист')">
+    <div class="menu-item" onclick="openMasseurMenuJpg()">
       <div class="menu-icon">🍽️</div>
-      <div class="menu-text"><div class="menu-title">Меню</div><div class="menu-desc">Раздел в разработке</div></div>
+      <div class="menu-text"><div class="menu-title">Меню</div><div class="menu-desc">Актуальное меню в JPG</div></div>
       <span class="menu-arrow">›</span>
     </div>
     <div class="menu-item" onclick="openAdminWip('Фотоотчеты · Массажист')">
@@ -2083,6 +2092,64 @@
   <div class="footer" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
     <span class="logo-sm">drova inspector</span>
     <button class="btn btn-secondary btn-sm" onclick="staffLogout()">Выйти</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: COOK MENU ===== -->
+<div class="screen" id="screen-cook-menu">
+  <div style="padding: 32px 20px 0;">
+    <div class="logo" style="font-size: 22px; letter-spacing: 4px;">drova</div>
+  </div>
+  <div class="content" style="padding-top: 24px;">
+    <div style="margin-bottom: 28px;">
+      <div style="font-size: 13px; color: var(--text-3); margin-bottom: 4px;">Повар</div>
+      <div style="font-size: 24px; font-weight: 700;" id="cook-menu-name">—</div>
+    </div>
+    <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="openCookInventory()">
+      <div class="menu-icon">📦</div>
+      <div class="menu-text">
+        <div class="menu-title">Инвентаризация</div>
+        <div class="menu-desc">Раздел инвентаризации повара</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openCookStopList()">
+      <div class="menu-icon">⛔</div>
+      <div class="menu-text">
+        <div class="menu-title">Стоп лист</div>
+        <div class="menu-desc">Редактирование стоп-листа для официантов</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+  </div>
+  <div class="footer" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+    <span class="logo-sm">drova inspector</span>
+    <button class="btn btn-secondary btn-sm" onclick="staffLogout()">Выйти</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: COOK STOP LIST ===== -->
+<div class="screen" id="screen-cook-stoplist">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Стоп лист</span>
+  </div>
+  <div class="content content-padded" id="cook-stoplist-content"></div>
+</div>
+
+<!-- ===== SCREEN: COOK INVENTORY ===== -->
+<div class="screen" id="screen-cook-inventory">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Инвентаризация</span>
+  </div>
+  <div class="content content-padded">
+    <div class="wip-screen" style="padding:40px 0;">
+      <div class="wip-icon">📦</div>
+      <div class="wip-title">Раздел в тестировании</div>
+      <div class="wip-sub">Каркас инвентаризации повара добавлен. Шаблон позиций кухни подключим отдельным этапом, чтобы не смешать его с инвентарём официантов.</div>
+    </div>
   </div>
 </div>
 
@@ -2435,7 +2502,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.059";
+const APP_VERSION = "1.060";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2462,7 +2529,8 @@ const appCache = {
   bathmasterOrders: [],
   repairRequests: [],
   founderTasks: [],
-  kpiContent: getDefaultKpiContent()
+  kpiContent: getDefaultKpiContent(),
+  stopList: getDefaultStopList()
 };
 
 const LocalDB = {
@@ -2478,6 +2546,33 @@ function getDefaultKpiContent() {
       fines: ''
     }
   };
+}
+
+function getDefaultStopList() {
+  return {
+    text: '',
+    updatedAt: '',
+    updatedById: '',
+    updatedByName: '',
+    updatedByRole: ''
+  };
+}
+
+function getStopList() {
+  return appCache.stopList || getDefaultStopList();
+}
+
+async function setStopList(data) {
+  const next = { ...getDefaultStopList(), ...(data || {}) };
+  appCache.stopList = next;
+  LocalDB.set("stopList", next);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("settings").doc("main").set({
+      stopList: next,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
 }
 
 function getKpiContent() {
@@ -2679,6 +2774,7 @@ async function initCloud() {
     appCache.repairRequests = LocalDB.get("repairRequests") || [];
     appCache.founderTasks = LocalDB.get("founderTasks") || [];
     appCache.kpiContent = LocalDB.get("kpiContent") || getDefaultKpiContent();
+    appCache.stopList = LocalDB.get("stopList") || getDefaultStopList();
     return;
   }
 
@@ -2766,8 +2862,10 @@ async function initCloud() {
     appCache.adminPassword = data.adminPassword || "3235";
     appCache.inventoryDraft = data.inventoryDraft || null;
     appCache.kpiContent = data.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
+    appCache.stopList = data.stopList || LocalDB.get("stopList") || getDefaultStopList();
     LocalDB.set("inventoryDraft", appCache.inventoryDraft);
     LocalDB.set("kpiContent", appCache.kpiContent);
+    LocalDB.set("stopList", appCache.stopList);
     refreshVisibleData();
   }, (err) => {
     console.error("settings snapshot error", err);
@@ -2807,6 +2905,7 @@ async function loadCloudData() {
   appCache.adminPassword = settings.adminPassword || "3235";
   appCache.inventoryDraft = settings.inventoryDraft || null;
   appCache.kpiContent = settings.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
+  appCache.stopList = settings.stopList || LocalDB.get("stopList") || getDefaultStopList();
 
   if (!settingsDoc.exists) {
     await db.collection("settings").doc("main").set({
@@ -2814,6 +2913,7 @@ async function loadCloudData() {
       adminPassword: "3235",
       dutyAssignment: null,
       kpiContent: appCache.kpiContent || getDefaultKpiContent(),
+      stopList: appCache.stopList || getDefaultStopList(),
       updatedAt: new Date().toISOString()
     }, { merge: true });
   }
@@ -3061,6 +3161,9 @@ function openRoleAsFounder(role) {
   } else if (role === 'technician') {
     renderTechnicianMenu();
     goTo('screen-technician-menu');
+  } else if (role === 'cook') {
+    renderCookMenu();
+    goTo('screen-cook-menu');
   } else {
     openAdminWip(getRoleLabel(role));
   }
@@ -3150,6 +3253,9 @@ function enterRole(role) {
     } else if (role === 'technician') {
       renderTechnicianMenu();
       goTo('screen-technician-menu');
+    } else if (role === 'cook') {
+      renderCookMenu();
+      goTo('screen-cook-menu');
     } else {
       openAdminWip(getRoleLabel(role));
     }
@@ -3172,9 +3278,15 @@ function enterRole(role) {
       } else if (role === 'bathmaster') {
         renderBathmasterMenu();
         goTo('screen-bathmaster-menu');
+      } else if (role === 'masseur') {
+        renderMasseurMenu();
+        goTo('screen-masseur-menu');
       } else if (role === 'technician') {
         renderTechnicianMenu();
         goTo('screen-technician-menu');
+      } else if (role === 'cook') {
+        renderCookMenu();
+        goTo('screen-cook-menu');
       } else {
         openAdminWip(getRoleLabel(role));
       }
@@ -3226,6 +3338,12 @@ async function submitAccessRequest() {
     } else if (activeAccessRole === 'technician') {
       renderTechnicianMenu();
       goTo('screen-technician-menu');
+    } else if (activeAccessRole === 'masseur') {
+      renderMasseurMenu();
+      goTo('screen-masseur-menu');
+    } else if (activeAccessRole === 'cook') {
+      renderCookMenu();
+      goTo('screen-cook-menu');
     } else {
       openAdminWip(getRoleLabel(activeAccessRole));
     }
@@ -3569,6 +3687,22 @@ function getTimeMs(value) {
   return Number.isFinite(t) ? t : 0;
 }
 
+function getStopListReadKeyForCurrentWaiter() {
+  const waiter = getWaiter();
+  return waiter && waiter.id ? `waiterStopList_${waiter.id}` : 'waiterStopList';
+}
+
+function getUnreadStopListForCurrentWaiter() {
+  const waiter = getWaiter();
+  const stopList = getStopList();
+  if (!waiter || waiter.isFounderSession || !stopList || !stopList.updatedAt) return 0;
+  return getTimeMs(stopList.updatedAt) > getReadMarker(getStopListReadKeyForCurrentWaiter()) ? 1 : 0;
+}
+
+function markStopListReadForCurrentWaiter() {
+  setReadMarker(getStopListReadKeyForCurrentWaiter());
+}
+
 function getUnreadCounts() {
   const reportsUnread = getReports().filter(r => getTimeMs(r.createdAt) > getReadMarker("waiterReports")).length;
   const inventoryUnread = getInventoryRecords().filter(r => getTimeMs(r.createdAt || r.submittedAt) > getReadMarker("waiterInventory")).length;
@@ -3577,6 +3711,7 @@ function getUnreadCounts() {
   const repairUnreadForFounder = getRepairRequests().filter(r => getTimeMs(r.createdAt) > getReadMarker("founderRepairs")).length;
   const repairUnreadForTechnician = getRepairRequests().filter(r => r.status === 'new').length;
   const waiterTasksUnread = getUnreadTasksForCurrentWaiter().length;
+  const stopListUnread = getUnreadStopListForCurrentWaiter();
 
   return {
     reports: reportsUnread,
@@ -3588,7 +3723,8 @@ function getUnreadCounts() {
     bathmasters: bathmasterOrdersUnread,
     repairsFounder: repairUnreadForFounder,
     repairsTechnician: repairUnreadForTechnician,
-    waiterTasks: waiterTasksUnread
+    waiterTasks: waiterTasksUnread,
+    stopList: stopListUnread
   };
 }
 
@@ -3614,6 +3750,7 @@ function updateUnreadBadges() {
   setBadge("badge-founder-repairs", c.repairsFounder);
   setBadge("badge-technician-repairs", c.repairsTechnician);
   setBadge("badge-waiter-tasks", c.waiterTasks);
+  setBadge("badge-waiter-stoplist", c.stopList);
 }
 
 function markWaiterReportsRead() {
@@ -3787,6 +3924,9 @@ function refreshScreen(id) {
   if (id === 'screen-bathmaster-menu') renderBathmasterMenu();
   if (id === 'screen-masseur-menu') renderMasseurMenu();
   if (id === 'screen-technician-menu') renderTechnicianMenu();
+  if (id === 'screen-cook-menu') renderCookMenu();
+  if (id === 'screen-cook-stoplist') renderCookStopList();
+  if (id === 'screen-waiter-stoplist') renderWaiterStopList();
   if (id === 'screen-technician-repairs') renderTechnicianRepairs();
   if (id === 'screen-founder-repairs') renderFounderRepairs();
   if (id === 'screen-founder-all-employees') renderFounderAllEmployees();
@@ -4546,6 +4686,9 @@ const DOC_IMAGES = {
   bathmasterMenu: [
     "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%BC%D0%B5%D0%BD%D1%8E%20%D0%BF%D0%B0%D1%80%D0%BC%D0%B0%D1%81%D1%82%D0%B5%D1%80"
   ],
+  masseurMenu: [
+    "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%BC%D0%B5%D0%BD%D1%8E%20%D0%BF%D0%B0%D1%80%D0%BC%D0%B0%D1%81%D1%82%D0%B5%D1%80"
+  ],
   instructions: [
     // "docs/job-instructions-1.jpg",
     // "docs/job-instructions-2.jpg"
@@ -4560,6 +4703,7 @@ function openWaiterDocs(type) {
   const titles = {
     menu: 'Меню',
     bathmasterMenu: 'Меню пармастера',
+    masseurMenu: 'Меню массажиста',
     instructions: 'Должностные инструкции',
     algorithm: 'Алгоритм работы'
   };
@@ -4590,6 +4734,10 @@ function openWaiterMenuJpg() {
 
 function openBathmasterMenuJpg() {
   openWaiterDocs('bathmasterMenu');
+}
+
+function openMasseurMenuJpg() {
+  openWaiterDocs('masseurMenu');
 }
 
 function getAttestationStats(staff) {
@@ -4652,6 +4800,129 @@ function renderWaiterAttestation() {
 function openWaiterAttestation() {
   renderWaiterAttestation();
   goTo('screen-waiter-attestation');
+}
+
+
+// ============================================================
+// STOP LIST — cook edits, waiters read
+// ============================================================
+function openWaiterStopList() {
+  markStopListReadForCurrentWaiter();
+  renderWaiterStopList();
+  goTo('screen-waiter-stoplist');
+}
+
+function renderWaiterStopList() {
+  const el = document.getElementById('waiter-stoplist-content');
+  if (!el) return;
+  const data = getStopList();
+  const textValue = String(data.text || '').trim();
+  const updated = data.updatedAt ? formatDateTimeShort(data.updatedAt) : 'ещё не обновлялся';
+  const author = data.updatedByName ? data.updatedByName : 'Повар';
+
+  el.innerHTML = `
+    <div class="inventory-status">
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Обновил</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:14px;">${escapeHtml(author)}</div>
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Последнее обновление</div>
+      <div style="font-size:16px;font-weight:600;">${escapeHtml(updated)}</div>
+    </div>
+    <div class="section-label">Стоп лист</div>
+    <div class="doc-placeholder" style="white-space:pre-line;color:${textValue ? 'var(--text)' : 'var(--text-2)'};">
+      ${escapeHtml(textValue || 'Стоп-лист пока пуст. Повар ещё ничего не добавил. Редкий случай, когда пустота даже полезна.')}
+    </div>`;
+}
+
+function getCook() {
+  return getCurrentApprovedStaffForRole('cook');
+}
+
+function renderCookMenu() {
+  const cook = getCook();
+  if (!cook) {
+    const menu = document.getElementById('screen-cook-menu');
+    const register = document.getElementById('screen-waiter-register');
+    if (menu && menu.classList.contains('active')) {
+      menu.classList.remove('active');
+      register.classList.add('active');
+      screenStack = ['screen-home', 'screen-waiter-register'];
+      showToast('Сотрудник удалён из системы');
+    }
+    return;
+  }
+  const nameEl = document.getElementById('cook-menu-name');
+  if (nameEl) nameEl.textContent = cook.name || 'Повар';
+}
+
+function openCookInventory() {
+  goTo('screen-cook-inventory');
+}
+
+function openCookStopList() {
+  renderCookStopList();
+  goTo('screen-cook-stoplist');
+}
+
+function renderCookStopList() {
+  const el = document.getElementById('cook-stoplist-content');
+  if (!el) return;
+  const data = getStopList();
+  const updated = data.updatedAt ? formatDateTimeShort(data.updatedAt) : 'ещё не обновлялся';
+  const textValue = String(data.text || '');
+
+  el.innerHTML = `
+    <div class="inventory-status">
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Последнее обновление</div>
+      <div style="font-size:16px;font-weight:700;">${escapeHtml(updated)}</div>
+    </div>
+    <div class="section-label">Редактировать стоп лист</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div class="field">
+        <label>Стоп лист</label>
+        <textarea id="cook-stoplist-text" placeholder="Например:&#10;Нет лагмана&#10;Нет мёда&#10;Нет говяжьего шашлыка">${escapeHtml(textValue)}</textarea>
+        <div class="error-msg" id="cook-stoplist-error">Напишите стоп-лист или оставьте поле пустым для очистки</div>
+      </div>
+      <button class="btn btn-primary" onclick="saveCookStopList()">Сохранить и уведомить официантов</button>
+    </div>
+    <div class="doc-placeholder" style="margin-top:14px;">
+      После сохранения официанты получат кружок уведомления в разделе “Стоп лист”. Если у них указан Telegram ID, сообщение уйдёт и в бот.
+    </div>`;
+}
+
+async function saveCookStopList() {
+  const cook = getCook();
+  if (!cook) {
+    showToast('Войдите как повар');
+    return;
+  }
+
+  const field = document.getElementById('cook-stoplist-text');
+  const textValue = field ? field.value.trim() : '';
+  const now = new Date().toISOString();
+
+  try {
+    await setStopList({
+      text: textValue,
+      updatedAt: now,
+      updatedById: cook.id || '',
+      updatedByName: cook.name || 'Повар',
+      updatedByRole: 'cook'
+    });
+
+    const message = textValue
+      ? `⛔ Обновлён стоп-лист\n\n${textValue}\n\nОткройте Drova Inspector → Официант → Стоп лист`
+      : `⛔ Стоп-лист очищен\n\nОткройте Drova Inspector → Официант → Стоп лист`;
+
+    notifyRole('waiter', message);
+    notifyFounders(`⛔ Повар обновил стоп-лист\n\n${cook.name || 'Повар'}\n\n${textValue || 'Стоп-лист очищен'}`);
+
+    updateUnreadBadges();
+    renderCookStopList();
+    showToast('Стоп-лист обновлён ✓');
+  } catch (err) {
+    console.error(err);
+    showToast('Ошибка сохранения стоп-листа');
+  }
 }
 
 
