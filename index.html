@@ -1043,7 +1043,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.053 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.054 тестирование</div>
   </div>
 </div>
 
@@ -1100,11 +1100,11 @@
       <span id="duty-banner-text">Вы дежурный завтра</span>
     </div>
     <div class="section-label">Меню</div>
-    <div class="menu-item" onclick="openWaiterWip('Задачи')">
+    <div class="menu-item" onclick="openWaiterTasks()">
       <div class="menu-icon">✅</div>
       <div class="menu-text">
-        <div class="menu-title">Задачи</div>
-        <div class="menu-desc">Раздел в разработке</div>
+        <div class="menu-title-row"><div class="menu-title">Задачи</div><span class="notify-badge" id="badge-waiter-tasks">0</span></div>
+        <div class="menu-desc">Срочные задачи от учредителя</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1719,6 +1719,14 @@
       <div style="font-size: 24px; font-weight: 700;">Учредитель</div>
     </div>
     <div class="section-label">Меню</div>
+    <div class="menu-item" onclick="openFounderTasks()">
+      <div class="menu-icon">✅</div>
+      <div class="menu-text">
+        <div class="menu-title">Задачи</div>
+        <div class="menu-desc">Срочные задачи подразделениям</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openFounderWaiters()">
       <div class="menu-icon">🧑‍🤝‍🧑</div>
       <div class="menu-text">
@@ -1782,6 +1790,42 @@
   </div>
 </div>
 
+
+
+<!-- ===== SCREEN: FOUNDER TASKS ===== -->
+<div class="screen" id="screen-founder-tasks">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Задачи</span>
+  </div>
+  <div class="content">
+    <div class="tabs">
+      <div class="tab active" id="tab-founder-task-waiter" onclick="switchFounderTaskTab('waiter')">Официанты</div>
+      <div class="tab" id="tab-founder-task-masseur" onclick="switchFounderTaskTab('masseur')">Массажисты</div>
+      <div class="tab" id="tab-founder-task-bathmaster" onclick="switchFounderTaskTab('bathmaster')">Пармастера</div>
+      <div class="tab" id="tab-founder-task-technician" onclick="switchFounderTaskTab('technician')">Техник</div>
+    </div>
+    <div id="founder-tasks-content"></div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: WAITER TASKS ===== -->
+<div class="screen" id="screen-waiter-tasks">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Задачи</span>
+  </div>
+  <div class="content" id="waiter-tasks-content"></div>
+</div>
+
+<!-- ===== SCREEN: WAITER TASK VIEW ===== -->
+<div class="screen" id="screen-waiter-task-view">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Задача</span>
+  </div>
+  <div class="content content-padded" id="waiter-task-view-content"></div>
+</div>
 
 
 <!-- ===== SCREEN: FOUNDER ALL EMPLOYEES ===== -->
@@ -2144,6 +2188,13 @@
 </div>
 
 
+
+<!-- ===== MODAL: FOUNDER TASK CONFIRM ===== -->
+<div class="modal-overlay" id="modal-founder-task-confirm"><div class="modal"><div class="modal-title">Отправить задачу?</div><div class="modal-sub">Официанты увидят задачу в своём разделе. Фото отправятся после подтверждения.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmFounderTask()">Да, отправить</button><button class="btn btn-secondary" onclick="closeModal('modal-founder-task-confirm')">Нет, вернуться</button></div></div></div>
+
+<!-- ===== MODAL: CLOSE TASK CONFIRM ===== -->
+<div class="modal-overlay" id="modal-close-task-confirm"><div class="modal"><div class="modal-title">Закрыть задачу?</div><div class="modal-sub">Учредитель увидит, кто закрыл задачу, время и прикрепленные фото.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmCloseFounderTaskByWaiter()">Да, закрыть</button><button class="btn btn-secondary" onclick="closeModal('modal-close-task-confirm')">Нет, вернуться</button></div></div></div>
+
 <!-- ===== MODAL: REPAIR CONFIRM ===== -->
 <div class="modal-overlay" id="modal-repair-confirm"><div class="modal"><div class="modal-title">Отправить заявку?</div><div class="modal-sub">Проверьте текст и фото. Техник увидит заявку после отправки.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmRepairRequest()">Да, отправить</button><button class="btn btn-secondary" onclick="closeModal('modal-repair-confirm')">Нет, вернуться</button></div></div></div>
 
@@ -2242,7 +2293,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.053";
+const APP_VERSION = "1.054";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2268,6 +2319,7 @@ const appCache = {
   adminProfiles: [],
   bathmasterOrders: [],
   repairRequests: [],
+  founderTasks: [],
   kpiContent: getDefaultKpiContent()
 };
 
@@ -2435,6 +2487,7 @@ async function initCloud() {
     appCache.adminProfiles = LocalDB.get("adminProfiles") || [];
     appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || [];
     appCache.repairRequests = LocalDB.get("repairRequests") || [];
+    appCache.founderTasks = LocalDB.get("founderTasks") || [];
     appCache.kpiContent = LocalDB.get("kpiContent") || getDefaultKpiContent();
     return;
   }
@@ -2508,6 +2561,14 @@ async function initCloud() {
     showToast("Ошибка загрузки поломок");
   });
 
+  db.collection("founderTasks").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    appCache.founderTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    refreshVisibleData();
+  }, (err) => {
+    console.error("founder tasks snapshot error", err);
+    showToast("Ошибка загрузки задач");
+  });
+
   db.collection("settings").doc("main").onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : {};
     appCache.dutyAssignment = data.dutyAssignment || null;
@@ -2525,7 +2586,7 @@ async function initCloud() {
 }
 
 async function loadCloudData() {
-  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, repairRequestsSnap, settingsDoc] = await Promise.all([
+  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, repairRequestsSnap, founderTasksSnap, settingsDoc] = await Promise.all([
     db.collection("staff").get(),
     db.collection("reports").orderBy("createdAt", "desc").get(),
     db.collection("fines").orderBy("createdAt", "desc").get(),
@@ -2535,6 +2596,7 @@ async function loadCloudData() {
     db.collection("adminProfiles").orderBy("createdAt", "desc").get(),
     db.collection("bathmasterOrders").orderBy("createdAt", "desc").get(),
     db.collection("repairRequests").orderBy("createdAt", "desc").get(),
+    db.collection("founderTasks").orderBy("createdAt", "desc").get(),
     db.collection("settings").doc("main").get()
   ]);
 
@@ -2547,6 +2609,7 @@ async function loadCloudData() {
   appCache.adminProfiles = adminProfilesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.bathmasterOrders = bathmasterOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.repairRequests = repairRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.founderTasks = founderTasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   const settings = settingsDoc.exists ? settingsDoc.data() : {};
   appCache.dutyAssignment = settings.dutyAssignment || null;
@@ -3296,6 +3359,7 @@ function getUnreadCounts() {
   const bathmasterOrdersUnread = getBathmasterOrders().filter(r => getTimeMs(r.createdAt) > getReadMarker("bathmasterOrders")).length;
   const repairUnreadForFounder = getRepairRequests().filter(r => getTimeMs(r.createdAt) > getReadMarker("founderRepairs")).length;
   const repairUnreadForTechnician = getRepairRequests().filter(r => r.status === 'new').length;
+  const waiterTasksUnread = getUnreadTasksForCurrentWaiter().length;
 
   return {
     reports: reportsUnread,
@@ -3306,7 +3370,8 @@ function getUnreadCounts() {
     bathmasterOrders: bathmasterOrdersUnread,
     bathmasters: bathmasterOrdersUnread,
     repairsFounder: repairUnreadForFounder,
-    repairsTechnician: repairUnreadForTechnician
+    repairsTechnician: repairUnreadForTechnician,
+    waiterTasks: waiterTasksUnread
   };
 }
 
@@ -3331,6 +3396,7 @@ function updateUnreadBadges() {
   setBadge("badge-tab-bathmaster-consumables", c.bathmasterOrders);
   setBadge("badge-founder-repairs", c.repairsFounder);
   setBadge("badge-technician-repairs", c.repairsTechnician);
+  setBadge("badge-waiter-tasks", c.waiterTasks);
 }
 
 function markWaiterReportsRead() {
@@ -3429,6 +3495,9 @@ function goHome() {
 
 function refreshScreen(id) {
   if (id === 'screen-waiter-menu') renderWaiterMenu();
+  if (id === 'screen-founder-tasks') renderFounderTasks();
+  if (id === 'screen-waiter-tasks') renderWaiterTasks();
+  if (id === 'screen-waiter-task-view') renderWaiterTaskView();
   if (id === 'screen-waiter-attestation') renderWaiterAttestation();
   if (id === 'screen-waiter-kpi-view') renderWaiterKpiView();
   if (id === 'screen-admin-kpi-editor') renderAdminKpiEditor();
@@ -3643,6 +3712,10 @@ function useCameraShot() {
     used = addRepairCameraPhoto(localPhoto);
   } else if (cameraTarget === 'repairClose') {
     used = addRepairCloseCameraPhoto(localPhoto);
+  } else if (cameraTarget === 'founderTask') {
+    used = addFounderTaskCameraPhoto(localPhoto);
+  } else if (cameraTarget === 'waiterTaskClose') {
+    used = addWaiterTaskCloseCameraPhoto(localPhoto);
   }
 
   if (!used) return;
@@ -4282,6 +4355,323 @@ function renderWaiterAttestation() {
 function openWaiterAttestation() {
   renderWaiterAttestation();
   goTo('screen-waiter-attestation');
+}
+
+
+// ============================================================
+// FOUNDER TASKS — tunnel between founder and departments
+// ============================================================
+let activeFounderTaskRole = 'waiter';
+let activeFounderTaskPhotos = [];
+let activeWaiterTaskId = null;
+let activeWaiterTaskClosePhotos = [];
+
+function getFounderTasks() {
+  return appCache.founderTasks || [];
+}
+
+async function saveFounderTask(task) {
+  const arr = getFounderTasks().filter(t => String(t.id) !== String(task.id));
+  arr.unshift(task);
+  appCache.founderTasks = arr;
+  LocalDB.set("founderTasks", arr);
+  updateUnreadBadges();
+  if (CLOUD_ENABLED && db) {
+    await db.collection("founderTasks").doc(String(task.id)).set(task, { merge: true });
+  }
+}
+
+async function updateFounderTask(task) {
+  appCache.founderTasks = getFounderTasks().map(t => String(t.id) === String(task.id) ? task : t);
+  LocalDB.set("founderTasks", appCache.founderTasks);
+  updateUnreadBadges();
+  if (CLOUD_ENABLED && db) {
+    await db.collection("founderTasks").doc(String(task.id)).set(task, { merge: true });
+  }
+}
+
+function getTaskRoleLabel(role) {
+  if (role === 'waiter') return 'Официанты';
+  if (role === 'masseur') return 'Массажисты';
+  if (role === 'bathmaster') return 'Пармастера';
+  if (role === 'technician') return 'Техник';
+  return getRoleLabel(role);
+}
+
+function openFounderTasks() {
+  activeFounderTaskRole = 'waiter';
+  activeFounderTaskPhotos = [];
+  renderFounderTasks();
+  goTo('screen-founder-tasks');
+}
+
+function switchFounderTaskTab(role) {
+  activeFounderTaskRole = role;
+  ['waiter','masseur','bathmaster','technician'].forEach(r => {
+    const el = document.getElementById('tab-founder-task-' + r);
+    if (el) el.classList.toggle('active', r === role);
+  });
+  activeFounderTaskPhotos = [];
+  renderFounderTasks();
+}
+
+function renderFounderTaskPhotos() {
+  const grid = document.getElementById('founder-task-photo-grid');
+  const count = document.getElementById('founder-task-photo-count');
+  const addBtn = document.getElementById('founder-task-add-btn');
+  if (!grid || !count || !addBtn) return;
+  count.textContent = `${activeFounderTaskPhotos.length} / 10`;
+  grid.style.display = activeFounderTaskPhotos.length ? 'grid' : 'none';
+  addBtn.classList.toggle('hidden', activeFounderTaskPhotos.length >= 10);
+  grid.innerHTML = activeFounderTaskPhotos.map((photo, idx) => `<div class="photo-thumb" onclick="openFullscreen('${photo.preview_url}')"><img src="${photo.preview_url}" alt=""><button class="remove-photo" onclick="event.stopPropagation(); removeFounderTaskPhoto(${idx})">✕</button></div>`).join('');
+}
+
+function addFounderTaskCameraPhoto(localPhoto) {
+  if (activeFounderTaskPhotos.length >= 10) {
+    showToast('Лимит фото: 10');
+    return false;
+  }
+  activeFounderTaskPhotos.push(localPhoto);
+  renderFounderTaskPhotos();
+  return true;
+}
+
+function removeFounderTaskPhoto(index) {
+  activeFounderTaskPhotos.splice(index, 1);
+  renderFounderTaskPhotos();
+}
+
+function renderFounderTasks() {
+  const el = document.getElementById('founder-tasks-content');
+  if (!el) return;
+
+  if (activeFounderTaskRole !== 'waiter') {
+    el.innerHTML = `<div class="wip-screen" style="padding:42px 0;"><div class="wip-icon">🔧</div><div class="wip-title">Раздел в разработке</div><div class="wip-sub">Сейчас активны только задачи для официантов.</div></div>`;
+    return;
+  }
+
+  const tasks = getFounderTasks()
+    .filter(t => String(t.targetRole || 'waiter') === 'waiter')
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+  const listHtml = tasks.length ? tasks.map(task => {
+    const dateText = task.date ? `${formatDateRu(task.date)}${task.time ? ' · ' + task.time : ''}` : '';
+    const readBy = (task.readBy || []).map(r => `${escapeHtml(r.name || 'Официант')}${r.readAt ? ' · ' + escapeHtml(formatDateTimeShort(r.readAt)) : ''}`).join('<br>');
+    const status = task.status === 'closed' ? 'Закрыта' : 'Открыта';
+    const statusColor = task.status === 'closed' ? 'var(--success)' : 'var(--accent)';
+    const photosHtml = (task.photos || []).length ? `<div class="report-photo-grid" style="margin-top:12px;">${(task.photos || []).slice(0,10).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+    const closePhotosHtml = (task.closePhotos || []).length ? `<div style="font-size:12px;color:var(--text-3);margin-top:12px;margin-bottom:8px;">Фото закрытия</div><div class="report-photo-grid">${(task.closePhotos || []).slice(0,10).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+    return `<div class="card" style="cursor:default;">
+      <div class="card-title">${escapeHtml(dateText || 'Без даты')} · <span style="color:${statusColor};">${status}</span></div>
+      <div class="card-sub">Для: ${escapeHtml(getTaskRoleLabel(task.targetRole || 'waiter'))}</div>
+      <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(task.text || '')}</div>
+      ${photosHtml}
+      <div class="doc-placeholder" style="margin-top:12px;margin-bottom:0;">
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">Прочитано</div>
+        ${readBy || 'Пока никто не открыл'}
+        ${task.status === 'closed' ? `<div style="font-weight:700;color:var(--text);margin-top:12px;margin-bottom:6px;">Закрыл</div>${escapeHtml(task.closedByName || '—')}${task.closedAt ? ' · ' + escapeHtml(formatDateTimeShort(task.closedAt)) : ''}` : ''}
+      </div>
+      ${task.closeText ? `<div class="doc-placeholder" style="white-space:pre-line;color:var(--text);margin-top:12px;">${escapeHtml(task.closeText)}</div>` : ''}
+      ${closePhotosHtml}
+    </div>`;
+  }).join('') : `<div class="empty" style="padding:34px 0;"><div class="empty-icon">✅</div><div class="empty-title">Задач пока нет</div><div class="empty-sub">Создайте срочную задачу для официантов</div></div>`;
+
+  el.innerHTML = `
+    <div class="section-label">Новая задача · Официанты</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom:20px;">
+      <div class="field">
+        <label>Текст задачи</label>
+        <textarea id="founder-task-text" placeholder="Например: срочно проверить стейшн, вынести мусор, подготовить баню..."></textarea>
+        <div class="error-msg" id="founder-task-error">Напишите задачу</div>
+      </div>
+      <div class="photo-section" style="margin-bottom:14px;"><div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="founder-task-photo-count">0 / 10</span></div><div class="photo-body"><div class="photo-grid" id="founder-task-photo-grid" style="display:none;"></div><div id="founder-task-add-btn" class="photo-actions"><button type="button" class="add-photo-btn" onclick="openCameraModal('founderTask')"><span>📷</span><span>Сделать фото</span></button></div></div></div>
+      <button class="btn btn-primary" onclick="submitFounderTask()">Отправить задачу</button>
+    </div>
+    <div class="section-label">История задач</div>
+    ${listHtml}`;
+  renderFounderTaskPhotos();
+}
+
+function submitFounderTask() {
+  const textValue = (document.getElementById('founder-task-text')?.value || '').trim();
+  const err = document.getElementById('founder-task-error');
+  if (!textValue) {
+    if (err) err.classList.add('show');
+    return;
+  }
+  if (err) err.classList.remove('show');
+  openModal('modal-founder-task-confirm');
+}
+
+async function uploadTaskPhotos(photos, sectionKey) {
+  const uploaded = [];
+  for (const photo of photos || []) {
+    if (photo && photo.type === 'local' && photo.file) uploaded.push(await uploadReportPhoto(photo.file, sectionKey));
+    else uploaded.push(photo);
+  }
+  return uploaded;
+}
+
+async function confirmFounderTask() {
+  closeModal('modal-founder-task-confirm');
+  const textValue = (document.getElementById('founder-task-text')?.value || '').trim();
+  if (!textValue) return;
+  try {
+    showToast(activeFounderTaskPhotos.length ? 'Отправляем фото...' : 'Отправляем задачу...');
+    const now = new Date();
+    const photos = await uploadTaskPhotos(activeFounderTaskPhotos, 'founderTask');
+    const task = {
+      id: Date.now(),
+      targetRole: 'waiter',
+      targetRoleLabel: 'Официанты',
+      text: textValue,
+      photos,
+      status: 'open',
+      readBy: [],
+      closePhotos: [],
+      closeText: '',
+      date: toDateKey(now),
+      time: now.toTimeString().slice(0, 5),
+      createdAt: now.toISOString()
+    };
+    await saveFounderTask(task);
+    activeFounderTaskPhotos = [];
+    const field = document.getElementById('founder-task-text');
+    if (field) field.value = '';
+    renderFounderTasks();
+    showToast('Задача отправлена ✓');
+  } catch (e) {
+    console.error(e);
+    showToast('Ошибка отправки задачи');
+  }
+}
+
+function getUnreadTasksForCurrentWaiter() {
+  const waiter = getWaiter();
+  if (!waiter || waiter.isFounderSession) return [];
+  return getFounderTasks().filter(t => String(t.targetRole || 'waiter') === 'waiter' && t.status !== 'closed' && !(t.readBy || []).some(r => String(r.staffId) === String(waiter.id)));
+}
+
+function openWaiterTasks() {
+  renderWaiterTasks();
+  goTo('screen-waiter-tasks');
+}
+
+function renderWaiterTasks() {
+  const el = document.getElementById('waiter-tasks-content');
+  if (!el) return;
+  const waiter = getWaiter();
+  if (!waiter) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">👤</div><div class="empty-title">Нет сотрудника</div><div class="empty-sub">Войдите как официант</div></div>`;
+    return;
+  }
+  const tasks = getFounderTasks().filter(t => String(t.targetRole || 'waiter') === 'waiter').sort((a,b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  if (!tasks.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Задач пока нет</div><div class="empty-sub">Срочные задачи от учредителя появятся здесь</div></div>`;
+    return;
+  }
+  el.innerHTML = tasks.map(task => {
+    const isRead = (task.readBy || []).some(r => String(r.staffId) === String(waiter.id));
+    const unread = !isRead && task.status !== 'closed' ? '<span class="notify-badge show">1</span>' : '';
+    const status = task.status === 'closed' ? 'Закрыта' : (isRead ? 'Прочитано' : 'Новая');
+    const dateText = task.date ? `${formatDateRu(task.date)}${task.time ? ' · ' + task.time : ''}` : '';
+    return `<div class="shift-card" onclick="openWaiterTaskView('${task.id}')"><div class="shift-date" style="display:flex;align-items:center;gap:8px;">Задача ${unread}</div><div class="shift-meta">${escapeHtml(dateText)} · ${escapeHtml(status)}</div><div style="font-size:14px;line-height:1.45;margin-top:10px;color:var(--text-2);">${escapeHtml((task.text || '').slice(0, 140))}</div></div>`;
+  }).join('');
+}
+
+async function openWaiterTaskView(taskId) {
+  activeWaiterTaskId = String(taskId);
+  activeWaiterTaskClosePhotos = [];
+  const task = getFounderTasks().find(t => String(t.id) === String(taskId));
+  const waiter = getWaiter();
+  if (task && waiter && !waiter.isFounderSession && !(task.readBy || []).some(r => String(r.staffId) === String(waiter.id))) {
+    task.readBy = task.readBy || [];
+    task.readBy.push({ staffId: waiter.id, name: waiter.name || 'Официант', login: waiter.login || '', readAt: new Date().toISOString() });
+    await updateFounderTask(task);
+  }
+  renderWaiterTaskView();
+  goTo('screen-waiter-task-view');
+}
+
+function renderWaiterTaskClosePhotos() {
+  const grid = document.getElementById('waiter-task-close-photo-grid');
+  const count = document.getElementById('waiter-task-close-photo-count');
+  const addBtn = document.getElementById('waiter-task-close-add-btn');
+  if (!grid || !count || !addBtn) return;
+  count.textContent = `${activeWaiterTaskClosePhotos.length} / 10`;
+  grid.style.display = activeWaiterTaskClosePhotos.length ? 'grid' : 'none';
+  addBtn.classList.toggle('hidden', activeWaiterTaskClosePhotos.length >= 10);
+  grid.innerHTML = activeWaiterTaskClosePhotos.map((photo, idx) => `<div class="photo-thumb" onclick="openFullscreen('${photo.preview_url}')"><img src="${photo.preview_url}" alt=""><button class="remove-photo" onclick="event.stopPropagation(); removeWaiterTaskClosePhoto(${idx})">✕</button></div>`).join('');
+}
+
+function addWaiterTaskCloseCameraPhoto(localPhoto) {
+  if (activeWaiterTaskClosePhotos.length >= 10) {
+    showToast('Лимит фото: 10');
+    return false;
+  }
+  activeWaiterTaskClosePhotos.push(localPhoto);
+  renderWaiterTaskClosePhotos();
+  return true;
+}
+
+function removeWaiterTaskClosePhoto(index) {
+  activeWaiterTaskClosePhotos.splice(index, 1);
+  renderWaiterTaskClosePhotos();
+}
+
+function renderWaiterTaskView() {
+  const el = document.getElementById('waiter-task-view-content');
+  if (!el) return;
+  const task = getFounderTasks().find(t => String(t.id) === String(activeWaiterTaskId));
+  if (!task) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Задача не найдена</div></div>`;
+    return;
+  }
+  const dateText = task.date ? `${formatDateRu(task.date)}${task.time ? ' · ' + task.time : ''}` : '';
+  const photosHtml = (task.photos || []).length ? `<div class="section-label">Фото от учредителя</div><div class="report-photo-grid" style="margin-bottom:16px;">${(task.photos || []).slice(0,10).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+  const closePhotosHtml = (task.closePhotos || []).length ? `<div class="section-label">Фото закрытия</div><div class="report-photo-grid" style="margin-bottom:16px;">${(task.closePhotos || []).slice(0,10).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+  const closeBlock = task.status !== 'closed' ? `<div class="section-label">Закрыть задачу</div><div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;"><div class="field"><label>Комментарий</label><textarea id="waiter-task-close-text" placeholder="Что сделано по задаче"></textarea></div><div class="photo-section" style="margin-bottom:14px;"><div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="waiter-task-close-photo-count">0 / 10</span></div><div class="photo-body"><div class="photo-grid" id="waiter-task-close-photo-grid" style="display:none;"></div><div id="waiter-task-close-add-btn" class="photo-actions"><button type="button" class="add-photo-btn" onclick="openCameraModal('waiterTaskClose')"><span>📷</span><span>Сделать фото</span></button></div></div></div><button class="btn btn-primary" onclick="closeFounderTaskByWaiter()">Закрыть задачу</button></div>` : `<div class="doc-placeholder"><b style="color:var(--text);">Задача закрыта</b><br>${escapeHtml(task.closedByName || 'Официант')}${task.closedAt ? ' · ' + escapeHtml(formatDateTimeShort(task.closedAt)) : ''}</div>`;
+  el.innerHTML = `<div class="inventory-status"><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Дата</div><div style="font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(dateText)}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Статус</div><div style="font-size:16px;font-weight:800;color:${task.status === 'closed' ? 'var(--success)' : 'var(--accent)'};">${task.status === 'closed' ? 'Закрыта' : 'Открыта'}</div></div><div class="section-label">Задача</div><div class="doc-placeholder" style="white-space:pre-line;color:var(--text);">${escapeHtml(task.text || '')}</div>${photosHtml}${task.closeText ? `<div class="doc-placeholder" style="white-space:pre-line;color:var(--text);">${escapeHtml(task.closeText)}</div>` : ''}${closePhotosHtml}${closeBlock}`;
+  renderWaiterTaskClosePhotos();
+}
+
+function closeFounderTaskByWaiter() {
+  openModal('modal-close-task-confirm');
+}
+
+async function confirmCloseFounderTaskByWaiter() {
+  closeModal('modal-close-task-confirm');
+  const task = getFounderTasks().find(t => String(t.id) === String(activeWaiterTaskId));
+  const waiter = getWaiter();
+  if (!task || !waiter) {
+    showToast('Задача не найдена');
+    return;
+  }
+  try {
+    showToast(activeWaiterTaskClosePhotos.length ? 'Отправляем фото...' : 'Закрываем задачу...');
+    const closeText = (document.getElementById('waiter-task-close-text')?.value || '').trim();
+    const photos = await uploadTaskPhotos(activeWaiterTaskClosePhotos, 'taskClosed');
+    task.status = 'closed';
+    task.closedAt = new Date().toISOString();
+    task.closedById = waiter.id;
+    task.closedByName = waiter.name || 'Официант';
+    task.closedByLogin = waiter.login || '';
+    task.closeText = closeText;
+    task.closePhotos = photos;
+    await updateFounderTask(task);
+    activeWaiterTaskClosePhotos = [];
+    renderWaiterTaskView();
+    showToast('Задача закрыта ✓');
+  } catch (e) {
+    console.error(e);
+    showToast('Ошибка закрытия задачи');
+  }
+}
+
+function formatDateTimeShort(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.toLocaleDateString('ru-RU')} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
 // ============================================================
