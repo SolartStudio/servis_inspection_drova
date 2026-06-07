@@ -1090,7 +1090,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.065 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.066 тестирование</div>
   </div>
 </div>
 
@@ -2494,7 +2494,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.065";
+const APP_VERSION = "1.066";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -6462,7 +6462,7 @@ async function approveAccessRequest(requestId) {
     return;
   }
 
-  const staffMember = existing || {
+  const staffMember = fillTelegramMeta(existing || {
     id: req.id,
     login: normalizeLogin(req.login),
     name: req.name,
