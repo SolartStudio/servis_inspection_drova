@@ -415,6 +415,86 @@
   .add-photo-btn.hidden { display: none; }
   .photo-actions.hidden { display: none !important; }
 
+
+  /* ANDROID CAMERA CAPTURE MODAL */
+  .camera-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 260;
+    flex-direction: column;
+  }
+  .camera-overlay.open { display: flex; }
+  .camera-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: rgba(0,0,0,0.88);
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    color: #fff;
+    z-index: 2;
+  }
+  .camera-title { flex: 1; font-size: 16px; font-weight: 700; }
+  .camera-close {
+    width: 38px; height: 38px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.14);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+  }
+  .camera-body {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #000;
+  }
+  #camera-video, #camera-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+  }
+  #camera-preview { display: none; }
+  .camera-error {
+    display: none;
+    padding: 22px;
+    text-align: center;
+    color: #fff;
+    line-height: 1.55;
+    font-size: 15px;
+  }
+  .camera-footer {
+    padding: 16px 18px 24px;
+    background: rgba(0,0,0,0.92);
+    border-top: 1px solid rgba(255,255,255,0.12);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .camera-shot-btn {
+    width: 72px;
+    height: 72px;
+    justify-self: center;
+    border-radius: 50%;
+    border: 5px solid rgba(255,255,255,0.88);
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.14);
+    cursor: pointer;
+  }
+  .camera-action-row {
+    display: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
   /* TABS */
   .tabs {
     display: flex;
@@ -1797,7 +1877,7 @@
   <div class="header"><button class="back-btn" onclick="goBack()">←</button><span class="header-title" id="repair-create-title">Поломки</span></div>
   <div class="content content-padded"><div class="section-label">Заявка на ремонт</div><div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
     <div class="field"><label>Описание поломки</label><textarea id="repair-create-text" placeholder="Например: течёт кран, не работает свет, сломалась ручка двери..."></textarea><div class="error-msg" id="repair-create-error">Напишите, что сломалось</div></div>
-    <div class="photo-section" style="margin-bottom:0;"><div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="repair-create-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-create-photo-grid" style="display:none;"></div><div id="repair-create-add-btn" class="photo-actions"><label class="add-photo-btn"><span>📷</span><span>Сделать фото</span><input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairPhotos(event)"></label></div></div></div>
+    <div class="photo-section" style="margin-bottom:0;"><div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="repair-create-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-create-photo-grid" style="display:none;"></div><div id="repair-create-add-btn" class="photo-actions"><button type="button" class="add-photo-btn" onclick="openCameraModal('repairCreate')"><span>📷</span><span>Сделать фото</span></button></div></div></div>
   </div>
     <div class="section-label">История заявок</div>
     <div id="repair-create-history"></div>
@@ -2035,6 +2115,28 @@
   </div>
 </div>
 
+<!-- ANDROID CAMERA MODAL -->
+<div class="camera-overlay" id="camera-overlay">
+  <div class="camera-header">
+    <div class="camera-title" id="camera-title">Сделать фото</div>
+    <button class="camera-close" type="button" onclick="closeCameraModal()">✕</button>
+  </div>
+  <div class="camera-body">
+    <video id="camera-video" autoplay playsinline muted></video>
+    <img id="camera-preview" alt="Предпросмотр фото">
+    <div class="camera-error" id="camera-error">
+      Камера не открылась. Проверьте разрешение камеры для Telegram и откройте Mini App заново.
+    </div>
+  </div>
+  <div class="camera-footer">
+    <button class="camera-shot-btn" id="camera-shot-btn" type="button" onclick="takeCameraShot()" aria-label="Сделать фото"></button>
+    <div class="camera-action-row" id="camera-action-row">
+      <button class="btn btn-secondary" type="button" onclick="retakeCameraShot()">Переснять</button>
+      <button class="btn btn-primary" type="button" onclick="useCameraShot()">Использовать</button>
+    </div>
+  </div>
+</div>
+
 <!-- FULLSCREEN PHOTO -->
 <div class="fullscreen-photo" id="fullscreen-photo">
   <button class="fullscreen-close" onclick="closeFullscreen()">✕</button>
@@ -2048,9 +2150,6 @@
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
-
-<!-- HIDDEN FILE INPUT -->
-<input type="file" id="file-input" accept="image/*" capture="environment" style="display:none;">
 
 <!-- Firebase SDK: Firestore cloud database only. Photos go through Telegram Worker. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -3315,6 +3414,221 @@ function showToast(msg) {
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
+
+// ============================================================
+// ANDROID CAMERA CAPTURE — вместо input file/capture
+// ============================================================
+let cameraStream = null;
+let cameraTarget = null;
+let cameraSectionKey = null;
+let cameraShotBlob = null;
+let cameraShotUrl = null;
+
+function isCameraSupported() {
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+
+async function openCameraModal(target, sectionKey = null) {
+  cameraTarget = target;
+  cameraSectionKey = sectionKey;
+  cameraShotBlob = null;
+  if (cameraShotUrl) {
+    URL.revokeObjectURL(cameraShotUrl);
+    cameraShotUrl = null;
+  }
+
+  const overlay = document.getElementById('camera-overlay');
+  const video = document.getElementById('camera-video');
+  const preview = document.getElementById('camera-preview');
+  const error = document.getElementById('camera-error');
+  const shotBtn = document.getElementById('camera-shot-btn');
+  const actionRow = document.getElementById('camera-action-row');
+
+  if (!overlay || !video || !preview || !error || !shotBtn || !actionRow) {
+    showToast('Камера не готова');
+    return;
+  }
+
+  preview.style.display = 'none';
+  preview.src = '';
+  error.style.display = 'none';
+  video.style.display = 'block';
+  shotBtn.style.display = 'block';
+  actionRow.style.display = 'none';
+  overlay.classList.add('open');
+
+  if (!isCameraSupported()) {
+    video.style.display = 'none';
+    shotBtn.style.display = 'none';
+    error.textContent = 'Камера внутри Telegram на этом устройстве недоступна. Нужно разрешить камеру для Telegram в настройках Android.';
+    error.style.display = 'block';
+    return;
+  }
+
+  try {
+    stopCameraStream();
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1600 },
+        height: { ideal: 1200 }
+      }
+    });
+    video.srcObject = cameraStream;
+    await video.play();
+  } catch (err) {
+    console.error('camera error', err);
+    video.style.display = 'none';
+    shotBtn.style.display = 'none';
+    error.textContent = 'Камера не открылась. Проверьте: Telegram → разрешения → Камера. Затем закройте и снова откройте Mini App.';
+    error.style.display = 'block';
+  }
+}
+
+function stopCameraStream() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+  const video = document.getElementById('camera-video');
+  if (video) video.srcObject = null;
+}
+
+function closeCameraModal() {
+  stopCameraStream();
+  const overlay = document.getElementById('camera-overlay');
+  const preview = document.getElementById('camera-preview');
+  if (overlay) overlay.classList.remove('open');
+  if (preview) preview.src = '';
+  if (cameraShotUrl) {
+    URL.revokeObjectURL(cameraShotUrl);
+    cameraShotUrl = null;
+  }
+  cameraShotBlob = null;
+}
+
+function takeCameraShot() {
+  const video = document.getElementById('camera-video');
+  const preview = document.getElementById('camera-preview');
+  const shotBtn = document.getElementById('camera-shot-btn');
+  const actionRow = document.getElementById('camera-action-row');
+
+  if (!video || !video.videoWidth || !video.videoHeight) {
+    showToast('Камера ещё не готова');
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      showToast('Не удалось сделать фото');
+      return;
+    }
+    cameraShotBlob = blob;
+    if (cameraShotUrl) URL.revokeObjectURL(cameraShotUrl);
+    cameraShotUrl = URL.createObjectURL(blob);
+
+    stopCameraStream();
+    preview.src = cameraShotUrl;
+    preview.style.display = 'block';
+    video.style.display = 'none';
+    shotBtn.style.display = 'none';
+    actionRow.style.display = 'grid';
+  }, 'image/jpeg', 0.86);
+}
+
+function retakeCameraShot() {
+  if (cameraShotUrl) {
+    URL.revokeObjectURL(cameraShotUrl);
+    cameraShotUrl = null;
+  }
+  cameraShotBlob = null;
+  openCameraModal(cameraTarget, cameraSectionKey);
+}
+
+function buildCameraFile(prefix) {
+  const filename = `${prefix || 'photo'}_${Date.now()}.jpg`;
+  try {
+    return new File([cameraShotBlob], filename, { type: 'image/jpeg', lastModified: Date.now() });
+  } catch (e) {
+    cameraShotBlob.name = filename;
+    return cameraShotBlob;
+  }
+}
+
+function useCameraShot() {
+  if (!cameraShotBlob || !cameraShotUrl) {
+    showToast('Сначала сделайте фото');
+    return;
+  }
+
+  const file = buildCameraFile(cameraTarget || 'photo');
+  const localPhoto = {
+    type: 'local',
+    file,
+    preview_url: cameraShotUrl,
+    addedAt: new Date().toISOString()
+  };
+
+  let used = false;
+
+  if (cameraTarget === 'report' && cameraSectionKey) {
+    used = addReportCameraPhoto(cameraSectionKey, localPhoto);
+  } else if (cameraTarget === 'repairCreate') {
+    used = addRepairCameraPhoto(localPhoto);
+  } else if (cameraTarget === 'repairClose') {
+    used = addRepairCloseCameraPhoto(localPhoto);
+  }
+
+  if (!used) return;
+
+  cameraShotUrl = null; // теперь URL живёт в localPhoto.preview_url
+  closeCameraModal();
+  showToast('Фото добавлено');
+}
+
+function addReportCameraPhoto(sectionKey, localPhoto) {
+  const section = SECTIONS.find(s => s.key === sectionKey);
+  if (!section || !activeReport || !activeReport.photos || !activeReport.photos[sectionKey]) {
+    showToast('Раздел фото не найден');
+    return false;
+  }
+  const current = activeReport.photos[sectionKey];
+  if (current.length >= section.limit) {
+    showToast(`Лимит фото: ${section.limit}`);
+    return false;
+  }
+  current.push(localPhoto);
+  renderBathReportContent();
+  return true;
+}
+
+function addRepairCameraPhoto(localPhoto) {
+  if (activeRepairPhotos.length >= 3) {
+    showToast('Лимит фото: 3');
+    return false;
+  }
+  activeRepairPhotos.push(localPhoto);
+  renderRepairCreatePhotos();
+  return true;
+}
+
+function addRepairCloseCameraPhoto(localPhoto) {
+  if (activeRepairClosePhotos.length >= 3) {
+    showToast('Лимит фото: 3');
+    return false;
+  }
+  activeRepairClosePhotos.push(localPhoto);
+  renderRepairClosePhotos();
+  return true;
+}
+
 // ============================================================
 // FULLSCREEN PHOTO
 // ============================================================
@@ -4083,11 +4397,10 @@ function renderBathReportContent() {
       </div>
       <div class="photo-body">
         ${photos.length > 0 ? `<div class="photo-grid" id="grid-${section.key}">${thumbsHtml}</div>` : `<div class="photo-grid" id="grid-${section.key}" style="display:${photos.length===0?'none':'grid'}"></div>`}
-        <label class="add-photo-btn ${atLimit ? 'hidden' : ''}" id="add-btn-${section.key}">
-          <span>＋</span>
+        <button type="button" class="add-photo-btn ${atLimit ? 'hidden' : ''}" id="add-btn-${section.key}" onclick="openCameraModal('report', '${section.key}')">
+          <span>📷</span>
           <span>Сделать фото</span>
-          <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotos(event, '${section.key}')">
-        </label>
+        </button>
       </div>`;
     el.appendChild(div);
   });
@@ -4527,7 +4840,7 @@ function renderRepairView() {
   activeRepairFixedPhotoSet = req.fixedPhotos || [];
   const photosHtml = activeRepairPhotoSet.length ? `<div class="section-label">Фото поломки</div><div class="report-photo-grid" style="margin-bottom:16px;">${activeRepairPhotoSet.map((photo, idx) => `<div class="report-photo-thumb" onclick="openRepairPhoto('main', ${idx})"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : `<div class="doc-placeholder">Фото поломки не прикрепляли.</div>`;
   const fixedPhotosHtml = activeRepairFixedPhotoSet.length ? `<div class="section-label">Фото после ремонта</div><div class="report-photo-grid" style="margin-bottom:16px;">${activeRepairFixedPhotoSet.map((photo, idx) => `<div class="report-photo-thumb" onclick="openRepairPhoto('fixed', ${idx})"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
-  const closeBlock = mode === 'technician' && req.status !== 'repaired' ? `<div class="section-label">Закрытие заявки</div><div class="photo-section"><div class="photo-section-header"><span class="photo-section-title">Фото после починки</span><span class="photo-count" id="repair-close-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-close-photo-grid" style="display:none;"></div><div id="repair-close-add-btn" class="photo-actions"><label class="add-photo-btn"><span>📷</span><span>Сделать фото</span><input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairClosePhotos(event)"></label></div></div></div><button class="btn btn-primary" onclick="closeRepairRequestWithPhoto()">Закрыть заявку</button>` : '';
+  const closeBlock = mode === 'technician' && req.status !== 'repaired' ? `<div class="section-label">Закрытие заявки</div><div class="photo-section"><div class="photo-section-header"><span class="photo-section-title">Фото после починки</span><span class="photo-count" id="repair-close-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-close-photo-grid" style="display:none;"></div><div id="repair-close-add-btn" class="photo-actions"><button type="button" class="add-photo-btn" onclick="openCameraModal('repairClose')"><span>📷</span><span>Сделать фото</span></button></div></div></div><button class="btn btn-primary" onclick="closeRepairRequestWithPhoto()">Закрыть заявку</button>` : '';
   content.innerHTML = `<div class="inventory-status"><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">От кого</div><div style="font-size:18px;font-weight:700;margin-bottom:12px;">${escapeHtml(req.staffName || '—')}${req.staffLogin ? ' · ' + escapeHtml(req.staffLogin) : ''}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Подразделение</div><div style="font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(req.sourceRoleLabel || '—')}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Дата</div><div style="font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(dateText)}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Статус</div><div style="font-size:16px;font-weight:800;color:${getRepairStatusColor(req)};">${getRepairStatusText(req)}</div></div><div class="section-label">Описание</div><div class="doc-placeholder" style="white-space:pre-line;color:var(--text);">${escapeHtml(req.text || '')}</div>${photosHtml}${fixedPhotosHtml}${closeBlock}`;
   if (mode === 'technician' && req.status !== 'repaired') renderRepairClosePhotos();
 }
