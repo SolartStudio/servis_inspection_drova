@@ -700,6 +700,27 @@
     flex-shrink: 0;
   }
   .staff-name { font-size: 15px; font-weight: 600; }
+
+  .profile-photo-box {
+    width: 112px;
+    height: 112px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    font-size: 42px;
+    font-weight: 800;
+    margin: 0 auto 14px;
+  }
+  .profile-photo-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
   .staff-login { font-size: 13px; color: var(--text-2); margin-top: 2px; }
 
   /* STAT ROW */
@@ -1069,7 +1090,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.056 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.057 тестирование</div>
   </div>
 </div>
 
@@ -2370,7 +2391,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.056";
+const APP_VERSION = "1.057";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -3284,6 +3305,25 @@ function saveFine(fine) {
   }
 }
 
+
+function incrementStaffFineTotal(staffId) {
+  const id = String(staffId);
+  const current = getStaff().find(s => String(s.id) === id);
+  if (!current) return;
+
+  const nextTotal = Math.max(getFineTotalForEmployee(current), Number(current.finesTotal || 0)) + 1;
+  const updated = { ...current, finesTotal: nextTotal, updatedAt: new Date().toISOString() };
+  appCache.staff = getStaff().map(s => String(s.id) === id ? updated : s);
+  LocalDB.set("staff", appCache.staff);
+
+  if (CLOUD_ENABLED && db) {
+    db.collection("staff").doc(id).set({
+      finesTotal: nextTotal,
+      updatedAt: updated.updatedAt
+    }, { merge: true }).catch(err => console.error("fine total save error", err));
+  }
+}
+
 async function deleteStaff(staffId) {
   const id = String(staffId);
   const person = getStaff().find(s => String(s.id) === id);
@@ -3546,6 +3586,45 @@ function getPhotoDisplaySrc(photo) {
 }
 
 
+async function notifyTelegramUsers(telegramIds, textValue) {
+  const ids = (telegramIds || [])
+    .map(v => String(v || '').trim())
+    .filter(Boolean);
+
+  if (!ids.length || !textValue || !TELEGRAM_PHOTO_ENABLED) {
+    return { ok: false, sent: 0, skipped: true };
+  }
+
+  try {
+    const response = await fetch(TELEGRAM_PHOTO_WORKER_URL + "/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        telegramIds: ids,
+        text: textValue
+      })
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data || !data.ok) {
+      console.warn("notify failed", data);
+    }
+    return data || { ok: false, sent: 0 };
+  } catch (err) {
+    console.warn("notify error", err);
+    return { ok: false, sent: 0, error: String(err) };
+  }
+}
+
+function getTelegramIdsForRole(role) {
+  return getStaff()
+    .filter(s => String(s.role || '') === String(role || ''))
+    .map(s => s.telegramId || s.chatId || s.telegramID)
+    .map(v => String(v || '').trim())
+    .filter(Boolean);
+}
+
+
 // ============================================================
 // NAVIGATION
 // ============================================================
@@ -3800,6 +3879,8 @@ function useCameraShot() {
     used = addFounderTaskCameraPhoto(localPhoto);
   } else if (cameraTarget === 'waiterTaskClose') {
     used = addWaiterTaskCloseCameraPhoto(localPhoto);
+  } else if (cameraTarget === 'employeeProfile') {
+    used = addEmployeeProfileCameraPhoto(localPhoto);
   }
 
   if (!used) return;
@@ -4619,6 +4700,15 @@ async function confirmFounderTask() {
       createdAt: now.toISOString()
     };
     await saveFounderTask(task);
+
+    const telegramIds = getTelegramIdsForRole('waiter');
+    if (telegramIds.length) {
+      const notifyText = `✅ Новая задача для официантов\n\n${textValue}\n\nОткройте Drova Inspector → Задачи`;
+      notifyTelegramUsers(telegramIds, notifyText).then(res => {
+        if (res && res.sent) showToast(`Задача отправлена, уведомлений: ${res.sent}`);
+      });
+    }
+
     activeFounderTaskPhotos = [];
     const field = document.getElementById('founder-task-text');
     if (field) field.value = '';
@@ -5980,6 +6070,7 @@ function addFine() {
     createdAt: now.toISOString()
   };
 
+  incrementStaffFineTotal(person.id);
   saveFine(fine);
 
   document.getElementById('fine-amount').value = '';
@@ -6207,6 +6298,7 @@ function addFounderFine() {
     createdBy: 'founder'
   };
 
+  incrementStaffFineTotal(person.id);
   saveFine(fine);
 
   document.getElementById('founder-fine-amount').value = '';
@@ -6740,34 +6832,169 @@ function openShiftView(date, reps) {
 // ============================================================
 // STAFF VIEW
 // ============================================================
-function openStaffView(staffId) {
+
+let activeEmployeeProfileKey = null;
+let activeEmployeeProfilePhoto = null;
+
+function getFineTotalForEmployee(employee) {
+  if (!employee) return 0;
+  const stored = Number(employee.finesTotal || employee.totalFines || employee.fineCountTotal || 0);
+  const current = getFines().filter(f => String(f.staffId) === String(employee.id)).length;
+  return Math.max(Number.isFinite(stored) ? stored : 0, current);
+}
+
+function getEmployeeProfilePhotoSrc(employee) {
+  const photo = activeEmployeeProfilePhoto || (employee ? (employee.photo || employee.profilePhoto || null) : null);
+  return getPhotoDisplaySrc(photo);
+}
+
+function addEmployeeProfileCameraPhoto(localPhoto) {
+  activeEmployeeProfilePhoto = localPhoto;
+  renderEmployeeProfilePhotoPreview();
+  return true;
+}
+
+function renderEmployeeProfilePhotoPreview() {
+  const box = document.getElementById('employee-profile-photo-preview');
+  if (!box) return;
+  const employee = findFounderEmployee(activeEmployeeProfileKey);
+  const src = getEmployeeProfilePhotoSrc(employee);
+  const initial = employee && employee.name ? escapeHtml(employee.name.charAt(0).toUpperCase()) : '👤';
+  box.innerHTML = src ? `<img src="${src}" alt="">` : initial;
+}
+
+async function saveFounderEmployeeProfile() {
+  const employee = findFounderEmployee(activeEmployeeProfileKey);
+  if (!employee) {
+    showToast('Сотрудник не найден');
+    return;
+  }
+
+  const name = (document.getElementById('employee-profile-name')?.value || '').trim();
+  const phone = (document.getElementById('employee-profile-phone')?.value || '').trim();
+  const telegramId = (document.getElementById('employee-profile-telegram-id')?.value || '').trim();
+
+  if (!name) {
+    showToast('Введите имя');
+    return;
+  }
+
+  try {
+    let profilePhoto = activeEmployeeProfilePhoto || employee.photo || employee.profilePhoto || null;
+    if (profilePhoto && profilePhoto.type === 'local' && profilePhoto.file) {
+      showToast('Сохраняем фото...');
+      profilePhoto = await uploadReportPhoto(profilePhoto.file, 'employeeProfile');
+    }
+
+    const payload = {
+      ...employee,
+      name,
+      phone,
+      telegramId,
+      chatId: telegramId,
+      profilePhoto,
+      photo: profilePhoto,
+      finesTotal: getFineTotalForEmployee(employee),
+      updatedAt: new Date().toISOString()
+    };
+
+    if (employee._employeeType === 'admin') {
+      const clean = { ...payload };
+      delete clean._employeeType;
+      delete clean._key;
+      const arr = getAdminProfiles().map(a => String(a.id) === String(employee.id) ? { ...a, ...clean } : a);
+      setAdminProfiles(arr);
+      if (CLOUD_ENABLED && db) {
+        await db.collection("adminProfiles").doc(String(employee.id)).set(clean, { merge: true });
+      }
+    } else {
+      const clean = { ...payload };
+      delete clean._employeeType;
+      delete clean._key;
+      const arr = getStaff().map(s => String(s.id) === String(employee.id) ? { ...s, ...clean } : s);
+      appCache.staff = arr;
+      LocalDB.set("staff", arr);
+      if (CLOUD_ENABLED && db) {
+        await db.collection("staff").doc(String(employee.id)).set(clean, { merge: true });
+      }
+      const currentRole = localStorage.getItem("currentStaffRole");
+      if (String(localStorage.getItem("currentStaffId_" + clean.role)) === String(clean.id)) {
+        LocalDB.set("staffProfile_" + clean.role, clean);
+      }
+      if (currentRole === clean.role && String(localStorage.getItem("currentStaffId")) === String(clean.id)) {
+        LocalDB.set("staffProfile", clean);
+      }
+      if (clean.role === 'waiter' && String(getCurrentWaiterId()) === String(clean.id)) {
+        LocalDB.set("waiter", clean);
+      }
+    }
+
+    activeEmployeeProfilePhoto = null;
+    showToast('Профиль сохранён ✓');
+    openStaffView(activeEmployeeProfileKey, true);
+  } catch (err) {
+    console.error(err);
+    showToast('Ошибка сохранения профиля');
+  }
+}
+
+function openStaffView(staffId, replaceCurrent = false) {
   const s = findFounderEmployee(staffId);
   if (!s) return;
 
-  const employeeKey = s._key || ('staff:' + String(s.id));
+  activeEmployeeProfileKey = s._key || ('staff:' + String(s.id));
+  if (!replaceCurrent) activeEmployeeProfilePhoto = null;
+
+  const employeeKey = activeEmployeeProfileKey;
   const rawId = String(s.id);
   const reports = s._employeeType === 'staff' ? getReports().filter(r => String(r.staffId) === rawId) : [];
   const days = new Set(reports.map(r => r.date)).size;
   const dutyCount = s.dutyCount || 0;
   const fines = getFines().filter(f => String(f.staffId) === rawId);
+  const finesTotal = getFineTotalForEmployee(s);
   const repairRequests = s._employeeType === 'staff' ? getRepairRequests().filter(r => String(r.staffId) === rawId) : [];
   const bathmasterOrders = s.role === 'bathmaster' ? getBathmasterOrders().filter(o => String(o.staffId) === rawId) : [];
+  const photoSrc = getEmployeeProfilePhotoSrc(s);
+  const initial = s && s.name ? escapeHtml(s.name.charAt(0).toUpperCase()) : '👤';
 
   document.getElementById('staff-view-title').textContent = s.name || 'Сотрудник';
 
   let html = `
+    <div class="profile-photo-box" id="employee-profile-photo-preview">
+      ${photoSrc ? `<img src="${photoSrc}" alt="">` : initial}
+    </div>
+    <button class="btn btn-secondary" style="margin-bottom:18px;" onclick="openCameraModal('employeeProfile')">📷 Сделать фото сотрудника</button>
+
     <div class="stat-row">
       <div class="stat-box"><div class="stat-val">${days}</div><div class="stat-lbl">Смен</div></div>
       <div class="stat-box"><div class="stat-val">${reports.length}</div><div class="stat-lbl">Отчетов</div></div>
-      <div class="stat-box"><div class="stat-val">${dutyCount}</div><div class="stat-lbl">Дежурств</div></div>
+      <div class="stat-box"><div class="stat-val">${finesTotal}</div><div class="stat-lbl">Штрафов всего</div></div>
     </div>
-    <div class="divider"></div>
+
+    <div class="section-label">Профиль</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom:18px;">
+      <div class="field">
+        <label>Имя</label>
+        <input type="text" id="employee-profile-name" value="${escapeHtml(s.name || '')}" placeholder="Имя сотрудника">
+      </div>
+      <div class="field">
+        <label>Номер телефона</label>
+        <input type="tel" id="employee-profile-phone" value="${escapeHtml(s.phone || '')}" placeholder="+998 ..." inputmode="tel">
+      </div>
+      <div class="field">
+        <label>Telegram ID / chat_id</label>
+        <input type="text" id="employee-profile-telegram-id" value="${escapeHtml(s.telegramId || s.chatId || '')}" placeholder="Например: 123456789" inputmode="numeric">
+      </div>
+      <div style="font-size:13px;color:var(--text-2);line-height:1.5;margin-bottom:14px;">
+        Если Telegram ID заполнен и сотрудник нажал Start в основном боте, он сможет получать уведомления по своему подразделению.
+      </div>
+      <button class="btn btn-primary" onclick="saveFounderEmployeeProfile()">Сохранить профиль</button>
+    </div>
+
     <div style="margin-bottom:12px;">
-      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Имя</div>
-      <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${escapeHtml(s.name || '—')}</div>
       <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Подразделение</div>
       <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${escapeHtml(getStaffRole(s))}</div>
-      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Telegram</div>
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Telegram логин</div>
       <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${escapeHtml(s.login || '—')}</div>
       <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Дата добавления</div>
       <div style="font-size:16px;font-weight:500;margin-bottom:12px;">${escapeHtml(s.createdAt ? new Date(s.createdAt).toLocaleString('ru-RU') : '—')}</div>
@@ -6787,12 +7014,13 @@ function openStaffView(staffId) {
       <div class="divider"></div>`;
   }
 
-  html += `<div class="section-label">Штрафы</div>`;
+  html += `<div class="section-label">Активные штрафы</div>`;
 
   if (fines.length === 0) {
     html += `<div class="empty" style="padding:32px 0;">
       <div class="empty-icon">✅</div>
-      <div class="empty-title">Пока штрафов нет</div>
+      <div class="empty-title">Активных штрафов нет</div>
+      <div class="empty-sub">Счётчик выше хранит количество за всё время</div>
     </div>`;
   } else {
     fines.forEach(f => {
@@ -6810,7 +7038,7 @@ function openStaffView(staffId) {
   `;
 
   document.getElementById('staff-view-content').innerHTML = html;
-  goTo('screen-staff-view');
+  if (!replaceCurrent) goTo('screen-staff-view');
 }
 
 let staffIdToDelete = null;
