@@ -2494,7 +2494,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.067";
+const APP_VERSION = "1.068";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -3980,6 +3980,95 @@ function goHome() {
   screenStack = ['screen-home'];
   document.getElementById('screen-home').classList.add('active');
   window.scrollTo(0, 0);
+}
+
+// ============================================================
+// GLOBAL SWIPE BACK
+// Дублирует кнопку Назад: свайп вправо возвращает на предыдущий экран.
+// Не работает на открытых фото в зуме, камере, модалках, полях ввода и карточках свайп-удаления.
+// ============================================================
+let swipeBackState = {
+  startX: 0,
+  startY: 0,
+  lastX: 0,
+  lastY: 0,
+  active: false,
+  blocked: false
+};
+
+function isSwipeBackBlockedTarget(target) {
+  if (!target) return false;
+  if (target.closest && target.closest('#fullscreen-photo.open')) return true;
+  if (target.closest && target.closest('#camera-overlay.open')) return true;
+  if (target.closest && target.closest('.modal-overlay.open')) return true;
+  if (target.closest && target.closest('.swipe-delete-card')) return true;
+  if (target.closest && target.closest('input, textarea, select, button, a')) return true;
+  if (target.closest && target.closest('.fullscreen-photo')) return true;
+  return false;
+}
+
+function canSwipeBackNow() {
+  const activeScreen = document.querySelector('.screen.active');
+  if (!activeScreen || activeScreen.id === 'screen-home') return false;
+  if (document.getElementById('fullscreen-photo')?.classList.contains('open')) return false;
+  if (document.getElementById('camera-overlay')?.classList.contains('open')) return false;
+  if (document.querySelector('.modal-overlay.open')) return false;
+  return !!activeScreen.querySelector('.back-btn');
+}
+
+function setupGlobalSwipeBack() {
+  if (document.body.dataset.swipeBackReady === '1') return;
+  document.body.dataset.swipeBackReady = '1';
+
+  document.addEventListener('touchstart', (e) => {
+    const touch = e.touches && e.touches[0];
+    if (!touch) return;
+    swipeBackState = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      lastX: touch.clientX,
+      lastY: touch.clientY,
+      active: canSwipeBackNow(),
+      blocked: isSwipeBackBlockedTarget(e.target)
+    };
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!swipeBackState.active || swipeBackState.blocked) return;
+    const touch = e.touches && e.touches[0];
+    if (!touch) return;
+    swipeBackState.lastX = touch.clientX;
+    swipeBackState.lastY = touch.clientY;
+
+    const dx = swipeBackState.lastX - swipeBackState.startX;
+    const dy = Math.abs(swipeBackState.lastY - swipeBackState.startY);
+
+    // Когда жест уже явно горизонтальный, не даём странице пытаться скроллиться боком.
+    if (dx > 35 && dy < 45) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', () => {
+    if (!swipeBackState.active || swipeBackState.blocked) return;
+
+    const dx = swipeBackState.lastX - swipeBackState.startX;
+    const dy = Math.abs(swipeBackState.lastY - swipeBackState.startY);
+    const screenWidth = window.innerWidth || 360;
+    const threshold = Math.max(70, Math.min(120, screenWidth * 0.22));
+
+    if (dx >= threshold && dy <= 70 && canSwipeBackNow()) {
+      goBack();
+    }
+
+    swipeBackState.active = false;
+    swipeBackState.blocked = false;
+  }, { passive: true });
+
+  document.addEventListener('touchcancel', () => {
+    swipeBackState.active = false;
+    swipeBackState.blocked = false;
+  }, { passive: true });
 }
 
 function refreshScreen(id) {
@@ -7911,6 +8000,7 @@ async function init() {
     showToast("Worker URL не заполнен");
   }
   initTheme();
+  setupGlobalSwipeBack();
 }
 
 // ============================================================
