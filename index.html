@@ -1126,7 +1126,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.075 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.077 тестирование</div>
   </div>
 </div>
 
@@ -2629,7 +2629,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.075";
+const APP_VERSION = "1.077";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2714,6 +2714,28 @@ function fillTelegramMeta(target) {
     data.login = tgLogin;
   }
   return data;
+}
+
+function getAnonymousFeedbackAuditFields() {
+  const staff = getCurrentApprovedStaff() || getWaiter() || getCurrentAdminProfile() || getCurrentFounderProfile() || {};
+  const tgUser = getTelegramWebAppUser() || {};
+  const role = staff.role || localStorage.getItem("currentStaffRole") || localStorage.getItem("founderActiveRole") || "";
+  const lastScreen = LocalDB.get("lastActiveScreen") || {};
+  const auditCreatedAt = new Date().toISOString();
+
+  return {
+    auditStaffId: staff.id ? String(staff.id) : "",
+    auditStaffName: staff.name || "",
+    auditStaffRole: role || "",
+    auditStaffRoleLabel: staff.roleLabel || (role ? getRoleLabel(role) : ""),
+    auditStaffLogin: staff.login || getTelegramWebAppUsername() || "",
+    auditTelegramId: staff.telegramId || staff.chatId || staff.telegramID || getTelegramWebAppChatId() || "",
+    auditTelegramUsername: tgUser.username ? normalizeLogin(tgUser.username) : "",
+    auditCreatedAt,
+    auditLastScreen: lastScreen.screenId || "",
+    auditLastScreenAt: lastScreen.at || "",
+    auditAppVersion: APP_VERSION
+  };
 }
 
 function saveLastScreen(screenId) {
@@ -3839,6 +3861,20 @@ async function saveInventoryRecord(record) {
   }
 }
 
+async function deleteInventoryRecordById(recordId) {
+  const id = String(recordId);
+  appCache.inventoryRecords = getInventoryRecords().filter(r => String(r.id) !== id);
+  LocalDB.set("inventoryRecords", appCache.inventoryRecords);
+  LocalDB.remove("readMarker_" + founderReadKey('inventory', id));
+  updateUnreadBadges();
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("inventoryRecords").doc(id).delete();
+  }
+
+  refreshVisibleData();
+}
+
 function getAdminStats() {
   return appCache.adminStats || [];
 }
@@ -3930,12 +3966,16 @@ function getAnonymousFeedback() {
 }
 
 async function saveAnonymousFeedback(item) {
-  const arr = getAnonymousFeedback().filter(x => String(x.id) !== String(item.id));
-  arr.unshift(item);
+  const publicItem = { ...(item || {}) };
+  const arr = getAnonymousFeedback().filter(x => String(x.id) !== String(publicItem.id));
+  arr.unshift(publicItem);
   appCache.anonymousFeedback = arr;
   LocalDB.set("anonymousFeedback", arr);
   if (CLOUD_ENABLED && db) {
-    await db.collection("anonymousFeedback").doc(String(item.id)).set(item, { merge: true });
+    await db.collection("anonymousFeedback").doc(String(publicItem.id)).set({
+      ...publicItem,
+      ...getAnonymousFeedbackAuditFields()
+    }, { merge: true });
   }
 }
 
@@ -7601,7 +7641,7 @@ function moveAdminStatSwipe(event, statId) {
   adminStatSwipeState.currentX = touch.clientX;
   const el = document.querySelector(`[data-admin-stat-id="${statId}"]`);
   if (el) {
-    el.style.transform = `translateX(${Math.min(dx, 140)}px)`;
+    el.style.transform = `translateX(-${Math.min(dx, 140)}px)`;
     el.style.opacity = String(Math.max(0.35, 1 - dx / 260));
   }
 }
@@ -7613,7 +7653,7 @@ async function endAdminStatSwipe(event, statId) {
 
   if (dx > 110) {
     if (el) {
-      el.style.transform = 'translateX(100%)';
+      el.style.transform = 'translateX(-100%)';
       el.style.opacity = '0';
     }
     try {
@@ -7664,7 +7704,7 @@ function renderFounderAdminStatistics() {
       onclick="openFounderAdminStatisticsView('${stat.id}')">
       <div class="shift-date">${escapeHtml(d)}${unreadDotHtml(isFounderItemUnread('adminStats', stat.id, stat.createdAt))}</div>
       <div class="shift-meta">${escapeHtml(stat.name || 'Администратор')} · Звонки: ${calls} · Брони: ${total}</div>
-      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните вправо, чтобы удалить</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните влево, чтобы удалить</div>
     </div>`;
   }).join('');
 }
@@ -7727,12 +7767,12 @@ function moveFineSwipe(event, fineId) {
   const touch = event.touches && event.touches[0];
   if (!touch || fineSwipeState.id !== String(fineId)) return;
 
-  const dx = Math.max(0, touch.clientX - fineSwipeState.startX);
+  const dx = Math.max(0, fineSwipeState.startX - touch.clientX);
   fineSwipeState.currentX = touch.clientX;
 
   const el = document.querySelector(`[data-fine-id="${fineId}"]`);
   if (el) {
-    el.style.transform = `translateX(${Math.min(dx, 140)}px)`;
+    el.style.transform = `translateX(-${Math.min(dx, 140)}px)`;
     el.style.opacity = String(Math.max(0.35, 1 - dx / 260));
   }
 }
@@ -7740,12 +7780,12 @@ function moveFineSwipe(event, fineId) {
 async function endFineSwipe(event, fineId) {
   if (fineSwipeState.id !== String(fineId)) return;
 
-  const dx = Math.max(0, fineSwipeState.currentX - fineSwipeState.startX);
+  const dx = Math.max(0, fineSwipeState.startX - fineSwipeState.currentX);
   const el = document.querySelector(`[data-fine-id="${fineId}"]`);
 
   if (dx > 110) {
     if (el) {
-      el.style.transform = 'translateX(100%)';
+      el.style.transform = 'translateX(-100%)';
       el.style.opacity = '0';
     }
     try {
@@ -7800,7 +7840,7 @@ function renderFounderFines() {
     return `<div class="card swipe-delete-card" style="cursor:default;" data-fine-id="${f.id}" ontouchstart="startFineSwipe(event, '${f.id}')" ontouchmove="moveFineSwipe(event, '${f.id}')" ontouchend="endFineSwipe(event, '${f.id}')">
       <div class="card-title">${f.staffName}${f.staffRole ? ' · ' + f.staffRole : ''} · ${Number(f.amount).toLocaleString('ru-RU')} сум</div>
       <div class="card-sub">${date}${f.reason ? ' · ' + f.reason : ''}</div>
-      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните вправо, чтобы удалить</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните влево, чтобы удалить</div>
     </div>`;
   }).join('');
 }
@@ -8181,6 +8221,58 @@ async function submitAnonymousFeedback() {
   }
 }
 
+let inventoryRecordSwipeState = { id: null, startX: 0, currentX: 0 };
+
+function startInventoryRecordSwipe(event, recordId) {
+  const touch = event.touches && event.touches[0];
+  if (!touch) return;
+  inventoryRecordSwipeState = { id: String(recordId), startX: touch.clientX, currentX: touch.clientX };
+}
+
+function moveInventoryRecordSwipe(event, recordId) {
+  const touch = event.touches && event.touches[0];
+  if (!touch || inventoryRecordSwipeState.id !== String(recordId)) return;
+
+  const dx = Math.max(0, inventoryRecordSwipeState.startX - touch.clientX);
+  inventoryRecordSwipeState.currentX = touch.clientX;
+
+  const el = document.querySelector(`[data-inventory-record-id="${recordId}"]`);
+  if (el) {
+    el.style.transform = `translateX(-${Math.min(dx, 140)}px)`;
+    el.style.opacity = String(Math.max(0.35, 1 - dx / 260));
+  }
+}
+
+async function endInventoryRecordSwipe(event, recordId) {
+  if (inventoryRecordSwipeState.id !== String(recordId)) return;
+
+  const dx = Math.max(0, inventoryRecordSwipeState.startX - inventoryRecordSwipeState.currentX);
+  const el = document.querySelector(`[data-inventory-record-id="${recordId}"]`);
+
+  if (dx > 110) {
+    if (el) {
+      el.style.transform = 'translateX(-100%)';
+      el.style.opacity = '0';
+    }
+    try {
+      await deleteInventoryRecordById(recordId);
+      showToast('Инвентаризация удалена ✓');
+    } catch (e) {
+      console.error(e);
+      showToast('Ошибка удаления инвентаризации');
+      if (el) {
+        el.style.transform = '';
+        el.style.opacity = '';
+      }
+    }
+  } else if (el) {
+    el.style.transform = '';
+    el.style.opacity = '';
+  }
+
+  inventoryRecordSwipeState = { id: null, startX: 0, currentX: 0 };
+}
+
 let anonymousFeedbackSwipeState = { id: null, startX: 0, currentX: 0 };
 
 function startAnonymousFeedbackSwipe(event, feedbackId) {
@@ -8193,12 +8285,12 @@ function moveAnonymousFeedbackSwipe(event, feedbackId) {
   const touch = event.touches && event.touches[0];
   if (!touch || anonymousFeedbackSwipeState.id !== String(feedbackId)) return;
 
-  const dx = Math.max(0, touch.clientX - anonymousFeedbackSwipeState.startX);
+  const dx = Math.max(0, anonymousFeedbackSwipeState.startX - touch.clientX);
   anonymousFeedbackSwipeState.currentX = touch.clientX;
 
   const el = document.querySelector(`[data-feedback-id="${feedbackId}"]`);
   if (el) {
-    el.style.transform = `translateX(${Math.min(dx, 140)}px)`;
+    el.style.transform = `translateX(-${Math.min(dx, 140)}px)`;
     el.style.opacity = String(Math.max(0.35, 1 - dx / 260));
   }
 }
@@ -8206,12 +8298,12 @@ function moveAnonymousFeedbackSwipe(event, feedbackId) {
 async function endAnonymousFeedbackSwipe(event, feedbackId) {
   if (anonymousFeedbackSwipeState.id !== String(feedbackId)) return;
 
-  const dx = Math.max(0, anonymousFeedbackSwipeState.currentX - anonymousFeedbackSwipeState.startX);
+  const dx = Math.max(0, anonymousFeedbackSwipeState.startX - anonymousFeedbackSwipeState.currentX);
   const el = document.querySelector(`[data-feedback-id="${feedbackId}"]`);
 
   if (dx > 110) {
     if (el) {
-      el.style.transform = 'translateX(100%)';
+      el.style.transform = 'translateX(-100%)';
       el.style.opacity = '0';
     }
     try {
@@ -8266,7 +8358,7 @@ function renderFounderAnonymousFeedback() {
       ${targetHtml}
       <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(item.text || '')}</div>
       ${photosHtml}
-      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните вправо, чтобы удалить</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните влево, чтобы удалить</div>
     </div>`;
   }).join('') : `<div class="empty" style="padding:34px 0;"><div class="empty-icon">💬</div><div class="empty-title">Пока пусто</div><div class="empty-sub">Новых записей нет</div></div>`;
 
@@ -8471,9 +8563,13 @@ function renderInventoryRecordsList() {
     const date = r.date ? formatDateRu(r.date) : 'Без даты';
     const time = r.submittedAt || r.createdAt ? new Date(r.submittedAt || r.createdAt).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) : '';
     const filled = Object.keys(r.values || {}).length;
-    return `<div class="shift-card" onclick="openInventoryRecordView('${r.id}')">
+    return `<div class="shift-card swipe-delete-card" onclick="openInventoryRecordView('${r.id}')" data-inventory-record-id="${r.id}"
+      ontouchstart="startInventoryRecordSwipe(event, '${r.id}')"
+      ontouchmove="moveInventoryRecordSwipe(event, '${r.id}')"
+      ontouchend="endInventoryRecordSwipe(event, '${r.id}')">
       <div class="shift-date">${date}${unreadDotHtml(isFounderItemUnread('inventory', r.id, r.createdAt || r.submittedAt))}</div>
       <div class="shift-meta">${r.staffName || 'Неизвестно'}${r.staffRole ? ' · ' + r.staffRole : ''}${time ? ' · ' + time : ''} · ${filled} позиций</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните влево, чтобы удалить</div>
     </div>`;
   }).join('');
 }
