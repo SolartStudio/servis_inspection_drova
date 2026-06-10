@@ -1069,6 +1069,92 @@
     margin-bottom: 14px;
   }
 
+  .admin-stats-chart-card {
+    background: #101418;
+    border: 1px solid rgba(120, 144, 170, 0.22);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 18px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  body.light .admin-stats-chart-card {
+    background: #101418;
+    border-color: rgba(120, 144, 170, 0.28);
+  }
+  .admin-stats-chart-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .admin-stats-chart-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #eef4ff;
+    letter-spacing: -0.2px;
+  }
+  .admin-stats-chart-sub {
+    font-size: 12px;
+    color: #7f8ea3;
+    margin-top: 3px;
+    line-height: 1.35;
+  }
+  .admin-stats-chart-tabs {
+    display: flex;
+    gap: 5px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 999px;
+    padding: 3px;
+    flex-shrink: 0;
+  }
+  .admin-stats-chart-tab {
+    border: none;
+    background: transparent;
+    color: #8ea0b8;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 7px 9px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .admin-stats-chart-tab.active {
+    background: rgba(255,255,255,0.11);
+    color: #ffffff;
+  }
+  .admin-stats-chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 238px;
+    overflow: hidden;
+    border-radius: 10px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0)),
+      #0b0f14;
+  }
+  #admin-stats-chart-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .admin-stats-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #8ea0b8;
+  }
+  .admin-stats-chart-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+  }
+
 </style>
 </head>
 <body>
@@ -1126,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.077 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.078 тестирование</div>
   </div>
 </div>
 
@@ -2353,6 +2439,26 @@
     <span class="header-title">Статистика</span>
   </div>
   <div class="content">
+    <div class="admin-stats-chart-card">
+      <div class="admin-stats-chart-head">
+        <div>
+          <div class="admin-stats-chart-title">Динамика контактов и броней</div>
+          <div class="admin-stats-chart-sub">Синяя линия: звонки + Telegram. Зеленая линия: брони общее.</div>
+        </div>
+        <div class="admin-stats-chart-tabs">
+          <button class="admin-stats-chart-tab active" id="admin-chart-tab-day" onclick="setAdminStatsChartMode('day')">Дни</button>
+          <button class="admin-stats-chart-tab" id="admin-chart-tab-week" onclick="setAdminStatsChartMode('week')">Неделя</button>
+          <button class="admin-stats-chart-tab" id="admin-chart-tab-month" onclick="setAdminStatsChartMode('month')">Месяц</button>
+        </div>
+      </div>
+      <div class="admin-stats-chart-wrap">
+        <canvas id="admin-stats-chart-canvas"></canvas>
+      </div>
+      <div class="admin-stats-chart-legend">
+        <span><i class="admin-stats-chart-dot" style="background:#2f8cff;"></i>Контакты</span>
+        <span><i class="admin-stats-chart-dot" style="background:#2fcf7f;"></i>Брони</span>
+      </div>
+    </div>
     <div class="section-label">Даты</div>
     <div id="founder-admin-statistics-list"></div>
   </div>
@@ -2629,7 +2735,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.077";
+const APP_VERSION = "1.078";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -4814,6 +4920,12 @@ function addRepairCloseCameraPhoto(localPhoto) {
 
 window.addEventListener('pagehide', stopCameraStream);
 window.addEventListener('beforeunload', stopCameraStream);
+window.addEventListener('resize', () => {
+  const active = screenStack && screenStack[screenStack.length - 1];
+  if (active === 'screen-founder-admin-statistics') {
+    drawAdminStatsChart();
+  }
+});
 
 // ============================================================
 // FULLSCREEN PHOTO
@@ -7622,8 +7734,8 @@ function adminLogout() {
 let activeAdminStatId = null;
 
 function openFounderAdminStatistics() {
-  renderFounderAdminStatistics();
   goTo('screen-founder-admin-statistics');
+  renderFounderAdminStatistics();
 }
 
 let adminStatSwipeState = { id: null, startX: 0, currentX: 0 };
@@ -7675,9 +7787,201 @@ async function endAdminStatSwipe(event, statId) {
   adminStatSwipeState = { id: null, startX: 0, currentX: 0 };
 }
 
+let activeAdminStatsChartMode = 'day';
+
+function setAdminStatsChartMode(mode) {
+  activeAdminStatsChartMode = ['day', 'week', 'month'].includes(mode) ? mode : 'day';
+  renderFounderAdminStatistics();
+}
+
+function getAdminStatsChartBucket(stat, mode) {
+  const dateKey = String(stat.date || '').slice(0, 10);
+  const date = parseDateKey(dateKey);
+  if (!date) return null;
+
+  if (mode === 'month') {
+    const key = dateKey.slice(0, 7);
+    const label = date.toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' }).replace('.', '');
+    return { key, label };
+  }
+
+  if (mode === 'week') {
+    const start = new Date(date);
+    const day = start.getDay() || 7;
+    start.setDate(start.getDate() - day + 1);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const key = toDateKey(start);
+    const label = `${String(start.getDate()).padStart(2, '0')}.${String(start.getMonth() + 1).padStart(2, '0')}–${String(end.getDate()).padStart(2, '0')}.${String(end.getMonth() + 1).padStart(2, '0')}`;
+    return { key, label };
+  }
+
+  return {
+    key: dateKey,
+    label: `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`
+  };
+}
+
+function getAdminStatsChartPoints(mode = activeAdminStatsChartMode) {
+  const grouped = {};
+  getAdminStats().forEach(stat => {
+    const bucket = getAdminStatsChartBucket(stat, mode);
+    if (!bucket) return;
+
+    if (!grouped[bucket.key]) {
+      grouped[bucket.key] = {
+        key: bucket.key,
+        label: bucket.label,
+        contacts: 0,
+        bookings: 0
+      };
+    }
+
+    grouped[bucket.key].contacts += Number(stat.calls || 0) + Number(stat.telegram || 0);
+    grouped[bucket.key].bookings += Number(stat.bookingsTotal || 0);
+  });
+
+  return Object.values(grouped).sort((a, b) => String(a.key).localeCompare(String(b.key)));
+}
+
+function drawAdminStatsChart() {
+  const canvas = document.getElementById('admin-stats-chart-canvas');
+  if (!canvas) return;
+
+  const wrap = canvas.parentElement;
+  const width = Math.max(320, Math.floor((wrap && wrap.clientWidth) || canvas.clientWidth || 320));
+  const height = Math.max(220, Math.floor((wrap && wrap.clientHeight) || canvas.clientHeight || 238));
+  const ratio = window.devicePixelRatio || 1;
+
+  canvas.width = Math.floor(width * ratio);
+  canvas.height = Math.floor(height * ratio);
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  const points = getAdminStatsChartPoints();
+  const left = 38;
+  const right = 42;
+  const top = 18;
+  const bottom = 42;
+  const chartW = Math.max(1, width - left - right);
+  const chartH = Math.max(1, height - top - bottom);
+
+  ctx.fillStyle = '#0b0f14';
+  ctx.fillRect(0, 0, width, height);
+
+  const maxValue = Math.max(100, ...points.map(p => Math.max(p.contacts, p.bookings)), 0);
+  const yMax = Math.max(120, Math.ceil((maxValue + 20) / 20) * 20);
+
+  ctx.strokeStyle = 'rgba(130, 150, 170, 0.18)';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#7f8ea3';
+  ctx.font = '11px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+
+  for (let y = 20; y <= yMax; y += 20) {
+    const py = top + chartH - (y / yMax) * chartH;
+    ctx.beginPath();
+    ctx.moveTo(left, py);
+    ctx.lineTo(width - right, py);
+    ctx.stroke();
+    ctx.fillText(String(y), left - 7, py);
+  }
+
+  ctx.strokeStyle = 'rgba(130, 150, 170, 0.28)';
+  ctx.beginPath();
+  ctx.moveTo(left, top);
+  ctx.lineTo(left, top + chartH);
+  ctx.lineTo(width - right, top + chartH);
+  ctx.stroke();
+
+  if (!points.length) {
+    ctx.fillStyle = '#7f8ea3';
+    ctx.font = '13px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Данных пока нет', width / 2, height / 2);
+    return;
+  }
+
+  const getX = (i) => {
+    if (points.length === 1) return left + chartW / 2;
+    return left + (i / (points.length - 1)) * chartW;
+  };
+  const getY = (value) => top + chartH - (Number(value || 0) / yMax) * chartH;
+
+  const maxLabels = width < 390 ? 4 : 6;
+  const labelEvery = Math.max(1, Math.ceil(points.length / maxLabels));
+  ctx.fillStyle = '#7f8ea3';
+  ctx.font = '10px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  points.forEach((p, i) => {
+    const x = getX(i);
+    if (i % labelEvery === 0 || i === points.length - 1) {
+      ctx.fillText(p.label, x, top + chartH + 12);
+    }
+  });
+
+  function drawLine(field, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.4;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+
+    points.forEach((p, i) => {
+      const x = getX(i);
+      const y = getY(p[field]);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    points.forEach((p, i) => {
+      const x = getX(i);
+      const y = getY(p[field]);
+      ctx.beginPath();
+      ctx.fillStyle = '#0b0f14';
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+  }
+
+  drawLine('contacts', '#2f8cff');
+  drawLine('bookings', '#2fcf7f');
+
+  const latest = points[points.length - 1];
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  ctx.font = '11px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+  ctx.fillStyle = '#2f8cff';
+  ctx.fillText(`Контакты: ${latest.contacts}`, width - 10, 12);
+  ctx.fillStyle = '#2fcf7f';
+  ctx.fillText(`Брони: ${latest.bookings}`, width - 10, 28);
+}
+
+function renderAdminStatsChartTabs() {
+  ['day', 'week', 'month'].forEach(mode => {
+    const el = document.getElementById('admin-chart-tab-' + mode);
+    if (el) el.classList.toggle('active', activeAdminStatsChartMode === mode);
+  });
+}
+
 function renderFounderAdminStatistics() {
   const list = document.getElementById('founder-admin-statistics-list');
   if (!list) return;
+
+  renderAdminStatsChartTabs();
+  setTimeout(drawAdminStatsChart, 0);
 
   const stats = getAdminStats().slice().sort((a, b) => {
     return String(b.date || '').localeCompare(String(a.date || '')) ||
