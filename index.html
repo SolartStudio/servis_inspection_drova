@@ -653,6 +653,38 @@
   }
   .fullscreen-zoom-controls button:active { background: rgba(255,255,255,0.28); }
 
+  .fullscreen-gallery-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 58px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.14);
+    color: #fff;
+    font-size: 30px;
+    z-index: 205;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+  }
+  .fullscreen-gallery-btn.left { left: 12px; }
+  .fullscreen-gallery-btn.right { right: 12px; }
+  .fullscreen-counter {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 205;
+    color: #fff;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
   /* TOAST */
   .toast {
     position: fixed;
@@ -1090,7 +1122,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.067 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.069 тестирование</div>
   </div>
 </div>
 
@@ -1476,6 +1508,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openAdminShiftHandover()">
+      <div class="menu-icon">🌄</div>
+      <div class="menu-text">
+        <div class="menu-title">Передача смены</div>
+        <div class="menu-desc">Назначить администратора на утро и оставить заметки</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="goTo('screen-duty')">
       <div class="menu-icon">🌅</div>
       <div class="menu-text">
@@ -1655,6 +1695,34 @@
       </div>
       <button class="btn btn-primary" onclick="submitAdminStatistics()">Отправить</button>
     </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: ADMIN SHIFT HANDOVER ===== -->
+<div class="screen" id="screen-admin-shift-handover">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Передача смены</span>
+  </div>
+  <div class="content content-padded">
+    <div class="section-label">Назначить на утро</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div class="field">
+        <label>Администратор на утро</label>
+        <select id="handover-admin-select"></select>
+      </div>
+      <div class="field">
+        <label>Заметки на завтра</label>
+        <textarea id="handover-notes" placeholder="Например:
+Проверить брони с утра
+Перезвонить гостю
+Передать сертификаты"></textarea>
+        <div class="error-msg" id="handover-error">Выберите администратора</div>
+      </div>
+      <button class="btn btn-primary" onclick="submitAdminShiftHandover()">Назначить на утро</button>
+    </div>
+    <div class="section-label">Последняя передача</div>
+    <div id="handover-last-info"></div>
   </div>
 </div>
 
@@ -2439,7 +2507,10 @@
 <!-- FULLSCREEN PHOTO -->
 <div class="fullscreen-photo" id="fullscreen-photo">
   <button class="fullscreen-back" onclick="closeFullscreen()">← Назад</button>
+  <div class="fullscreen-counter" id="fullscreen-counter" style="display:none;">1 / 1</div>
   <button class="fullscreen-close" onclick="closeFullscreen()">✕</button>
+  <button class="fullscreen-gallery-btn left" id="fullscreen-prev-btn" type="button" onclick="showFullscreenGalleryPhoto(-1)" style="display:none;">‹</button>
+  <button class="fullscreen-gallery-btn right" id="fullscreen-next-btn" type="button" onclick="showFullscreenGalleryPhoto(1)" style="display:none;">›</button>
   <img id="fullscreen-img" src="" alt="">
   <div class="fullscreen-zoom-controls">
     <button type="button" onclick="zoomFullscreenImage(0.75)">−</button>
@@ -2494,14 +2565,14 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.068";
+const APP_VERSION = "1.069";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
   version: APP_VERSION,
   channel: APP_CHANNEL,
   label: APP_VERSION_LABEL,
-  updatedAt: "2026-06-07"
+  updatedAt: "2026-06-10"
 };
 
 let db = null;
@@ -2518,6 +2589,7 @@ const appCache = {
   accessRequests: [],
   adminStats: [],
   adminProfiles: [],
+  adminShiftHandover: null,
   bathmasterOrders: [],
   repairRequests: [],
   founderTasks: [],
@@ -2815,6 +2887,7 @@ async function initCloud() {
     appCache.accessRequests = LocalDB.get("accessRequests") || [];
     appCache.adminStats = LocalDB.get("adminStats") || [];
     appCache.adminProfiles = LocalDB.get("adminProfiles") || [];
+    appCache.adminShiftHandover = LocalDB.get("adminShiftHandover") || null;
     appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || [];
     appCache.repairRequests = LocalDB.get("repairRequests") || [];
     appCache.founderTasks = LocalDB.get("founderTasks") || [];
@@ -2913,9 +2986,11 @@ async function initCloud() {
     appCache.inventoryDraft = data.inventoryDraft || null;
     appCache.kpiContent = data.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
     appCache.stopList = data.stopList || LocalDB.get("stopList") || getDefaultStopList();
+    appCache.adminShiftHandover = data.adminShiftHandover || LocalDB.get("adminShiftHandover") || null;
     LocalDB.set("inventoryDraft", appCache.inventoryDraft);
     LocalDB.set("kpiContent", appCache.kpiContent);
     LocalDB.set("stopList", appCache.stopList);
+    LocalDB.set("adminShiftHandover", appCache.adminShiftHandover);
     refreshVisibleData();
   }, (err) => {
     console.error("settings snapshot error", err);
@@ -2961,6 +3036,8 @@ async function loadCloudData() {
   appCache.inventoryDraft = settings.inventoryDraft || null;
   appCache.kpiContent = settings.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
   appCache.stopList = settings.stopList || LocalDB.get("stopList") || getDefaultStopList();
+  appCache.adminShiftHandover = settings.adminShiftHandover || LocalDB.get("adminShiftHandover") || null;
+  LocalDB.set("adminShiftHandover", appCache.adminShiftHandover);
 
   if (!settingsDoc.exists) {
     await db.collection("settings").doc("main").set({
@@ -2969,6 +3046,7 @@ async function loadCloudData() {
       dutyAssignment: null,
       kpiContent: appCache.kpiContent || getDefaultKpiContent(),
       stopList: appCache.stopList || getDefaultStopList(),
+      adminShiftHandover: appCache.adminShiftHandover || null,
       updatedAt: new Date().toISOString()
     }, { merge: true });
   }
@@ -3683,6 +3761,19 @@ async function saveAdminStat(record) {
   }
 }
 
+async function deleteAdminStatById(statId) {
+  const id = String(statId);
+  appCache.adminStats = getAdminStats().filter(s => String(s.id) !== id);
+  LocalDB.set("adminStats", appCache.adminStats);
+  updateUnreadBadges();
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("adminStats").doc(id).delete();
+  }
+
+  refreshVisibleData();
+}
+
 
 function getBathmasterOrders() {
   return appCache.bathmasterOrders || [];
@@ -4082,6 +4173,7 @@ function refreshScreen(id) {
   if (id === 'screen-duty') renderDutyScreen();
   if (id === 'screen-admin-fines') renderAdminFines();
   if (id === 'screen-admin-statistics') renderAdminStatisticsForm();
+  if (id === 'screen-admin-shift-handover') renderAdminShiftHandover();
   if (id === 'screen-admin-access-requests') renderAccessRequests();
   if (id === 'screen-bathmaster-order') renderBathmasterOrderHistory();
   if (id === 'screen-repair-create') renderRepairHistoryForCurrentActor();
@@ -4434,8 +4526,14 @@ let fullscreenZoom = {
   startY: 0,
   startDistance: 0,
   startScale: 1,
-  dragging: false
+  dragging: false,
+  navStartX: 0,
+  navStartY: 0,
+  navLastX: 0,
+  navLastY: 0
 };
+let fullscreenGallery = { items: [], index: 0 };
+let activeShiftPhotoGallery = [];
 
 function applyFullscreenZoom() {
   const img = document.getElementById('fullscreen-img');
@@ -4480,6 +4578,10 @@ function setupFullscreenGestures() {
     if (!box.classList.contains('open')) return;
     if (e.touches.length === 1) {
       fullscreenZoom.dragging = true;
+      fullscreenZoom.navStartX = e.touches[0].clientX;
+      fullscreenZoom.navStartY = e.touches[0].clientY;
+      fullscreenZoom.navLastX = e.touches[0].clientX;
+      fullscreenZoom.navLastY = e.touches[0].clientY;
       fullscreenZoom.startX = e.touches[0].clientX - fullscreenZoom.x;
       fullscreenZoom.startY = e.touches[0].clientY - fullscreenZoom.y;
     }
@@ -4493,6 +4595,11 @@ function setupFullscreenGestures() {
   box.addEventListener('touchmove', (e) => {
     if (!box.classList.contains('open')) return;
     e.preventDefault();
+
+    if (e.touches.length === 1) {
+      fullscreenZoom.navLastX = e.touches[0].clientX;
+      fullscreenZoom.navLastY = e.touches[0].clientY;
+    }
 
     if (e.touches.length === 1 && fullscreenZoom.dragging && fullscreenZoom.scale > 1) {
       fullscreenZoom.x = e.touches[0].clientX - fullscreenZoom.startX;
@@ -4513,21 +4620,74 @@ function setupFullscreenGestures() {
   }, { passive: false });
 
   box.addEventListener('touchend', () => {
+    const dx = fullscreenZoom.navLastX - fullscreenZoom.navStartX;
+    const dy = fullscreenZoom.navLastY - fullscreenZoom.navStartY;
     fullscreenZoom.dragging = false;
-    if (fullscreenZoom.scale <= 1.02) resetFullscreenZoom();
+
+    if (fullscreenZoom.scale <= 1.02) {
+      if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.25 && fullscreenGallery.items.length > 1) {
+        showFullscreenGalleryPhoto(dx < 0 ? 1 : -1);
+        return;
+      }
+      if (dy > 85 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+        closeFullscreen();
+        return;
+      }
+      resetFullscreenZoom();
+    }
   }, { passive: false });
 }
 
-function openFullscreen(src) {
-  setupFullscreenGestures();
+function updateFullscreenGalleryUi() {
+  const total = fullscreenGallery.items.length;
+  const counter = document.getElementById('fullscreen-counter');
+  const prev = document.getElementById('fullscreen-prev-btn');
+  const next = document.getElementById('fullscreen-next-btn');
+  const show = total > 1;
+  if (counter) {
+    counter.style.display = show ? 'block' : 'none';
+    counter.textContent = show ? `${fullscreenGallery.index + 1} / ${total}` : '';
+  }
+  if (prev) prev.style.display = show ? 'block' : 'none';
+  if (next) next.style.display = show ? 'block' : 'none';
+}
+
+function setFullscreenImage(src) {
   const img = document.getElementById('fullscreen-img');
-  img.src = src;
+  if (img) img.src = src || '';
   resetFullscreenZoom();
+  updateFullscreenGalleryUi();
+}
+
+function openFullscreen(src) {
+  openFullscreenGallery([src], 0);
+}
+
+function openFullscreenGallery(items, index = 0) {
+  setupFullscreenGestures();
+  const clean = (items || []).filter(Boolean);
+  fullscreenGallery.items = clean.length ? clean : [];
+  fullscreenGallery.index = Math.min(Math.max(0, Number(index || 0)), Math.max(0, fullscreenGallery.items.length - 1));
+  setFullscreenImage(fullscreenGallery.items[fullscreenGallery.index] || '');
   document.getElementById('fullscreen-photo').classList.add('open');
 }
+
+function showFullscreenGalleryPhoto(direction) {
+  if (!fullscreenGallery.items.length) return;
+  const total = fullscreenGallery.items.length;
+  fullscreenGallery.index = (fullscreenGallery.index + direction + total) % total;
+  setFullscreenImage(fullscreenGallery.items[fullscreenGallery.index]);
+}
+
+function openShiftPhoto(index) {
+  openFullscreenGallery(activeShiftPhotoGallery, index);
+}
+
 function closeFullscreen() {
   document.getElementById('fullscreen-photo').classList.remove('open');
+  fullscreenGallery = { items: [], index: 0 };
   resetFullscreenZoom();
+  updateFullscreenGalleryUi();
 }
 
 // ============================================================
@@ -6639,10 +6799,18 @@ function openAdminStatistics() {
   goTo('screen-admin-statistics');
 }
 
+function getAdminShiftDateKey(baseDate = new Date()) {
+  const d = new Date(baseDate);
+  // Админская смена закрывается в 04:00. До 04:00 отчёт относится к предыдущему дню,
+  // иначе после полуночи люди получают две одинаковые даты. Гениально, календарь победил бухгалтерию.
+  if (d.getHours() < 4) d.setDate(d.getDate() - 1);
+  return toDateKey(d);
+}
+
 function renderAdminStatisticsForm() {
   const dateInput = document.getElementById('admin-stat-date');
   if (dateInput) {
-    dateInput.value = toDateKey(new Date());
+    dateInput.value = getAdminShiftDateKey();
     dateInput.dataset.manual = '0';
   }
 
@@ -6655,7 +6823,7 @@ function renderAdminStatisticsForm() {
 
 async function submitAdminStatistics() {
   const dateInput = document.getElementById('admin-stat-date');
-  const date = dateInput && dateInput.dataset.manual === '1' ? dateInput.value : toDateKey(new Date());
+  const date = dateInput && dateInput.dataset.manual === '1' ? dateInput.value : getAdminShiftDateKey();
   const name = document.getElementById('admin-stat-name').value.trim();
   const calls = Number(document.getElementById('admin-stat-calls').value || 0);
   const telegram = Number(document.getElementById('admin-stat-telegram').value || 0);
@@ -6689,6 +6857,8 @@ async function submitAdminStatistics() {
     telegram,
     bookingsTotal,
     bookingsPv,
+    adminId: (getCurrentAdminProfile() || {}).id || '',
+    submittedAt: new Date().toISOString(),
     createdAt: new Date().toISOString()
   };
 
@@ -6700,7 +6870,7 @@ async function submitAdminStatistics() {
     document.getElementById('admin-stat-bookings-pv').value = '';
     const dateField = document.getElementById('admin-stat-date');
     if (dateField) {
-      dateField.value = toDateKey(new Date());
+      dateField.value = getAdminShiftDateKey();
       dateField.dataset.manual = '0';
     }
     showToast('Статистика отправлена ✓');
@@ -6708,6 +6878,103 @@ async function submitAdminStatistics() {
   } catch (e) {
     console.error(e);
     showToast('Ошибка отправки статистики');
+  }
+}
+
+function getAdminShiftHandover() {
+  return appCache.adminShiftHandover || null;
+}
+
+async function setAdminShiftHandover(data) {
+  appCache.adminShiftHandover = data;
+  LocalDB.set("adminShiftHandover", data);
+  if (CLOUD_ENABLED && db) {
+    await db.collection("settings").doc("main").set({
+      adminShiftHandover: data,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
+
+function openAdminShiftHandover() {
+  renderAdminShiftHandover();
+  goTo('screen-admin-shift-handover');
+}
+
+function renderAdminShiftHandover() {
+  const select = document.getElementById('handover-admin-select');
+  const notes = document.getElementById('handover-notes');
+  const last = document.getElementById('handover-last-info');
+  const err = document.getElementById('handover-error');
+  if (!select || !last) return;
+
+  const admins = getAdminProfiles().slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ru'));
+  select.innerHTML = admins.length
+    ? admins.map(a => `<option value="${a.id}">${escapeHtml(a.name || 'Администратор')}${a.login ? ' · ' + escapeHtml(a.login) : ''}</option>`).join('')
+    : `<option value="">Нет администраторов</option>`;
+  if (notes) notes.value = '';
+  if (err) err.classList.remove('show');
+
+  const h = getAdminShiftHandover();
+  if (!h) {
+    last.innerHTML = `<div class="doc-placeholder">Передач смены пока нет.</div>`;
+    return;
+  }
+
+  last.innerHTML = `<div class="inventory-status">
+    <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Назначен на утро</div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:12px;">${escapeHtml(h.targetAdminName || '—')}</div>
+    <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Передал</div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(h.fromAdminName || 'Администратор')} · ${escapeHtml(formatDateTimeShort(h.createdAt))}</div>
+    <div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Заметки</div>
+    <div style="font-size:14px;line-height:1.5;white-space:pre-line;color:var(--text-2);">${escapeHtml(h.notes || 'Без заметок')}</div>
+  </div>`;
+}
+
+async function submitAdminShiftHandover() {
+  const select = document.getElementById('handover-admin-select');
+  const notesField = document.getElementById('handover-notes');
+  const err = document.getElementById('handover-error');
+  const adminId = select ? select.value : '';
+  const target = getAdminProfiles().find(a => String(a.id) === String(adminId));
+
+  if (!target) {
+    if (err) err.classList.add('show');
+    return;
+  }
+  if (err) err.classList.remove('show');
+
+  const current = getCurrentAdminProfile() || {};
+  const notes = notesField ? notesField.value.trim() : '';
+  const data = fillTelegramMeta({
+    id: Date.now(),
+    targetDate: getNextShiftDateKey(),
+    targetAdminId: target.id,
+    targetAdminName: target.name || 'Администратор',
+    targetAdminLogin: target.login || '',
+    fromAdminId: current.id || '',
+    fromAdminName: current.name || getAdminDisplayName(),
+    notes,
+    createdAt: new Date().toISOString()
+  });
+
+  try {
+    await setAdminShiftHandover(data);
+    const message = `🌄 Передача смены
+
+На утро назначен: ${data.targetAdminName}${data.targetAdminLogin ? ' · ' + data.targetAdminLogin : ''}
+Передал: ${data.fromAdminName}
+Дата: ${formatDateRu(data.targetDate)}${notes ? '
+
+Заметки:
+' + notes : ''}`;
+    notifyRole('admin', message);
+    notifyFounders(message);
+    showToast('Передача смены отправлена ✓');
+    renderAdminShiftHandover();
+  } catch (e) {
+    console.error(e);
+    showToast('Ошибка передачи смены');
   }
 }
 
@@ -6812,6 +7079,55 @@ function openFounderAdminStatistics() {
   goTo('screen-founder-admin-statistics');
 }
 
+let adminStatSwipeState = { id: null, startX: 0, currentX: 0 };
+
+function startAdminStatSwipe(event, statId) {
+  const touch = event.touches && event.touches[0];
+  if (!touch) return;
+  adminStatSwipeState = { id: String(statId), startX: touch.clientX, currentX: touch.clientX };
+}
+
+function moveAdminStatSwipe(event, statId) {
+  const touch = event.touches && event.touches[0];
+  if (!touch || adminStatSwipeState.id !== String(statId)) return;
+  const dx = Math.max(0, touch.clientX - adminStatSwipeState.startX);
+  adminStatSwipeState.currentX = touch.clientX;
+  const el = document.querySelector(`[data-admin-stat-id="${statId}"]`);
+  if (el) {
+    el.style.transform = `translateX(${Math.min(dx, 140)}px)`;
+    el.style.opacity = String(Math.max(0.35, 1 - dx / 260));
+  }
+}
+
+async function endAdminStatSwipe(event, statId) {
+  if (adminStatSwipeState.id !== String(statId)) return;
+  const dx = Math.max(0, adminStatSwipeState.currentX - adminStatSwipeState.startX);
+  const el = document.querySelector(`[data-admin-stat-id="${statId}"]`);
+
+  if (dx > 110) {
+    if (el) {
+      el.style.transform = 'translateX(100%)';
+      el.style.opacity = '0';
+    }
+    try {
+      await deleteAdminStatById(statId);
+      showToast('Отчёт удалён ✓');
+    } catch (e) {
+      console.error(e);
+      showToast('Ошибка удаления отчёта');
+      if (el) {
+        el.style.transform = '';
+        el.style.opacity = '';
+      }
+    }
+  } else if (el) {
+    el.style.transform = '';
+    el.style.opacity = '';
+  }
+
+  adminStatSwipeState = { id: null, startX: 0, currentX: 0 };
+}
+
 function renderFounderAdminStatistics() {
   const list = document.getElementById('founder-admin-statistics-list');
   if (!list) return;
@@ -6834,9 +7150,14 @@ function renderFounderAdminStatistics() {
     const d = stat.date ? formatDateWithWeekdayRu(stat.date) : 'Без даты';
     const total = Number(stat.bookingsTotal || 0);
     const calls = Number(stat.calls || 0);
-    return `<div class="shift-card" onclick="openFounderAdminStatisticsView('${stat.id}')">
+    return `<div class="shift-card swipe-delete-card" data-admin-stat-id="${stat.id}"
+      ontouchstart="startAdminStatSwipe(event, '${stat.id}')"
+      ontouchmove="moveAdminStatSwipe(event, '${stat.id}')"
+      ontouchend="endAdminStatSwipe(event, '${stat.id}')"
+      onclick="openFounderAdminStatisticsView('${stat.id}')">
       <div class="shift-date">${escapeHtml(d)}</div>
       <div class="shift-meta">${escapeHtml(stat.name || 'Администратор')} · Звонки: ${calls} · Брони: ${total}</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните вправо, чтобы удалить</div>
     </div>`;
   }).join('');
 }
@@ -7565,6 +7886,7 @@ function saveInventoryAsJpg(recordId) {
 // ============================================================
 function openShiftView(date, reps) {
   const el = document.getElementById('shift-view-content');
+  activeShiftPhotoGallery = [];
   const duty = getDutyAssignment();
   const staff = getStaff();
 
@@ -7580,7 +7902,7 @@ function openShiftView(date, reps) {
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:20px;">
       <div style="font-size:12px;color:var(--text-3);letter-spacing:0.5px;margin-bottom:6px;">ДЕЖУРНЫЙ УТРОМ · ${formatDateRu(date)}</div>
       <div style="font-size:17px;font-weight:600;">${dutyName}</div>
-      ${duty && duty.targetDate === date && duty.tasks ? `<div style="font-size:13px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-top:10px;">${duty.tasks}</div>` : ''}
+      ${duty && duty.targetDate === date && duty.tasks ? `<div style="font-size:13px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-top:10px;">${escapeHtml(duty.tasks)}</div>` : ''}
     </div>`;
 
   const byBath = {};
@@ -7617,10 +7939,14 @@ function openShiftView(date, reps) {
           <div class="report-section-header">${section.label}</div>
           <div class="report-section-body">
             <div class="report-photo-grid">
-              ${photos.map(src => `
-                <div class="report-photo-thumb" onclick="openFullscreen(getPhotoDisplaySrc(src))">
-                  <img src="${getPhotoDisplaySrc(src)}" alt="">
-                </div>`).join('')}
+              ${photos.map(src => {
+                const photoSrc = getPhotoDisplaySrc(src);
+                const galleryIndex = activeShiftPhotoGallery.push(photoSrc) - 1;
+                return `
+                <div class="report-photo-thumb" onclick="openShiftPhoto(${galleryIndex})">
+                  <img src="${photoSrc}" alt="">
+                </div>`;
+              }).join('')}
             </div>
           </div>
         </div>`;
