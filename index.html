@@ -1126,7 +1126,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.073 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.074 тестирование</div>
   </div>
 </div>
 
@@ -2629,7 +2629,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.073";
+const APP_VERSION = "1.074";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -3975,6 +3975,17 @@ function isFounderItemUnread(kind, id, timeValue) {
 
 function markFounderItemRead(kind, id) {
   setReadMarker(founderReadKey(kind, id));
+}
+
+function markFounderItemsRead(kind, items, idGetter) {
+  const list = Array.isArray(items) ? items : [];
+  list.forEach(item => {
+    const id = typeof idGetter === 'function' ? idGetter(item) : (item && item.id);
+    if (id !== undefined && id !== null && String(id) !== '') {
+      LocalDB.set("readMarker_" + founderReadKey(kind, id), Date.now());
+    }
+  });
+  updateUnreadBadges();
 }
 
 function unreadDotHtml(show) {
@@ -6862,7 +6873,7 @@ async function confirmCloseRepairRequest() {
   } catch (e) { console.error(e); showToast('Ошибка закрытия заявки'); }
 }
 
-function openFounderRepairs() { renderFounderRepairs(); goTo('screen-founder-repairs'); }
+function openFounderRepairs() { markFounderItemsRead('repair', getRepairRequests(), r => r.id); renderFounderRepairs(); goTo('screen-founder-repairs'); }
 function renderFounderRepairs() {
   const list = document.getElementById('founder-repairs-list');
   if (!list) return;
@@ -6987,8 +6998,8 @@ function renderBathmasterOrderHistory() {
   }).join('');
 }
 
-async function markBathmasterOrdersStatusRead() {
-  const unread = getBathmasterOrders().filter(o => o.status !== 'read');
+async function markBathmasterOrdersStatusRead(sourceRole = 'bathmaster') {
+  const unread = getBathmasterOrders().filter(o => String(o.sourceRole || 'bathmaster') === String(sourceRole) && o.status !== 'read');
   if (!unread.length) return;
   for (const order of unread) {
     order.status = 'read';
@@ -7062,8 +7073,9 @@ function switchBathmasterTab(tab) {
 
   if (tab === 'staff') renderBathmasterStaff();
   if (tab === 'consumables') {
+    markFounderItemsRead('bathmasterOrder', getBathmasterOrders().filter(o => String(o.sourceRole || 'bathmaster') === 'bathmaster'), o => o.id);
     renderBathmasterConsumables();
-    markBathmasterOrdersStatusRead().then(() => renderBathmasterConsumables()).catch(err => console.error(err));
+    markBathmasterOrdersStatusRead('bathmaster').then(() => renderBathmasterConsumables()).catch(err => console.error(err));
   }
 }
 
@@ -7839,7 +7851,11 @@ function switchMasseurTab(tab) {
   if (staffPanel) staffPanel.style.display = tab === 'staff' ? 'block' : 'none';
   if (ordersPanel) ordersPanel.style.display = tab === 'orders' ? 'block' : 'none';
   if (tab === 'staff') renderMasseurStaffForFounder();
-  if (tab === 'orders') renderMasseurOrdersForFounder();
+  if (tab === 'orders') {
+    markFounderItemsRead('masseurOrder', getBathmasterOrders().filter(o => String(o.sourceRole || '') === 'masseur'), o => o.id);
+    renderMasseurOrdersForFounder();
+    markBathmasterOrdersStatusRead('masseur').then(() => renderMasseurOrdersForFounder()).catch(err => console.error(err));
+  }
 }
 
 function renderFounderMasseurs() {
@@ -8153,12 +8169,14 @@ async function submitAnonymousFeedback() {
 
 function openFounderAnonymousFeedback() {
   activeFounderAnonymousTab = 'complaint';
+  markFounderItemsRead('feedback', getAnonymousFeedback(), item => item.id);
   renderFounderAnonymousFeedback();
   goTo('screen-founder-anonymous-feedback');
 }
 
 function switchFounderAnonymousTab(type) {
   activeFounderAnonymousTab = type === 'suggestion' ? 'suggestion' : 'complaint';
+  markFounderItemsRead('feedback', getAnonymousFeedback().filter(x => String(x.type || 'suggestion') === activeFounderAnonymousTab), item => item.id);
   renderFounderAnonymousFeedback();
 }
 
