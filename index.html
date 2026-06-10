@@ -6964,10 +6964,7 @@ async function submitAdminShiftHandover() {
 
 На утро назначен: ${data.targetAdminName}${data.targetAdminLogin ? ' · ' + data.targetAdminLogin : ''}
 Передал: ${data.fromAdminName}
-Дата: ${formatDateRu(data.targetDate)}${notes ? '
-
-Заметки:
-' + notes : ''}`;
+Дата: ${formatDateRu(data.targetDate)}${notes ? '\n\nЗаметки:\n' + notes : ''}`;
     notifyRole('admin', message);
     notifyFounders(message);
     showToast('Передача смены отправлена ✓');
