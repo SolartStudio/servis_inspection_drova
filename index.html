@@ -1098,6 +1098,10 @@
         <span class="role-name">Пармастер</span>
         <span style="font-size: 20px;">→</span>
       </div>
+      <div class="role-card active-role" onclick="enterRole('cook')">
+        <span class="role-name">Повар</span>
+        <span style="font-size: 20px;">→</span>
+      </div>
       <div class="role-card active-role" onclick="enterRole('technician')">
         <span class="role-name">Техник</span>
         <span style="font-size: 20px;">→</span>
@@ -1106,23 +1110,19 @@
         <span class="role-name">Технички</span>
         <span class="role-wip">Тестирование</span>
       </div>
-      <div class="role-card active-role" onclick="enterAdmin()">
-        <span class="role-name">Администратор</span>
-        <span style="font-size: 20px;">→</span>
-      </div>
       <div class="role-card inactive" onclick="openTestingStub('Топник')">
         <span class="role-name">Топник</span>
         <span class="role-wip">Тестирование</span>
       </div>
-      <div class="role-card active-role" onclick="enterRole('cook')">
-        <span class="role-name">Повар</span>
+      <div class="role-card active-role" onclick="enterAdmin()">
+        <span class="role-name">Администратор</span>
         <span style="font-size: 20px;">→</span>
       </div>
     </div>
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.069 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.070 тестирование</div>
   </div>
 </div>
 
@@ -1200,6 +1200,14 @@
       <div class="menu-text">
         <div class="menu-title">Фотоотчеты</div>
         <div class="menu-desc">Отчеты по баням</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openWaiterForgottenItem()">
+      <div class="menu-icon">🧳</div>
+      <div class="menu-text">
+        <div class="menu-title">Забытые вещи</div>
+        <div class="menu-desc">Отправить вещь, найденную гостем</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1505,6 +1513,14 @@
       <div class="menu-text">
         <div class="menu-title-row"><div class="menu-title">Задачи</div><span class="notify-badge" id="badge-admin-tasks">0</span></div>
         <div class="menu-desc">Срочные задачи от учредителя</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openAdminForgottenItems()">
+      <div class="menu-icon">🧳</div>
+      <div class="menu-text">
+        <div class="menu-title-row"><div class="menu-title">Забытые вещи</div><span class="notify-badge" id="badge-admin-forgotten-items">0</span></div>
+        <div class="menu-desc">Новые забытые вещи от официантов</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -1969,6 +1985,24 @@
     <span class="header-title">Стоп лист</span>
   </div>
   <div class="content content-padded" id="waiter-stoplist-content"></div>
+</div>
+
+<!-- ===== SCREEN: WAITER FORGOTTEN ITEM ===== -->
+<div class="screen" id="screen-waiter-forgotten-item">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Забытые вещи</span>
+  </div>
+  <div class="content content-padded" id="waiter-forgotten-content"></div>
+</div>
+
+<!-- ===== SCREEN: ADMIN FORGOTTEN ITEMS ===== -->
+<div class="screen" id="screen-admin-forgotten-items">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Забытые вещи</span>
+  </div>
+  <div class="content content-padded" id="admin-forgotten-content"></div>
 </div>
 
 
@@ -2565,7 +2599,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.069";
+const APP_VERSION = "1.070";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2593,6 +2627,7 @@ const appCache = {
   bathmasterOrders: [],
   repairRequests: [],
   founderTasks: [],
+  forgottenItems: [],
   kpiContent: getDefaultKpiContent(),
   stopList: getDefaultStopList()
 };
@@ -2891,6 +2926,7 @@ async function initCloud() {
     appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || [];
     appCache.repairRequests = LocalDB.get("repairRequests") || [];
     appCache.founderTasks = LocalDB.get("founderTasks") || [];
+    appCache.forgottenItems = LocalDB.get("forgottenItems") || [];
     appCache.kpiContent = LocalDB.get("kpiContent") || getDefaultKpiContent();
     appCache.stopList = LocalDB.get("stopList") || getDefaultStopList();
     return;
@@ -2970,10 +3006,20 @@ async function initCloud() {
   db.collection("founderTasks").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
     appCache.founderTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     LocalDB.set("founderTasks", appCache.founderTasks);
+  LocalDB.set("forgottenItems", appCache.forgottenItems);
     refreshVisibleData();
   }, (err) => {
     console.error("founder tasks snapshot error", err);
     showToast("Ошибка загрузки задач");
+  });
+
+  db.collection("forgottenItems").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    appCache.forgottenItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    LocalDB.set("forgottenItems", appCache.forgottenItems);
+    refreshVisibleData();
+  }, (err) => {
+    console.error("forgotten items snapshot error", err);
+    showToast("Ошибка загрузки забытых вещей");
   });
 
   db.collection("settings").doc("main").onSnapshot((doc) => {
@@ -2999,7 +3045,7 @@ async function initCloud() {
 }
 
 async function loadCloudData() {
-  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, repairRequestsSnap, founderTasksSnap, settingsDoc] = await Promise.all([
+  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, repairRequestsSnap, founderTasksSnap, forgottenItemsSnap, settingsDoc] = await Promise.all([
     db.collection("staff").get(),
     db.collection("reports").orderBy("createdAt", "desc").get(),
     db.collection("fines").orderBy("createdAt", "desc").get(),
@@ -3010,6 +3056,7 @@ async function loadCloudData() {
     db.collection("bathmasterOrders").orderBy("createdAt", "desc").get(),
     db.collection("repairRequests").orderBy("createdAt", "desc").get(),
     db.collection("founderTasks").orderBy("createdAt", "desc").get(),
+    db.collection("forgottenItems").orderBy("createdAt", "desc").get(),
     db.collection("settings").doc("main").get()
   ]);
 
@@ -3023,6 +3070,7 @@ async function loadCloudData() {
   appCache.bathmasterOrders = bathmasterOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.repairRequests = repairRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.founderTasks = founderTasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.forgottenItems = forgottenItemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   LocalDB.set("staff", appCache.staff);
   LocalDB.set("adminProfiles", appCache.adminProfiles);
   LocalDB.set("founderTasks", appCache.founderTasks);
@@ -3808,6 +3856,31 @@ async function updateRepairRequest(req) {
   renderRepairHistoryForCurrentActor();
 }
 
+
+function getForgottenItems() {
+  return appCache.forgottenItems || [];
+}
+
+async function saveForgottenItem(item) {
+  const arr = getForgottenItems().filter(x => String(x.id) !== String(item.id));
+  arr.unshift(item);
+  appCache.forgottenItems = arr;
+  LocalDB.set("forgottenItems", arr);
+  updateUnreadBadges();
+  if (CLOUD_ENABLED && db) {
+    await db.collection("forgottenItems").doc(String(item.id)).set(item, { merge: true });
+  }
+}
+
+async function updateForgottenItem(item) {
+  appCache.forgottenItems = getForgottenItems().map(x => String(x.id) === String(item.id) ? item : x);
+  LocalDB.set("forgottenItems", appCache.forgottenItems);
+  updateUnreadBadges();
+  if (CLOUD_ENABLED && db) {
+    await db.collection("forgottenItems").doc(String(item.id)).set(item, { merge: true });
+  }
+}
+
 async function deleteFineById(fineId) {
   const id = String(fineId);
   appCache.fines = getFines().filter(f => String(f.id) !== id);
@@ -3862,6 +3935,7 @@ function getUnreadCounts() {
   const masseurTasksUnread = getUnreadTasksForRole('masseur').length;
   const adminTasksUnread = getUnreadTasksForRole('admin').length;
   const stopListUnread = getUnreadStopListForCurrentWaiter();
+  const forgottenItemsUnread = getForgottenItems().filter(item => String(item.status || 'new') === 'new').length;
 
   return {
     reports: reportsUnread,
@@ -3877,6 +3951,7 @@ function getUnreadCounts() {
     bathmasterTasks: bathmasterTasksUnread,
     masseurTasks: masseurTasksUnread,
     adminTasks: adminTasksUnread,
+    forgottenItems: forgottenItemsUnread,
     stopList: stopListUnread
   };
 }
@@ -3906,6 +3981,7 @@ function updateUnreadBadges() {
   setBadge("badge-bathmaster-tasks", c.bathmasterTasks);
   setBadge("badge-masseur-tasks", c.masseurTasks);
   setBadge("badge-admin-tasks", c.adminTasks);
+  setBadge("badge-admin-forgotten-items", c.forgottenItems);
   setBadge("badge-waiter-stoplist", c.stopList);
 }
 
@@ -4175,6 +4251,8 @@ function refreshScreen(id) {
   if (id === 'screen-admin-statistics') renderAdminStatisticsForm();
   if (id === 'screen-admin-shift-handover') renderAdminShiftHandover();
   if (id === 'screen-admin-access-requests') renderAccessRequests();
+  if (id === 'screen-waiter-forgotten-item') renderWaiterForgottenItem();
+  if (id === 'screen-admin-forgotten-items') renderAdminForgottenItems();
   if (id === 'screen-bathmaster-order') renderBathmasterOrderHistory();
   if (id === 'screen-repair-create') renderRepairHistoryForCurrentActor();
   if (id === 'screen-bathmaster-menu') renderBathmasterMenu();
@@ -4252,6 +4330,15 @@ function addLocalPhotoToCameraTarget(localPhoto) {
   if (cameraTarget === 'founderTask') {
     return addFounderTaskCameraPhoto(localPhoto);
   }
+  if (cameraTarget === 'forgottenCreate') {
+    return addForgottenCreatePhoto(localPhoto);
+  }
+  if (cameraTarget === 'forgottenAdminNotify') {
+    return addForgottenAdminPhoto('notify', localPhoto);
+  }
+  if (cameraTarget === 'forgottenAdminStored') {
+    return addForgottenAdminPhoto('stored', localPhoto);
+  }
   if (cameraTarget === 'waiterTaskClose') {
     return addWaiterTaskCloseCameraPhoto(localPhoto);
   }
@@ -4261,6 +4348,48 @@ function addLocalPhotoToCameraTarget(localPhoto) {
 
   showToast('Раздел фото не найден');
   return false;
+}
+
+
+function openGalleryInput(target, sectionKey = null) {
+  cameraTarget = target;
+  cameraSectionKey = sectionKey;
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.multiple = true;
+  input.style.position = 'fixed';
+  input.style.left = '-9999px';
+  input.style.opacity = '0';
+
+  input.onchange = () => {
+    const files = Array.from(input.files || []);
+    input.remove();
+    if (!files.length) return;
+
+    let added = 0;
+    for (const file of files) {
+      const previewUrl = URL.createObjectURL(file);
+      const localPhoto = {
+        type: 'local',
+        file,
+        preview_url: previewUrl,
+        addedAt: new Date().toISOString()
+      };
+
+      if (addLocalPhotoToCameraTarget(localPhoto)) {
+        added += 1;
+      } else {
+        URL.revokeObjectURL(previewUrl);
+      }
+    }
+    if (added) showToast(`Фото добавлено: ${added}`);
+  };
+
+  input.oncancel = () => input.remove();
+  document.body.appendChild(input);
+  input.click();
 }
 
 function openNativeCameraInput(target, sectionKey = null) {
@@ -5472,7 +5601,7 @@ function renderFounderTasks() {
         <textarea id="founder-task-text" placeholder="Например: срочно проверить стейшн, вынести мусор, подготовить баню..."></textarea>
         <div class="error-msg" id="founder-task-error">Напишите задачу</div>
       </div>
-      <div class="photo-section" style="margin-bottom:14px;"><div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="founder-task-photo-count">0 / 10</span></div><div class="photo-body"><div class="photo-grid" id="founder-task-photo-grid" style="display:none;"></div><div id="founder-task-add-btn" class="photo-actions"><button type="button" class="add-photo-btn" onclick="openCameraModal('founderTask')"><span>📷</span><span>Сделать фото</span></button></div></div></div>
+      <div class="photo-section" style="margin-bottom:14px;"><div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="founder-task-photo-count">0 / 10</span></div><div class="photo-body"><div class="photo-grid" id="founder-task-photo-grid" style="display:none;"></div><div id="founder-task-add-btn" class="photo-actions" style="display:grid;gap:8px;"><button type="button" class="add-photo-btn" onclick="openCameraModal('founderTask')"><span>📷</span><span>Сделать фото</span></button><button type="button" class="add-photo-btn" onclick="openGalleryInput('founderTask')"><span>🖼️</span><span>Выбрать из галереи</span></button></div></div></div>
       <button class="btn btn-primary" onclick="submitFounderTask()">Отправить задачу</button>
     </div>
     <div class="section-label">История задач</div>
@@ -5705,6 +5834,246 @@ function formatDateTimeShort(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return `${d.toLocaleDateString('ru-RU')} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+
+// ============================================================
+// FORGOTTEN ITEMS — waiter creates, admin closes
+// ============================================================
+let forgottenCreatePhotos = [];
+let activeAdminForgottenItemId = null;
+let forgottenAdminPhotos = { notify: [], stored: [] };
+
+function openWaiterForgottenItem() {
+  forgottenCreatePhotos = [];
+  renderWaiterForgottenItem();
+  goTo('screen-waiter-forgotten-item');
+}
+
+function renderWaiterForgottenItem() {
+  const el = document.getElementById('waiter-forgotten-content');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="section-label">Новая забытая вещь</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div class="field"><label>Гость</label><input type="text" id="forgotten-guest" placeholder="Имя гостя"><div class="error-msg" id="forgotten-error">Заполните все поля и прикрепите фото</div></div>
+      <div class="field"><label>Баня</label><input type="text" id="forgotten-bath" placeholder="Название бани"></div>
+      <div class="field"><label>Время</label><input type="time" id="forgotten-time"></div>
+      <div class="photo-section" style="margin-bottom:14px;"><div class="photo-section-header"><span class="photo-section-title">Фото вещи</span><span class="photo-count" id="forgotten-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="forgotten-photo-grid" style="display:none;"></div><div id="forgotten-add-btn" class="photo-actions"><button type="button" class="add-photo-btn" onclick="openCameraModal('forgottenCreate')"><span>📷</span><span>Сделать фото</span></button></div></div></div>
+      <button class="btn btn-primary" onclick="submitForgottenItem()">Отправить</button>
+    </div>`;
+  renderForgottenCreatePhotos();
+}
+
+function renderForgottenCreatePhotos() {
+  const grid = document.getElementById('forgotten-photo-grid');
+  const count = document.getElementById('forgotten-photo-count');
+  const addBtn = document.getElementById('forgotten-add-btn');
+  if (!grid || !count || !addBtn) return;
+  count.textContent = `${forgottenCreatePhotos.length} / 3`;
+  grid.style.display = forgottenCreatePhotos.length ? 'grid' : 'none';
+  addBtn.classList.toggle('hidden', forgottenCreatePhotos.length >= 3);
+  grid.innerHTML = forgottenCreatePhotos.map((photo, idx) => `<div class="photo-thumb" onclick="openFullscreen('${photo.preview_url}')"><img src="${photo.preview_url}" alt=""><button class="remove-photo" onclick="event.stopPropagation(); removeForgottenCreatePhoto(${idx})">✕</button></div>`).join('');
+}
+
+function addForgottenCreatePhoto(localPhoto) {
+  if (forgottenCreatePhotos.length >= 3) {
+    showToast('Лимит фото: 3');
+    return false;
+  }
+  forgottenCreatePhotos.push(localPhoto);
+  renderForgottenCreatePhotos();
+  return true;
+}
+
+function removeForgottenCreatePhoto(index) {
+  forgottenCreatePhotos.splice(index, 1);
+  renderForgottenCreatePhotos();
+}
+
+async function submitForgottenItem() {
+  const waiter = getWaiter();
+  const guest = (document.getElementById('forgotten-guest')?.value || '').trim();
+  const bath = (document.getElementById('forgotten-bath')?.value || '').trim();
+  const time = (document.getElementById('forgotten-time')?.value || '').trim();
+  const err = document.getElementById('forgotten-error');
+  if (!waiter || !guest || !bath || !time || !forgottenCreatePhotos.length) {
+    if (err) err.classList.add('show');
+    showToast('Заполните все поля и прикрепите фото');
+    return;
+  }
+  if (err) err.classList.remove('show');
+
+  try {
+    showToast('Отправляем забытую вещь...');
+    const photos = await uploadTaskPhotos(forgottenCreatePhotos, 'forgottenItem');
+    const now = new Date();
+    const item = {
+      id: Date.now(),
+      status: 'new',
+      guest,
+      bath,
+      foundTime: time,
+      photos,
+      waiterId: waiter.id,
+      waiterName: waiter.name || 'Официант',
+      waiterLogin: waiter.login || '',
+      date: toDateKey(now),
+      createdAt: now.toISOString()
+    };
+    await saveForgottenItem(item);
+    const msg = `🧳 Новая забытая вещь\n\nОфициант: ${item.waiterName}\nГость: ${guest}\nБаня: ${bath}\nВремя: ${time}\n\nОткройте Drova Inspector → Администратор → Забытые вещи`;
+    notifyRole('admin', msg);
+    notifyFounders(`🧳 Официант нашел забытую вещь\n\nОфициант: ${item.waiterName}\nГость: ${guest}\nБаня: ${bath}\nВремя: ${time}`);
+    forgottenCreatePhotos = [];
+    renderWaiterForgottenItem();
+    showToast('Забытая вещь отправлена ✓');
+  } catch (e) {
+    console.error(e);
+    showToast('Ошибка отправки забытой вещи');
+  }
+}
+
+function openAdminForgottenItems() {
+  activeAdminForgottenItemId = null;
+  forgottenAdminPhotos = { notify: [], stored: [] };
+  renderAdminForgottenItems();
+  goTo('screen-admin-forgotten-items');
+}
+
+function renderAdminForgottenItems() {
+  const el = document.getElementById('admin-forgotten-content');
+  if (!el) return;
+  const items = getForgottenItems().slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  if (!activeAdminForgottenItemId) {
+    if (!items.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">🧳</div><div class="empty-title">Забытых вещей пока нет</div><div class="empty-sub">Новые заявки от официантов появятся здесь</div></div>`;
+      return;
+    }
+    el.innerHTML = `<div class="section-label">Забытые вещи</div>` + items.map(item => {
+      const dateText = item.date ? `${formatDateRu(item.date)}${item.foundTime ? ' · ' + item.foundTime : ''}` : '';
+      const badge = String(item.status || 'new') === 'new' ? '<span class="notify-badge show">1</span>' : '';
+      const status = getForgottenStatusText(item);
+      return `<div class="shift-card" onclick="openAdminForgottenItem('${item.id}')"><div class="shift-date" style="display:flex;align-items:center;gap:8px;">${escapeHtml(item.guest || 'Гость')} ${badge}</div><div class="shift-meta">${escapeHtml(item.bath || '')} · ${escapeHtml(dateText)} · <span style="color:${getForgottenStatusColor(item)};font-weight:700;">${status}</span></div><div style="font-size:14px;line-height:1.45;margin-top:10px;color:var(--text-2);">Нашел: ${escapeHtml(item.waiterName || 'Официант')}</div></div>`;
+    }).join('');
+    return;
+  }
+  renderAdminForgottenItemView();
+}
+
+async function openAdminForgottenItem(itemId) {
+  activeAdminForgottenItemId = String(itemId);
+  forgottenAdminPhotos = { notify: [], stored: [] };
+  const item = getForgottenItems().find(x => String(x.id) === String(itemId));
+  if (item && String(item.status || 'new') === 'new') {
+    const admin = getCurrentAdminProfile();
+    item.status = 'accepted';
+    item.acceptedAt = new Date().toISOString();
+    item.acceptedById = admin && admin.id ? admin.id : '';
+    item.acceptedByName = admin && admin.name ? admin.name : 'Администратор';
+    await updateForgottenItem(item);
+    notifyFounders(`🧳 Администратор принял забытую вещь\n\nАдминистратор: ${item.acceptedByName}\nГость: ${item.guest || ''}\nБаня: ${item.bath || ''}`);
+  }
+  renderAdminForgottenItemView();
+}
+
+function renderAdminForgottenItemView() {
+  const el = document.getElementById('admin-forgotten-content');
+  if (!el) return;
+  const item = getForgottenItems().find(x => String(x.id) === String(activeAdminForgottenItemId));
+  if (!item) {
+    activeAdminForgottenItemId = null;
+    renderAdminForgottenItems();
+    return;
+  }
+  const photosHtml = (item.photos || []).length ? `<div class="section-label">Фото вещи</div><div class="report-photo-grid" style="margin-bottom:16px;">${(item.photos || []).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+  const closedPhotosHtml = item.status === 'closed' ? `<div class="section-label">Фото закрытия</div><div style="font-size:12px;color:var(--text-3);margin-bottom:8px;">Скриншот переписки</div><div class="report-photo-grid" style="margin-bottom:12px;">${(item.notifyPhotos || []).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div><div style="font-size:12px;color:var(--text-3);margin-bottom:8px;">Отложено</div><div class="report-photo-grid" style="margin-bottom:16px;">${(item.storedPhotos || []).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+  const closeBlock = item.status !== 'closed' ? `<div class="section-label">Закрыть заявку</div><div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;"><div class="photo-section"><div class="photo-section-header"><span class="photo-section-title">Скриншот переписки</span><span class="photo-count" id="forgotten-admin-notify-count">0 / 1</span></div><div class="photo-body"><div class="photo-grid" id="forgotten-admin-notify-grid" style="display:none;"></div><div id="forgotten-admin-notify-add-btn" class="photo-actions"><button type="button" class="add-photo-btn" onclick="openGalleryInput('forgottenAdminNotify')"><span>🖼️</span><span>Прикрепить скриншот</span></button></div></div></div><div class="photo-section"><div class="photo-section-header"><span class="photo-section-title">Отложено</span><span class="photo-count" id="forgotten-admin-stored-count">0 / 1</span></div><div class="photo-body"><div class="photo-grid" id="forgotten-admin-stored-grid" style="display:none;"></div><div id="forgotten-admin-stored-add-btn" class="photo-actions"><button type="button" class="add-photo-btn" onclick="openGalleryInput('forgottenAdminStored')"><span>🖼️</span><span>Прикрепить фото</span></button></div></div></div><button class="btn btn-primary" onclick="closeForgottenItemByAdmin()">Гость оповещен</button></div>` : `<div class="doc-placeholder"><b style="color:var(--text);">Гость оповещен</b><br>${escapeHtml(item.closedByName || 'Администратор')}${item.closedAt ? ' · ' + escapeHtml(formatDateTimeShort(item.closedAt)) : ''}</div>`;
+  const dateText = item.date ? `${formatDateRu(item.date)}${item.foundTime ? ' · ' + item.foundTime : ''}` : '';
+  el.innerHTML = `<button class="btn btn-secondary" style="margin-bottom:16px;" onclick="activeAdminForgottenItemId=null; forgottenAdminPhotos={notify:[],stored:[]}; renderAdminForgottenItems();">← К списку</button><div class="inventory-status"><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Гость</div><div style="font-size:18px;font-weight:700;margin-bottom:12px;">${escapeHtml(item.guest || '')}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Баня</div><div style="font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(item.bath || '')}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Время</div><div style="font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(dateText)}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Нашел</div><div style="font-size:16px;font-weight:600;">${escapeHtml(item.waiterName || 'Официант')}</div></div>${photosHtml}${closedPhotosHtml}${closeBlock}`;
+  renderForgottenAdminPhotos();
+}
+
+function getForgottenStatusText(item) {
+  const status = String(item && item.status || 'new');
+  if (status === 'closed') return 'Гость оповещен';
+  if (status === 'accepted') return 'Принято администратором';
+  return 'Новая вещь';
+}
+
+function getForgottenStatusColor(item) {
+  const status = String(item && item.status || 'new');
+  if (status === 'closed') return 'var(--success)';
+  if (status === 'accepted') return 'var(--accent)';
+  return 'var(--danger)';
+}
+
+function renderForgottenAdminPhotos() {
+  renderForgottenAdminPhotoPart('notify');
+  renderForgottenAdminPhotoPart('stored');
+}
+
+function renderForgottenAdminPhotoPart(type) {
+  const grid = document.getElementById(type === 'notify' ? 'forgotten-admin-notify-grid' : 'forgotten-admin-stored-grid');
+  const count = document.getElementById(type === 'notify' ? 'forgotten-admin-notify-count' : 'forgotten-admin-stored-count');
+  const addBtn = document.getElementById(type === 'notify' ? 'forgotten-admin-notify-add-btn' : 'forgotten-admin-stored-add-btn');
+  if (!grid || !count || !addBtn) return;
+  const arr = forgottenAdminPhotos[type] || [];
+  count.textContent = `${arr.length} / 1`;
+  grid.style.display = arr.length ? 'grid' : 'none';
+  addBtn.classList.toggle('hidden', arr.length >= 1);
+  grid.innerHTML = arr.map((photo, idx) => `<div class="photo-thumb" onclick="openFullscreen('${photo.preview_url}')"><img src="${photo.preview_url}" alt=""><button class="remove-photo" onclick="event.stopPropagation(); removeForgottenAdminPhoto('${type}', ${idx})">✕</button></div>`).join('');
+}
+
+function addForgottenAdminPhoto(type, localPhoto) {
+  const key = type === 'notify' ? 'notify' : 'stored';
+  forgottenAdminPhotos[key] = forgottenAdminPhotos[key] || [];
+  if (forgottenAdminPhotos[key].length >= 1) {
+    showToast('Нужно только 1 фото');
+    return false;
+  }
+  forgottenAdminPhotos[key].push(localPhoto);
+  renderForgottenAdminPhotos();
+  return true;
+}
+
+function removeForgottenAdminPhoto(type, index) {
+  const key = type === 'notify' ? 'notify' : 'stored';
+  forgottenAdminPhotos[key].splice(index, 1);
+  renderForgottenAdminPhotos();
+}
+
+async function closeForgottenItemByAdmin() {
+  const item = getForgottenItems().find(x => String(x.id) === String(activeAdminForgottenItemId));
+  const admin = getCurrentAdminProfile();
+  if (!item) {
+    showToast('Заявка не найдена');
+    return;
+  }
+  if (!forgottenAdminPhotos.notify.length || !forgottenAdminPhotos.stored.length) {
+    showToast('Прикрепите 2 фото: скриншот и отложено');
+    return;
+  }
+  try {
+    showToast('Закрываем заявку...');
+    const notifyPhotos = await uploadTaskPhotos(forgottenAdminPhotos.notify, 'forgottenNotify');
+    const storedPhotos = await uploadTaskPhotos(forgottenAdminPhotos.stored, 'forgottenStored');
+    item.status = 'closed';
+    item.closedAt = new Date().toISOString();
+    item.closedById = admin && admin.id ? admin.id : '';
+    item.closedByName = admin && admin.name ? admin.name : 'Администратор';
+    item.notifyPhotos = notifyPhotos;
+    item.storedPhotos = storedPhotos;
+    await updateForgottenItem(item);
+    notifyFounders(`🧳 Гость оповещен по забытой вещи\n\nАдминистратор: ${item.closedByName}\nГость: ${item.guest || ''}\nБаня: ${item.bath || ''}`);
+    notifyRole('admin', `🧳 Забытая вещь закрыта\n\nГость: ${item.guest || ''}\nБаня: ${item.bath || ''}\nАдминистратор: ${item.closedByName}`);
+    forgottenAdminPhotos = { notify: [], stored: [] };
+    renderAdminForgottenItemView();
+    showToast('Заявка закрыта ✓');
+  } catch (e) {
+    console.error(e);
+    showToast('Ошибка закрытия заявки');
+  }
 }
 
 // ============================================================
