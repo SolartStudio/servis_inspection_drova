@@ -1118,11 +1118,15 @@
         <span class="role-name">Администратор</span>
         <span style="font-size: 20px;">→</span>
       </div>
+      <div class="role-card active-role" onclick="openAnonymousFeedback()">
+        <span class="role-name">Анонимные жалобы и предложения</span>
+        <span style="font-size: 20px;">→</span>
+      </div>
     </div>
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.070 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.073 тестирование</div>
   </div>
 </div>
 
@@ -1878,6 +1882,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openFounderAnonymousFeedback()">
+      <div class="menu-icon">💬</div>
+      <div class="menu-text">
+        <div class="menu-title-row"><div class="menu-title">Жалобы и предложения</div><span class="notify-badge" id="badge-founder-feedback">0</span></div>
+        <div class="menu-desc">Анонимный список без авторов</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openFounderWaiters()">
       <div class="menu-icon">🧑‍🤝‍🧑</div>
       <div class="menu-text">
@@ -2003,6 +2015,24 @@
     <span class="header-title">Забытые вещи</span>
   </div>
   <div class="content content-padded" id="admin-forgotten-content"></div>
+</div>
+
+<!-- ===== SCREEN: ANONYMOUS FEEDBACK ===== -->
+<div class="screen" id="screen-anonymous-feedback">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Жалобы и предложения</span>
+  </div>
+  <div class="content content-padded" id="anonymous-feedback-content"></div>
+</div>
+
+<!-- ===== SCREEN: FOUNDER ANONYMOUS FEEDBACK ===== -->
+<div class="screen" id="screen-founder-anonymous-feedback">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Жалобы и предложения</span>
+  </div>
+  <div class="content content-padded" id="founder-anonymous-feedback-content"></div>
 </div>
 
 
@@ -2599,7 +2629,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.070";
+const APP_VERSION = "1.073";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2628,6 +2658,7 @@ const appCache = {
   repairRequests: [],
   founderTasks: [],
   forgottenItems: [],
+  anonymousFeedback: [],
   kpiContent: getDefaultKpiContent(),
   stopList: getDefaultStopList()
 };
@@ -2927,6 +2958,7 @@ async function initCloud() {
     appCache.repairRequests = LocalDB.get("repairRequests") || [];
     appCache.founderTasks = LocalDB.get("founderTasks") || [];
     appCache.forgottenItems = LocalDB.get("forgottenItems") || [];
+    appCache.anonymousFeedback = LocalDB.get("anonymousFeedback") || [];
     appCache.kpiContent = LocalDB.get("kpiContent") || getDefaultKpiContent();
     appCache.stopList = LocalDB.get("stopList") || getDefaultStopList();
     return;
@@ -3022,6 +3054,15 @@ async function initCloud() {
     showToast("Ошибка загрузки забытых вещей");
   });
 
+  db.collection("anonymousFeedback").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    appCache.anonymousFeedback = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    LocalDB.set("anonymousFeedback", appCache.anonymousFeedback);
+    refreshVisibleData();
+  }, (err) => {
+    console.error("anonymous feedback snapshot error", err);
+    showToast("Ошибка загрузки жалоб и предложений");
+  });
+
   db.collection("settings").doc("main").onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : {};
     appCache.dutyAssignment = data.dutyAssignment || null;
@@ -3045,7 +3086,7 @@ async function initCloud() {
 }
 
 async function loadCloudData() {
-  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, repairRequestsSnap, founderTasksSnap, forgottenItemsSnap, settingsDoc] = await Promise.all([
+  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, repairRequestsSnap, founderTasksSnap, forgottenItemsSnap, anonymousFeedbackSnap, settingsDoc] = await Promise.all([
     db.collection("staff").get(),
     db.collection("reports").orderBy("createdAt", "desc").get(),
     db.collection("fines").orderBy("createdAt", "desc").get(),
@@ -3057,6 +3098,7 @@ async function loadCloudData() {
     db.collection("repairRequests").orderBy("createdAt", "desc").get(),
     db.collection("founderTasks").orderBy("createdAt", "desc").get(),
     db.collection("forgottenItems").orderBy("createdAt", "desc").get(),
+    db.collection("anonymousFeedback").orderBy("createdAt", "desc").get(),
     db.collection("settings").doc("main").get()
   ]);
 
@@ -3071,9 +3113,11 @@ async function loadCloudData() {
   appCache.repairRequests = repairRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.founderTasks = founderTasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.forgottenItems = forgottenItemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.anonymousFeedback = anonymousFeedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   LocalDB.set("staff", appCache.staff);
   LocalDB.set("adminProfiles", appCache.adminProfiles);
   LocalDB.set("founderTasks", appCache.founderTasks);
+  LocalDB.set("anonymousFeedback", appCache.anonymousFeedback);
 
   const settings = settingsDoc.exists ? settingsDoc.data() : {};
   appCache.dutyAssignment = settings.dutyAssignment || null;
@@ -3881,6 +3925,20 @@ async function updateForgottenItem(item) {
   }
 }
 
+function getAnonymousFeedback() {
+  return appCache.anonymousFeedback || [];
+}
+
+async function saveAnonymousFeedback(item) {
+  const arr = getAnonymousFeedback().filter(x => String(x.id) !== String(item.id));
+  arr.unshift(item);
+  appCache.anonymousFeedback = arr;
+  LocalDB.set("anonymousFeedback", arr);
+  if (CLOUD_ENABLED && db) {
+    await db.collection("anonymousFeedback").doc(String(item.id)).set(item, { merge: true });
+  }
+}
+
 async function deleteFineById(fineId) {
   const id = String(fineId);
   appCache.fines = getFines().filter(f => String(f.id) !== id);
@@ -3907,6 +3965,36 @@ function getTimeMs(value) {
   return Number.isFinite(t) ? t : 0;
 }
 
+function founderReadKey(kind, id) {
+  return `founderRead_${kind}_${String(id || '')}`;
+}
+
+function isFounderItemUnread(kind, id, timeValue) {
+  return getTimeMs(timeValue) > getReadMarker(founderReadKey(kind, id));
+}
+
+function markFounderItemRead(kind, id) {
+  setReadMarker(founderReadKey(kind, id));
+}
+
+function unreadDotHtml(show) {
+  return show ? '<span class="notify-badge show" style="display:inline-flex;margin-left:8px;vertical-align:middle;">1</span>' : '';
+}
+
+function getFounderUnreadReportDates() {
+  const byDate = {};
+  getReports().forEach(r => {
+    const date = r.date || 'no-date';
+    const current = byDate[date] || 0;
+    byDate[date] = Math.max(current, getTimeMs(r.createdAt));
+  });
+  return Object.keys(byDate).filter(date => byDate[date] > getReadMarker(founderReadKey('reportDate', date)));
+}
+
+function getFounderUnreadCount(kind, items, idGetter, timeGetter) {
+  return (items || []).filter(item => isFounderItemUnread(kind, idGetter(item), timeGetter(item))).length;
+}
+
 function getStopListReadKeyForCurrentWaiter() {
   const waiter = getWaiter();
   return waiter && waiter.id ? `waiterStopList_${waiter.id}` : 'waiterStopList';
@@ -3924,11 +4012,13 @@ function markStopListReadForCurrentWaiter() {
 }
 
 function getUnreadCounts() {
-  const reportsUnread = getReports().filter(r => getTimeMs(r.createdAt) > getReadMarker("waiterReports")).length;
-  const inventoryUnread = getInventoryRecords().filter(r => getTimeMs(r.createdAt || r.submittedAt) > getReadMarker("waiterInventory")).length;
-  const adminStatsUnread = getAdminStats().filter(r => getTimeMs(r.createdAt) > getReadMarker("adminStats")).length;
-  const bathmasterOrdersUnread = getBathmasterOrders().filter(r => String(r.sourceRole || 'bathmaster') === 'bathmaster' && getTimeMs(r.createdAt) > getReadMarker("bathmasterOrders")).length;
-  const repairUnreadForFounder = getRepairRequests().filter(r => getTimeMs(r.createdAt) > getReadMarker("founderRepairs")).length;
+  const reportsUnread = getFounderUnreadReportDates().length;
+  const inventoryUnread = getFounderUnreadCount('inventory', getInventoryRecords(), r => r.id, r => r.createdAt || r.submittedAt);
+  const adminStatsUnread = getFounderUnreadCount('adminStats', getAdminStats(), r => r.id, r => r.createdAt);
+  const bathmasterOrdersUnread = getFounderUnreadCount('bathmasterOrder', getBathmasterOrders().filter(r => String(r.sourceRole || 'bathmaster') === 'bathmaster'), r => r.id, r => r.createdAt);
+  const masseurOrdersUnread = getFounderUnreadCount('masseurOrder', getBathmasterOrders().filter(r => String(r.sourceRole || '') === 'masseur'), r => r.id, r => r.createdAt);
+  const repairUnreadForFounder = getFounderUnreadCount('repair', getRepairRequests(), r => r.id, r => r.createdAt);
+  const feedbackUnread = getFounderUnreadCount('feedback', getAnonymousFeedback(), r => r.id, r => r.createdAt);
   const repairUnreadForTechnician = getRepairRequests().filter(r => r.status === 'new').length;
   const waiterTasksUnread = getUnreadTasksForRole('waiter').length;
   const bathmasterTasksUnread = getUnreadTasksForRole('bathmaster').length;
@@ -3945,8 +4035,11 @@ function getUnreadCounts() {
     admins: adminStatsUnread,
     bathmasterOrders: bathmasterOrdersUnread,
     bathmasters: bathmasterOrdersUnread,
+    masseurOrders: masseurOrdersUnread,
+    masseurs: masseurOrdersUnread,
     repairsFounder: repairUnreadForFounder,
     repairsTechnician: repairUnreadForTechnician,
+    feedback: feedbackUnread,
     waiterTasks: waiterTasksUnread,
     bathmasterTasks: bathmasterTasksUnread,
     masseurTasks: masseurTasksUnread,
@@ -3955,7 +4048,6 @@ function getUnreadCounts() {
     stopList: stopListUnread
   };
 }
-
 function setBadge(id, count) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -3975,6 +4067,9 @@ function updateUnreadBadges() {
 
   setBadge("badge-founder-bathmasters", c.bathmasters);
   setBadge("badge-tab-bathmaster-consumables", c.bathmasterOrders);
+  setBadge("badge-founder-masseurs", c.masseurs);
+  setBadge("badge-tab-masseur-orders", c.masseurOrders);
+  setBadge("badge-founder-feedback", c.feedback);
   setBadge("badge-founder-repairs", c.repairsFounder);
   setBadge("badge-technician-repairs", c.repairsTechnician);
   setBadge("badge-waiter-tasks", c.waiterTasks);
@@ -4108,8 +4203,14 @@ function notifyRole(role, textValue) {
   return notifyTelegramUsers([...new Set(getTelegramIdsForRole(role))], textValue);
 }
 
+function getFounderAndAdminTelegramIds() {
+  return [...new Set([...getFounderTelegramIds(), ...getTelegramIdsForRole('admin')]
+    .map(v => String(v || '').trim())
+    .filter(Boolean))];
+}
+
 function notifyFounders(textValue) {
-  return notifyTelegramUsers(getFounderTelegramIds(), textValue);
+  return notifyTelegramUsers(getFounderAndAdminTelegramIds(), textValue);
 }
 
 function notifyStaffMember(staff, textValue) {
@@ -4253,6 +4354,8 @@ function refreshScreen(id) {
   if (id === 'screen-admin-access-requests') renderAccessRequests();
   if (id === 'screen-waiter-forgotten-item') renderWaiterForgottenItem();
   if (id === 'screen-admin-forgotten-items') renderAdminForgottenItems();
+  if (id === 'screen-anonymous-feedback') renderAnonymousFeedback();
+  if (id === 'screen-founder-anonymous-feedback') renderFounderAnonymousFeedback();
   if (id === 'screen-bathmaster-order') renderBathmasterOrderHistory();
   if (id === 'screen-repair-create') renderRepairHistoryForCurrentActor();
   if (id === 'screen-bathmaster-menu') renderBathmasterMenu();
@@ -4344,6 +4447,9 @@ function addLocalPhotoToCameraTarget(localPhoto) {
   }
   if (cameraTarget === 'employeeProfile') {
     return addEmployeeProfileCameraPhoto(localPhoto);
+  }
+  if (cameraTarget === 'anonymousFeedback') {
+    return addAnonymousFeedbackPhoto(localPhoto);
   }
 
   showToast('Раздел фото не найден');
@@ -6166,7 +6272,7 @@ async function saveAdminKpiEditor() {
 // ============================================================
 // BATHS
 // ============================================================
-const BATHS = ['Первая', 'Добрая', 'Малая', 'Лесная', 'Ханская', 'Байская'];
+const BATHS = ['Первая', 'Добрая', 'Малая', 'Лесная', 'Ханская', 'Байская', 'Зона ожидания', 'Ресепшн'];
 let activePhotoReportPeriod = 'morning';
 
 function getPhotoPeriodLabel(period) {
@@ -6645,8 +6751,8 @@ function renderRepairHistoryForCurrentActor() {
     const fixedPhotos = (req.fixedPhotos || []).slice(0, 3);
     const photoHtml = photos.length ? `<div class="report-photo-grid" style="margin-top:12px;">${photos.map((photo, idx) => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
     const fixedHtml = fixedPhotos.length ? `<div style="font-size:12px;color:var(--text-3);margin-top:12px;margin-bottom:8px;">Фото после ремонта</div><div class="report-photo-grid">${fixedPhotos.map((photo, idx) => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
-    return `<div class="card" style="cursor:default;">
-      <div class="card-title">${escapeHtml(dateText || 'Без даты')}</div>
+    return `<div class="card" onclick="markFounderFeedbackRead('${item.id}')">
+      <div class="card-title">${escapeHtml(dateText || 'Без даты')}${unreadDotHtml(isFounderItemUnread('feedback', item.id, item.createdAt))}</div>
       <div class="card-sub"><span style="color:${getRepairStatusColor(req)};font-weight:700;">${getRepairStatusText(req)}</span>${req.technicianName ? ' · ' + escapeHtml(req.technicianName) : ''}</div>
       <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(req.text || '')}</div>
       ${photoHtml}
@@ -6675,6 +6781,10 @@ async function openRepairView(reqId, mode) {
   localStorage.setItem('repairViewMode', mode || 'technician');
   activeRepairClosePhotos = [];
   const req = getRepairRequests().find(r => String(r.id) === String(reqId));
+  if (req && mode === 'founder') {
+    markFounderItemRead('repair', reqId);
+    updateUnreadBadges();
+  }
   if (req && mode === 'technician' && req.status === 'new') {
     req.status = 'read_by_technician';
     req.technicianReadAt = new Date().toISOString();
@@ -6752,13 +6862,13 @@ async function confirmCloseRepairRequest() {
   } catch (e) { console.error(e); showToast('Ошибка закрытия заявки'); }
 }
 
-function openFounderRepairs() { renderFounderRepairs(); markFounderRepairsRead(); goTo('screen-founder-repairs'); }
+function openFounderRepairs() { renderFounderRepairs(); goTo('screen-founder-repairs'); }
 function renderFounderRepairs() {
   const list = document.getElementById('founder-repairs-list');
   if (!list) return;
   const items = getRepairRequests().slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   if (!items.length) { list.innerHTML = `<div class="empty"><div class="empty-icon">🛠️</div><div class="empty-title">Поломок пока нет</div><div class="empty-sub">Заявки от официантов, пармастеров и массажистов появятся здесь</div></div>`; return; }
-  list.innerHTML = items.map(req => { const dateText = req.date ? `${formatDateRu(req.date)}${req.time ? ' · ' + req.time : ''}` : ''; return `<div class="shift-card" onclick="openRepairView('${req.id}', 'founder')"><div class="shift-date">${escapeHtml(req.staffName || 'Сотрудник')}</div><div class="shift-meta">${escapeHtml(req.sourceRoleLabel || '')} · ${escapeHtml(dateText)} · <span style="color:${getRepairStatusColor(req)};font-weight:700;">${getRepairStatusText(req)}</span></div><div style="font-size:14px;line-height:1.45;margin-top:10px;color:var(--text-2);">${escapeHtml((req.text || '').slice(0, 120))}</div></div>`; }).join('');
+  list.innerHTML = items.map(req => { const dateText = req.date ? `${formatDateRu(req.date)}${req.time ? ' · ' + req.time : ''}` : ''; return `<div class="shift-card" onclick="openRepairView('${req.id}', 'founder')"><div class="shift-date">${escapeHtml(req.staffName || 'Сотрудник')}${unreadDotHtml(isFounderItemUnread('repair', req.id, req.createdAt))}</div><div class="shift-meta">${escapeHtml(req.sourceRoleLabel || '')} · ${escapeHtml(dateText)} · <span style="color:${getRepairStatusColor(req)};font-weight:700;">${getRepairStatusText(req)}</span></div><div style="font-size:14px;line-height:1.45;margin-top:10px;color:var(--text-2);">${escapeHtml((req.text || '').slice(0, 120))}</div></div>`; }).join('');
 }
 
 // ============================================================
@@ -6869,8 +6979,8 @@ function renderBathmasterOrderHistory() {
 
   el.innerHTML = orders.map(o => {
     const dateText = o.date ? `${formatDateRu(o.date)}${o.time ? ' · ' + o.time : ''}` : (o.createdAt ? new Date(o.createdAt).toLocaleString('ru-RU') : '');
-    return `<div class="card" style="cursor:default;">
-      <div class="card-title">${escapeHtml(o.staffName || 'Пармастер')}${o.staffLogin ? ' · ' + escapeHtml(o.staffLogin) : ''}</div>
+    return `<div class="card" onclick="markFounderOrderRead('bathmasterOrder', '${o.id}', 'bathmaster')">
+      <div class="card-title">${escapeHtml(o.staffName || 'Пармастер')}${o.staffLogin ? ' · ' + escapeHtml(o.staffLogin) : ''}${unreadDotHtml(isFounderItemUnread('bathmasterOrder', o.id, o.createdAt))}</div>
       <div class="card-sub">${escapeHtml(dateText)} · <span style="color:${getBathmasterOrderStatusColor(o)};font-weight:700;">${getBathmasterOrderStatusText(o)}</span></div>
       <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(o.text || '')}</div>
     </div>`;
@@ -6953,7 +7063,6 @@ function switchBathmasterTab(tab) {
   if (tab === 'staff') renderBathmasterStaff();
   if (tab === 'consumables') {
     renderBathmasterConsumables();
-    markBathmasterOrdersRead();
     markBathmasterOrdersStatusRead().then(() => renderBathmasterConsumables()).catch(err => console.error(err));
   }
 }
@@ -7016,6 +7125,13 @@ function renderBathmasterConsumables() {
       <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(o.text || '')}</div>
     </div>`;
   }).join('');
+}
+
+function markFounderOrderRead(kind, id, source) {
+  markFounderItemRead(kind, id);
+  updateUnreadBadges();
+  if (source === 'masseur') renderMasseurOrdersForFounder();
+  else renderBathmasterConsumables();
 }
 
 // ============================================================
@@ -7441,7 +7557,6 @@ let activeAdminStatId = null;
 
 function openFounderAdminStatistics() {
   renderFounderAdminStatistics();
-  markAdminStatsRead();
   goTo('screen-founder-admin-statistics');
 }
 
@@ -7521,7 +7636,7 @@ function renderFounderAdminStatistics() {
       ontouchmove="moveAdminStatSwipe(event, '${stat.id}')"
       ontouchend="endAdminStatSwipe(event, '${stat.id}')"
       onclick="openFounderAdminStatisticsView('${stat.id}')">
-      <div class="shift-date">${escapeHtml(d)}</div>
+      <div class="shift-date">${escapeHtml(d)}${unreadDotHtml(isFounderItemUnread('adminStats', stat.id, stat.createdAt))}</div>
       <div class="shift-meta">${escapeHtml(stat.name || 'Администратор')} · Звонки: ${calls} · Брони: ${total}</div>
       <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните вправо, чтобы удалить</div>
     </div>`;
@@ -7530,7 +7645,9 @@ function renderFounderAdminStatistics() {
 
 function openFounderAdminStatisticsView(statId) {
   activeAdminStatId = String(statId);
+  markFounderItemRead('adminStats', statId);
   renderFounderAdminStatisticsView();
+  updateUnreadBadges();
   goTo('screen-founder-admin-statistics-view');
 }
 
@@ -7773,8 +7890,8 @@ function renderMasseurOrdersForFounder() {
 
   el.innerHTML = orders.map(o => {
     const dateText = o.date ? `${formatDateRu(o.date)}${o.time ? ' · ' + o.time : ''}` : (o.createdAt ? new Date(o.createdAt).toLocaleString('ru-RU') : '');
-    return `<div class="card" style="cursor:default;">
-      <div class="card-title">${escapeHtml(o.staffName || 'Массажист')}${o.staffLogin ? ' · ' + escapeHtml(o.staffLogin) : ''}</div>
+    return `<div class="card" onclick="markFounderOrderRead('masseurOrder', '${o.id}', 'masseur')">
+      <div class="card-title">${escapeHtml(o.staffName || 'Массажист')}${o.staffLogin ? ' · ' + escapeHtml(o.staffLogin) : ''}${unreadDotHtml(isFounderItemUnread('masseurOrder', o.id, o.createdAt))}</div>
       <div class="card-sub">${escapeHtml(dateText)} · <span style="color:${getBathmasterOrderStatusColor(o)};font-weight:700;">${getBathmasterOrderStatusText(o)}</span></div>
       <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(o.text || '')}</div>
     </div>`;
@@ -7783,7 +7900,6 @@ function renderMasseurOrdersForFounder() {
 
 function openFounderWaiters() {
   goTo('screen-founder-waiters');
-  if (activeTab === 'shifts') markWaiterReportsRead();
 }
 
 function openFounderAdmins() {
@@ -7875,6 +7991,222 @@ async function deleteAdminProfileById(adminId) {
   refreshVisibleData();
 }
 
+
+// ============================================================
+// ANONYMOUS FEEDBACK
+// ============================================================
+let activeAnonymousFeedbackType = 'suggestion';
+let activeAnonymousFeedbackPhotos = [];
+let activeFounderAnonymousTab = 'complaint';
+
+function getAuthorizedAnonymousActor() {
+  if (hasFounderSession()) return getFounderActor('founder');
+  if (hasAdminSession()) {
+    const admin = getCurrentAdminProfile();
+    return admin ? { ...admin, role: 'admin', roleLabel: 'Администратор' } : { id: 'admin-session', role: 'admin', roleLabel: 'Администратор', name: 'Администратор' };
+  }
+  return getCurrentApprovedStaff();
+}
+
+function openAnonymousFeedback() {
+  const actor = getAuthorizedAnonymousActor();
+  if (!actor) {
+    showToast('Сначала войдите в своё подразделение');
+    return;
+  }
+  activeAnonymousFeedbackType = 'suggestion';
+  activeAnonymousFeedbackPhotos = [];
+  renderAnonymousFeedback();
+  goTo('screen-anonymous-feedback');
+}
+
+function switchAnonymousFeedbackType(type) {
+  activeAnonymousFeedbackType = type === 'complaint' ? 'complaint' : 'suggestion';
+  activeAnonymousFeedbackPhotos = [];
+  renderAnonymousFeedback();
+}
+
+function renderAnonymousFeedbackPhotos() {
+  const grid = document.getElementById('anonymous-feedback-photo-grid');
+  const count = document.getElementById('anonymous-feedback-photo-count');
+  const addBtn = document.getElementById('anonymous-feedback-add-btn');
+  if (!grid || !count || !addBtn) return;
+  count.textContent = `${activeAnonymousFeedbackPhotos.length} / 5`;
+  grid.style.display = activeAnonymousFeedbackPhotos.length ? 'grid' : 'none';
+  addBtn.classList.toggle('hidden', activeAnonymousFeedbackPhotos.length >= 5);
+  grid.innerHTML = activeAnonymousFeedbackPhotos.map((photo, idx) => `<div class="photo-thumb" onclick="openFullscreen('${photo.preview_url}')"><img src="${photo.preview_url}" alt=""><button class="remove-photo" onclick="event.stopPropagation(); removeAnonymousFeedbackPhoto(${idx})">✕</button></div>`).join('');
+}
+
+function addAnonymousFeedbackPhoto(localPhoto) {
+  if (activeAnonymousFeedbackPhotos.length >= 5) {
+    showToast('Лимит фото: 5');
+    return false;
+  }
+  activeAnonymousFeedbackPhotos.push(localPhoto);
+  renderAnonymousFeedbackPhotos();
+  return true;
+}
+
+function removeAnonymousFeedbackPhoto(index) {
+  activeAnonymousFeedbackPhotos.splice(index, 1);
+  renderAnonymousFeedbackPhotos();
+}
+
+function getAnonymousTargetEmployees() {
+  return getAllEmployeesForFounder().filter(s => String(s.role || '') !== 'founder');
+}
+
+function renderAnonymousFeedback() {
+  const el = document.getElementById('anonymous-feedback-content');
+  if (!el) return;
+  const isComplaint = activeAnonymousFeedbackType === 'complaint';
+  const targets = getAnonymousTargetEmployees();
+  const targetSelect = isComplaint ? `
+      <div class="field">
+        <label>На кого жалоба (необязательно)</label>
+        <select id="anonymous-feedback-target">
+          <option value="">Не указывать сотрудника</option>
+          ${targets.map(s => `<option value="${escapeHtml(s._key || ('staff:' + String(s.id)))}">${escapeHtml(s.name || 'Сотрудник')} · ${escapeHtml(getStaffRole(s))}</option>`).join('')}
+        </select>
+      </div>` : '';
+
+  el.innerHTML = `
+    <div class="tabs">
+      <div class="tab ${!isComplaint ? 'active' : ''}" onclick="switchAnonymousFeedbackType('suggestion')">Предложения</div>
+      <div class="tab ${isComplaint ? 'active' : ''}" onclick="switchAnonymousFeedbackType('complaint')">Жалобы</div>
+    </div>
+    <div class="doc-placeholder">
+      Учредители видят только текст сообщения и фото. Имя отправителя скрыто.
+    </div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      ${targetSelect}
+      <div class="field">
+        <label>${isComplaint ? 'Текст жалобы' : 'Текст предложения'}</label>
+        <textarea id="anonymous-feedback-text" placeholder="Напишите текст..."></textarea>
+        <div class="error-msg" id="anonymous-feedback-error">Напишите текст</div>
+      </div>
+      <div class="photo-section" style="margin-bottom:14px;">
+        <div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="anonymous-feedback-photo-count">0 / 5</span></div>
+        <div class="photo-body">
+          <div class="photo-grid" id="anonymous-feedback-photo-grid" style="display:none;"></div>
+          <div id="anonymous-feedback-add-btn" class="photo-actions" style="display:grid;gap:8px;">
+            <button type="button" class="add-photo-btn" onclick="openCameraModal('anonymousFeedback')"><span>📷</span><span>Сфоткать</span></button>
+            <button type="button" class="add-photo-btn" onclick="openGalleryInput('anonymousFeedback')"><span>🖼️</span><span>Прикрепить из галереи</span></button>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="submitAnonymousFeedback()">Отправить</button>
+    </div>`;
+  renderAnonymousFeedbackPhotos();
+}
+
+async function submitAnonymousFeedback() {
+  const actor = getAuthorizedAnonymousActor();
+  if (!actor) {
+    showToast('Сначала войдите в своё подразделение');
+    return;
+  }
+  const textEl = document.getElementById('anonymous-feedback-text');
+  const err = document.getElementById('anonymous-feedback-error');
+  const textValue = (textEl ? textEl.value : '').trim();
+  if (!textValue) {
+    if (err) err.classList.add('show');
+    return;
+  }
+  if (err) err.classList.remove('show');
+
+  const isComplaint = activeAnonymousFeedbackType === 'complaint';
+  const selectedKey = isComplaint ? (document.getElementById('anonymous-feedback-target')?.value || '') : '';
+  const target = selectedKey ? getAnonymousTargetEmployees().find(s => String(s._key || ('staff:' + String(s.id))) === String(selectedKey)) : null;
+
+  try {
+    showToast(activeAnonymousFeedbackPhotos.length ? 'Отправляем фото...' : 'Отправляем...');
+    const photos = await uploadTaskPhotos(activeAnonymousFeedbackPhotos, 'anonymousFeedback');
+    const now = new Date();
+    const item = {
+      id: Date.now(),
+      type: isComplaint ? 'complaint' : 'suggestion',
+      text: textValue,
+      photos,
+      targetKey: target ? String(target._key || ('staff:' + String(target.id))) : '',
+      targetId: target ? String(target.id || '') : '',
+      targetName: target ? String(target.name || '') : '',
+      targetRole: target ? String(target.role || '') : '',
+      targetRoleLabel: target ? getStaffRole(target) : '',
+      date: toDateKey(now),
+      time: now.toTimeString().slice(0, 5),
+      createdAt: now.toISOString()
+    };
+    await saveAnonymousFeedback(item);
+    const label = isComplaint ? 'жалоба' : 'предложение';
+    const targetLine = target ? `\nНа: ${target.name || 'Сотрудник'} · ${getStaffRole(target)}` : '';
+    notifyFounders(`💬 Новая анонимная ${label}${targetLine}\n\nОткройте Учредитель → Жалобы и предложения`);
+    activeAnonymousFeedbackPhotos = [];
+    if (textEl) textEl.value = '';
+    showToast('Отправлено анонимно ✓');
+    goBack();
+  } catch (e) {
+    console.error(e);
+    showToast('Ошибка отправки');
+  }
+}
+
+function openFounderAnonymousFeedback() {
+  activeFounderAnonymousTab = 'complaint';
+  renderFounderAnonymousFeedback();
+  goTo('screen-founder-anonymous-feedback');
+}
+
+function switchFounderAnonymousTab(type) {
+  activeFounderAnonymousTab = type === 'suggestion' ? 'suggestion' : 'complaint';
+  renderFounderAnonymousFeedback();
+}
+
+function renderFounderAnonymousFeedback() {
+  const el = document.getElementById('founder-anonymous-feedback-content');
+  if (!el) return;
+  const isSuggestion = activeFounderAnonymousTab === 'suggestion';
+  const items = getAnonymousFeedback()
+    .filter(x => String(x.type || 'suggestion') === (isSuggestion ? 'suggestion' : 'complaint'))
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+  const listHtml = items.length ? items.map(item => {
+    const dateText = `${item.date ? formatDateRu(item.date) : ''}${item.time ? ' · ' + escapeHtml(item.time) : ''}`;
+    const targetHtml = item.targetName ? `<div class="card-sub" style="margin-top:6px;">На кого: ${escapeHtml(item.targetName)} · ${escapeHtml(item.targetRoleLabel || getRoleLabel(item.targetRole))}</div>` : '';
+    const photosHtml = (item.photos || []).length ? `<div class="report-photo-grid" style="margin-top:12px;">${(item.photos || []).slice(0,5).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+    return `<div class="card" style="cursor:default;">
+      <div class="card-title">${escapeHtml(dateText || 'Без даты')}</div>
+      ${targetHtml}
+      <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(item.text || '')}</div>
+      ${photosHtml}
+    </div>`;
+  }).join('') : `<div class="empty" style="padding:34px 0;"><div class="empty-icon">💬</div><div class="empty-title">Пока пусто</div><div class="empty-sub">Новых записей нет</div></div>`;
+
+  el.innerHTML = `
+    <div class="tabs">
+      <div class="tab ${!isSuggestion ? 'active' : ''}" onclick="switchFounderAnonymousTab('complaint')">Жалобы <span class="notify-badge ${getAnonymousFeedback().filter(x => String(x.type || '') === 'complaint' && isFounderItemUnread('feedback', x.id, x.createdAt)).length ? 'show' : ''}" style="${getAnonymousFeedback().filter(x => String(x.type || '') === 'complaint' && isFounderItemUnread('feedback', x.id, x.createdAt)).length ? 'display:inline-flex;' : ''}">${getAnonymousFeedback().filter(x => String(x.type || '') === 'complaint' && isFounderItemUnread('feedback', x.id, x.createdAt)).length}</span></div>
+      <div class="tab ${isSuggestion ? 'active' : ''}" onclick="switchFounderAnonymousTab('suggestion')">Предложения <span class="notify-badge ${getAnonymousFeedback().filter(x => String(x.type || 'suggestion') === 'suggestion' && isFounderItemUnread('feedback', x.id, x.createdAt)).length ? 'show' : ''}" style="${getAnonymousFeedback().filter(x => String(x.type || 'suggestion') === 'suggestion' && isFounderItemUnread('feedback', x.id, x.createdAt)).length ? 'display:inline-flex;' : ''}">${getAnonymousFeedback().filter(x => String(x.type || 'suggestion') === 'suggestion' && isFounderItemUnread('feedback', x.id, x.createdAt)).length}</span></div>
+    </div>
+    <div class="doc-placeholder">Авторы не отображаются и не сохраняются. Видны только текст, фото и сотрудник, если он указан в жалобе.</div>
+    ${listHtml}`;
+}
+
+function markFounderFeedbackRead(itemId) {
+  markFounderItemRead('feedback', itemId);
+  updateUnreadBadges();
+  renderFounderAnonymousFeedback();
+}
+
+function getComplaintCountForEmployee(employee) {
+  if (!employee) return 0;
+  const key = String(employee._key || ('staff:' + String(employee.id || '')));
+  const id = String(employee.id || '');
+  return getAnonymousFeedback().filter(x => String(x.type || '') === 'complaint' && (
+    (x.targetKey && String(x.targetKey) === key) ||
+    (id && x.targetId && String(x.targetId) === id)
+  )).length;
+}
+
 // ============================================================
 // FOUNDER
 // ============================================================
@@ -7940,8 +8272,7 @@ function switchTab(tab) {
   document.getElementById('panel-shifts').style.display = tab === 'shifts' ? 'block' : 'none';
   document.getElementById('panel-staff').style.display = tab === 'staff' ? 'block' : 'none';
   document.getElementById('panel-inventory').style.display = tab === 'inventory' ? 'block' : 'none';
-  if (tab === 'shifts') markWaiterReportsRead();
-  if (tab === 'inventory') { renderInventoryRecordsList(); markWaiterInventoryRead(); }
+  if (tab === 'inventory') renderInventoryRecordsList();
   updateUnreadBadges();
 }
 
@@ -7982,7 +8313,7 @@ function renderShifts() {
     const d = new Date(date);
     const formatted = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
     div.innerHTML = `
-      <div class="shift-date">${formatted}</div>
+      <div class="shift-date">${formatted}${unreadDotHtml(isFounderItemUnread('reportDate', date, Math.max(...reps.map(r => getTimeMs(r.createdAt)))))} </div>
       <div class="shift-meta">${reps.length} ${plural(reps.length, 'отчет', 'отчета', 'отчетов')} · Дежурный: ${dutyName}</div>`;
     div.onclick = () => openShiftView(date, reps);
     el.appendChild(div);
@@ -8053,13 +8384,15 @@ function renderInventoryRecordsList() {
     const time = r.submittedAt || r.createdAt ? new Date(r.submittedAt || r.createdAt).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) : '';
     const filled = Object.keys(r.values || {}).length;
     return `<div class="shift-card" onclick="openInventoryRecordView('${r.id}')">
-      <div class="shift-date">${date}</div>
+      <div class="shift-date">${date}${unreadDotHtml(isFounderItemUnread('inventory', r.id, r.createdAt || r.submittedAt))}</div>
       <div class="shift-meta">${r.staffName || 'Неизвестно'}${r.staffRole ? ' · ' + r.staffRole : ''}${time ? ' · ' + time : ''} · ${filled} позиций</div>
     </div>`;
   }).join('');
 }
 
 function openInventoryRecordView(recordId) {
+  markFounderItemRead('inventory', recordId);
+  updateUnreadBadges();
   const record = getInventoryRecords().find(r => String(r.id) === String(recordId));
   if (!record) {
     showToast('Инвентаризация не найдена');
@@ -8251,6 +8584,8 @@ function saveInventoryAsJpg(recordId) {
 // SHIFT VIEW
 // ============================================================
 function openShiftView(date, reps) {
+  markFounderItemRead('reportDate', date);
+  updateUnreadBadges();
   const el = document.getElementById('shift-view-content');
   activeShiftPhotoGallery = [];
   const duty = getDutyAssignment();
@@ -8465,6 +8800,10 @@ function openStaffView(staffId, replaceCurrent = false) {
       <div class="stat-box"><div class="stat-val">${days}</div><div class="stat-lbl">Смен</div></div>
       <div class="stat-box"><div class="stat-val">${reports.length}</div><div class="stat-lbl">Отчетов</div></div>
       <div class="stat-box"><div class="stat-val">${finesTotal}</div><div class="stat-lbl">Штрафов всего</div></div>
+    </div>
+    <div class="inventory-status" style="margin-bottom:18px;">
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:4px;">Жалобы</div>
+      <div style="font-size:22px;font-weight:700;color:var(--accent);">${getComplaintCountForEmployee(s)}</div>
     </div>
 
     <div class="section-label">Профиль</div>
