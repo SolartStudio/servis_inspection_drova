@@ -1126,7 +1126,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.074 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.075 тестирование</div>
   </div>
 </div>
 
@@ -2629,7 +2629,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.074";
+const APP_VERSION = "1.075";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -3937,6 +3937,20 @@ async function saveAnonymousFeedback(item) {
   if (CLOUD_ENABLED && db) {
     await db.collection("anonymousFeedback").doc(String(item.id)).set(item, { merge: true });
   }
+}
+
+async function deleteAnonymousFeedbackById(feedbackId) {
+  const id = String(feedbackId);
+  appCache.anonymousFeedback = getAnonymousFeedback().filter(x => String(x.id) !== id);
+  LocalDB.set("anonymousFeedback", appCache.anonymousFeedback);
+  LocalDB.remove("readMarker_" + founderReadKey('feedback', id));
+  updateUnreadBadges();
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("anonymousFeedback").doc(id).delete();
+  }
+
+  refreshVisibleData();
 }
 
 async function deleteFineById(fineId) {
@@ -8167,6 +8181,58 @@ async function submitAnonymousFeedback() {
   }
 }
 
+let anonymousFeedbackSwipeState = { id: null, startX: 0, currentX: 0 };
+
+function startAnonymousFeedbackSwipe(event, feedbackId) {
+  const touch = event.touches && event.touches[0];
+  if (!touch) return;
+  anonymousFeedbackSwipeState = { id: String(feedbackId), startX: touch.clientX, currentX: touch.clientX };
+}
+
+function moveAnonymousFeedbackSwipe(event, feedbackId) {
+  const touch = event.touches && event.touches[0];
+  if (!touch || anonymousFeedbackSwipeState.id !== String(feedbackId)) return;
+
+  const dx = Math.max(0, touch.clientX - anonymousFeedbackSwipeState.startX);
+  anonymousFeedbackSwipeState.currentX = touch.clientX;
+
+  const el = document.querySelector(`[data-feedback-id="${feedbackId}"]`);
+  if (el) {
+    el.style.transform = `translateX(${Math.min(dx, 140)}px)`;
+    el.style.opacity = String(Math.max(0.35, 1 - dx / 260));
+  }
+}
+
+async function endAnonymousFeedbackSwipe(event, feedbackId) {
+  if (anonymousFeedbackSwipeState.id !== String(feedbackId)) return;
+
+  const dx = Math.max(0, anonymousFeedbackSwipeState.currentX - anonymousFeedbackSwipeState.startX);
+  const el = document.querySelector(`[data-feedback-id="${feedbackId}"]`);
+
+  if (dx > 110) {
+    if (el) {
+      el.style.transform = 'translateX(100%)';
+      el.style.opacity = '0';
+    }
+    try {
+      await deleteAnonymousFeedbackById(feedbackId);
+      showToast('Запись удалена ✓');
+    } catch (e) {
+      console.error(e);
+      showToast('Ошибка удаления записи');
+      if (el) {
+        el.style.transform = '';
+        el.style.opacity = '';
+      }
+    }
+  } else if (el) {
+    el.style.transform = '';
+    el.style.opacity = '';
+  }
+
+  anonymousFeedbackSwipeState = { id: null, startX: 0, currentX: 0 };
+}
+
 function openFounderAnonymousFeedback() {
   activeFounderAnonymousTab = 'complaint';
   markFounderItemsRead('feedback', getAnonymousFeedback(), item => item.id);
@@ -8192,11 +8258,15 @@ function renderFounderAnonymousFeedback() {
     const dateText = `${item.date ? formatDateRu(item.date) : ''}${item.time ? ' · ' + escapeHtml(item.time) : ''}`;
     const targetHtml = item.targetName ? `<div class="card-sub" style="margin-top:6px;">На кого: ${escapeHtml(item.targetName)} · ${escapeHtml(item.targetRoleLabel || getRoleLabel(item.targetRole))}</div>` : '';
     const photosHtml = (item.photos || []).length ? `<div class="report-photo-grid" style="margin-top:12px;">${(item.photos || []).slice(0,5).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
-    return `<div class="card" style="cursor:default;">
+    return `<div class="card swipe-delete-card" style="cursor:default;" data-feedback-id="${item.id}"
+      ontouchstart="startAnonymousFeedbackSwipe(event, '${item.id}')"
+      ontouchmove="moveAnonymousFeedbackSwipe(event, '${item.id}')"
+      ontouchend="endAnonymousFeedbackSwipe(event, '${item.id}')">
       <div class="card-title">${escapeHtml(dateText || 'Без даты')}</div>
       ${targetHtml}
       <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(item.text || '')}</div>
       ${photosHtml}
+      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните вправо, чтобы удалить</div>
     </div>`;
   }).join('') : `<div class="empty" style="padding:34px 0;"><div class="empty-icon">💬</div><div class="empty-title">Пока пусто</div><div class="empty-sub">Новых записей нет</div></div>`;
 
