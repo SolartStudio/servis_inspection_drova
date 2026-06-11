@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.087 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.088 тестирование</div>
   </div>
 </div>
 
@@ -2459,7 +2459,7 @@
       <div class="admin-stats-chart-head">
         <div>
           <div class="admin-stats-chart-title">Динамика входящих и броней</div>
-          <div class="admin-stats-chart-sub">Синяя линия: входящие. Зеленая линия: брони. Аквамарин: конверсия.</div>
+          <div class="admin-stats-chart-sub">Синяя линия: входящие. Зеленая линия: брони. Конверсия считается числом справа.</div>
         </div>
         <div class="admin-stats-chart-tabs">
           <button class="admin-stats-chart-tab active" id="admin-chart-tab-day" onclick="setAdminStatsChartMode('day')">Дни</button>
@@ -2473,7 +2473,6 @@
       <div class="admin-stats-chart-legend">
         <span><i class="admin-stats-chart-dot" style="background:#2f8cff;"></i>Входящие</span>
         <span><i class="admin-stats-chart-dot" style="background:#2fcf7f;"></i>Брони</span>
-        <span><i class="admin-stats-chart-dot" style="background:#55f0e6;"></i>Конверсия</span>
       </div>
     </div>
     <div class="section-label">Даты</div>
@@ -2752,7 +2751,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.087";
+const APP_VERSION = "1.088";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -8152,19 +8151,21 @@ function getAdminStatsChartRange(mode, dataDays) {
     .map(key => parseAdminStatsDateKey(key))
     .filter(Boolean)
     .sort((a, b) => a - b);
+  const firstDataDate = parsed.length ? parsed[0] : today;
   const lastDataDate = parsed.length ? parsed[parsed.length - 1] : today;
-  const end = new Date(Math.max(lastDataDate.getTime(), today.getTime()));
+  const end = new Date(lastDataDate);
   end.setHours(0, 0, 0, 0);
 
   if (mode === 'week') {
-    return { start: addAdminStatsDays(end, -6), end, fillEmpty: true };
+    const rawStart = addAdminStatsDays(end, -6);
+    return { start: rawStart < firstDataDate ? firstDataDate : rawStart, end, fillEmpty: true };
   }
 
   if (mode === 'month') {
-    return { start: addAdminStatsDays(end, -29), end, fillEmpty: true };
+    const rawStart = addAdminStatsDays(end, -29);
+    return { start: rawStart < firstDataDate ? firstDataDate : rawStart, end, fillEmpty: true };
   }
 
-  const firstDataDate = parsed.length ? parsed[0] : end;
   return { start: firstDataDate, end, fillEmpty: false };
 }
 
@@ -8271,7 +8272,7 @@ function drawAdminStatsChart() {
   ctx.fillStyle = '#0b0f14';
   ctx.fillRect(0, 0, width, height);
 
-  const maxValue = Math.max(100, ...points.map(p => Math.max(p.incoming || p.contacts || 0, p.bookings || 0, p.conversion || 0)), 0);
+  const maxValue = Math.max(100, ...points.map(p => Math.max(p.incoming || p.contacts || 0, p.bookings || 0)), 0);
   const yMax = Math.max(120, Math.ceil((maxValue + 20) / 20) * 20);
 
   ctx.strokeStyle = 'rgba(130, 150, 170, 0.18)';
@@ -8356,18 +8357,22 @@ function drawAdminStatsChart() {
 
   drawLine('incoming', '#2f8cff');
   drawLine('bookings', '#2fcf7f');
-  drawLine('conversion', '#55f0e6');
 
-  const latest = points[points.length - 1];
+  const periodTotals = points.reduce((acc, p) => {
+    acc.incoming += Number(p.incoming || p.contacts || 0);
+    acc.bookings += Number(p.bookings || 0);
+    return acc;
+  }, { incoming: 0, bookings: 0 });
+  periodTotals.conversion = periodTotals.incoming > 0 ? Math.round((periodTotals.bookings / periodTotals.incoming) * 100) : 0;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';
   ctx.font = '11px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
   ctx.fillStyle = '#2f8cff';
-  ctx.fillText(`Входящие: ${latest.incoming || latest.contacts || 0}`, width - 10, 12);
+  ctx.fillText(`Входящие: ${periodTotals.incoming}`, width - 10, 12);
   ctx.fillStyle = '#2fcf7f';
-  ctx.fillText(`Брони: ${latest.bookings}`, width - 10, 28);
+  ctx.fillText(`Брони: ${periodTotals.bookings}`, width - 10, 28);
   ctx.fillStyle = '#55f0e6';
-  ctx.fillText(`Конверсия: ${latest.conversion || 0}%`, width - 10, 44);
+  ctx.fillText(`Конверсия: ${periodTotals.conversion}%`, width - 10, 44);
 }
 
 function renderAdminStatsChartTabs() {
