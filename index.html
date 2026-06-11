@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.081 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.082 тестирование</div>
   </div>
 </div>
 
@@ -2340,6 +2340,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openRepairCreate('cook')">
+      <div class="menu-icon">🛠️</div>
+      <div class="menu-text">
+        <div class="menu-title">Поломки</div>
+        <div class="menu-desc">Заявка технику с фото</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
   </div>
   <div class="footer" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
     <span class="logo-sm">drova inspector</span>
@@ -2377,7 +2385,7 @@
   <div class="content" style="padding-top: 24px;">
     <div style="margin-bottom: 28px;"><div style="font-size: 13px; color: var(--text-3); margin-bottom: 4px;">Техник</div><div style="font-size: 24px; font-weight: 700;" id="technician-menu-name">—</div></div>
     <div class="section-label">Меню</div>
-    <div class="menu-item" onclick="openTechnicianRepairs()"><div class="menu-icon">🛠️</div><div class="menu-text"><div class="menu-title-row"><div class="menu-title">Заявки на ремонт</div><span class="notify-badge" id="badge-technician-repairs">0</span></div><div class="menu-desc">Поломки от официантов, пармастеров и массажистов</div></div><span class="menu-arrow">›</span></div>
+    <div class="menu-item" onclick="openTechnicianRepairs()"><div class="menu-icon">🛠️</div><div class="menu-text"><div class="menu-title-row"><div class="menu-title">Заявки на ремонт</div><span class="notify-badge" id="badge-technician-repairs">0</span></div><div class="menu-desc">Поломки от официантов, пармастеров, массажистов и поваров</div></div><span class="menu-arrow">›</span></div>
   </div>
   <div class="footer" style="display:flex; justify-content:space-between; align-items:center; gap:12px;"><span class="logo-sm">drova inspector</span><button class="btn btn-secondary btn-sm" onclick="staffLogout()">Выйти</button></div>
 </div>
@@ -2735,7 +2743,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.081";
+const APP_VERSION = "1.082";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -7018,6 +7026,7 @@ function getCurrentTechnician() {
 function getRepairActor(sourceRole) {
   if (sourceRole === 'bathmaster') return getCurrentBathmaster();
   if (sourceRole === 'masseur') return getCurrentMasseur();
+  if (sourceRole === 'cook') return getCook();
   return getWaiter();
 }
 
@@ -7106,6 +7115,9 @@ async function confirmRepairRequest() {
     const req = { id: Date.now(), sourceRole: activeRepairSourceRole, sourceRoleLabel: getRoleLabel(activeRepairSourceRole), staffId: actor.id, staffName: actor.name || getRoleLabel(activeRepairSourceRole), staffLogin: actor.login || '', text: textValue, photos, fixedPhotos: [], status: 'new', date: toDateKey(now), time: now.toTimeString().slice(0, 5), createdAt: now.toISOString(), technicianReadAt: null, repairedAt: null };
     await saveRepairRequest(req);
     notifyRole('technician', `🛠️ Новая заявка на ремонт\n\n${req.sourceRoleLabel}: ${req.staffName}\n${req.text}\n\nОткройте Drova Inspector → Техник → Заявки на ремонт`);
+    if (req.sourceRole === 'cook') {
+      notifyRole('cook', `🛠️ Новая заявка на ремонт от повара\n\n${req.staffName}: ${req.text}`);
+    }
     notifyFounders(`🛠️ Новая заявка на ремонт\n\n${req.sourceRoleLabel}: ${req.staffName}\n${req.text}`);
     activeRepairPhotos = [];
     document.getElementById('repair-create-text').value = '';
@@ -7246,6 +7258,9 @@ async function confirmCloseRepairRequest() {
     req.technicianId = tech.id;
     req.technicianName = tech.name || 'Техник';
     await updateRepairRequest(req);
+    if (req.sourceRole === 'cook') {
+      notifyRole('cook', `✅ Ремонт закрыт\n\n${req.technicianName} закрыл заявку повара: ${req.text || ''}`);
+    }
     notifyFounders(`✅ Ремонт закрыт\n\n${req.technicianName} закрыл заявку: ${req.text || ''}`);
     activeRepairClosePhotos = [];
     showToast('Заявка закрыта ✓');
@@ -7258,7 +7273,7 @@ function renderFounderRepairs() {
   const list = document.getElementById('founder-repairs-list');
   if (!list) return;
   const items = getRepairRequests().slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-  if (!items.length) { list.innerHTML = `<div class="empty"><div class="empty-icon">🛠️</div><div class="empty-title">Поломок пока нет</div><div class="empty-sub">Заявки от официантов, пармастеров и массажистов появятся здесь</div></div>`; return; }
+  if (!items.length) { list.innerHTML = `<div class="empty"><div class="empty-icon">🛠️</div><div class="empty-title">Поломок пока нет</div><div class="empty-sub">Заявки от официантов, пармастеров, массажистов и поваров появятся здесь</div></div>`; return; }
   list.innerHTML = items.map(req => { const dateText = req.date ? `${formatDateRu(req.date)}${req.time ? ' · ' + req.time : ''}` : ''; return `<div class="shift-card" onclick="openRepairView('${req.id}', 'founder')"><div class="shift-date">${escapeHtml(req.staffName || 'Сотрудник')}${unreadDotHtml(isFounderItemUnread('repair', req.id, req.createdAt))}</div><div class="shift-meta">${escapeHtml(req.sourceRoleLabel || '')} · ${escapeHtml(dateText)} · <span style="color:${getRepairStatusColor(req)};font-weight:700;">${getRepairStatusText(req)}</span></div><div style="font-size:14px;line-height:1.45;margin-top:10px;color:var(--text-2);">${escapeHtml((req.text || '').slice(0, 120))}</div></div>`; }).join('');
 }
 
