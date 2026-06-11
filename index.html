@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.088 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.089 тестирование</div>
   </div>
 </div>
 
@@ -2194,14 +2194,6 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
-    <div class="menu-item" onclick="openBathmasterTariffs()">
-      <div class="menu-icon">💰</div>
-      <div class="menu-text">
-        <div class="menu-title">Тарифы</div>
-        <div class="menu-desc">Актуальные тарифы в JPG</div>
-      </div>
-      <span class="menu-arrow">›</span>
-    </div>
     <div class="menu-item" onclick="openBathmasterOrder()">
       <div class="menu-icon">🧾</div>
       <div class="menu-text">
@@ -2751,7 +2743,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.088";
+const APP_VERSION = "1.089";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -5650,9 +5642,7 @@ const DOC_IMAGES = {
     "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%BC%D0%B5%D0%BD%D1%8E%20%D0%BE%D1%84%D0%B8%D0%BA%204"
   ],
   bathmasterMenu: [
-    "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%BC%D0%B5%D0%BD%D1%8E%20%D0%BF%D0%B0%D1%80%D0%BC%D0%B0%D1%81%D1%82%D0%B5%D1%80"
-  ],
-  bathmasterTariffs: [
+    "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%BC%D0%B5%D0%BD%D1%8E%20%D0%BF%D0%B0%D1%80%D0%BC%D0%B0%D1%81%D1%82%D0%B5%D1%80",
     "https://raw.githubusercontent.com/SolartStudio/servis_inspection_drova/main/%D0%A2%D0%B0%D1%80%D0%B8%D1%84%D1%8B"
   ],
   masseurMenu: [
@@ -5672,7 +5662,6 @@ function openWaiterDocs(type) {
   const titles = {
     menu: 'Меню',
     bathmasterMenu: 'Меню пармастера',
-    bathmasterTariffs: 'Тарифы',
     masseurMenu: 'Меню массажиста',
     instructions: 'Должностные инструкции',
     algorithm: 'Алгоритм работы'
@@ -5706,9 +5695,6 @@ function openBathmasterMenuJpg() {
   openWaiterDocs('bathmasterMenu');
 }
 
-function openBathmasterTariffs() {
-  openWaiterDocs('bathmasterTariffs');
-}
 
 function openMasseurMenuJpg() {
   openWaiterDocs('masseurMenu');
@@ -8358,7 +8344,15 @@ function drawAdminStatsChart() {
   drawLine('incoming', '#2f8cff');
   drawLine('bookings', '#2fcf7f');
 
-  const periodTotals = points.reduce((acc, p) => {
+  // Итоги справа считаются по выбранному масштабу.
+  // День показывает значение последнего фактического дня, неделя/месяц — сумму периода.
+  // Иначе человек видит одинаковые цифры на всех вкладках и начинает подозревать график в философии.
+  const nonEmptyPoints = points.filter(p => Number(p.incoming || p.contacts || 0) > 0 || Number(p.bookings || 0) > 0);
+  const totalSource = activeAdminStatsChartMode === 'day'
+    ? (nonEmptyPoints.length ? [nonEmptyPoints[nonEmptyPoints.length - 1]] : [])
+    : points;
+
+  const periodTotals = totalSource.reduce((acc, p) => {
     acc.incoming += Number(p.incoming || p.contacts || 0);
     acc.bookings += Number(p.bookings || 0);
     return acc;
