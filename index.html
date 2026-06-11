@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.080 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.081 тестирование</div>
   </div>
 </div>
 
@@ -1495,7 +1495,7 @@
     </div>
     <div class="menu-item" onclick="openPhotoReportsByPeriod('evening')">
       <div class="menu-text">
-        <div class="menu-title">Вечер</div>
+        <div class="menu-title">Ночь</div>
       </div>
       <span class="menu-arrow">›</span>
     </div>
@@ -2735,7 +2735,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.080";
+const APP_VERSION = "1.081";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2755,6 +2755,7 @@ const appCache = {
   adminPassword: "3235",
   fines: [],
   inventoryDraft: null,
+  photoReportDrafts: [],
   inventoryRecords: [],
   accessRequests: [],
   adminStats: [],
@@ -3077,6 +3078,7 @@ async function initCloud() {
     appCache.adminPassword = LocalDB.get("adminPassword") || "3235";
     appCache.fines = LocalDB.get("fines") || [];
     appCache.inventoryDraft = LocalDB.get("inventoryDraft") || null;
+    appCache.photoReportDrafts = LocalDB.get("photoReportDrafts") || [];
     appCache.inventoryRecords = LocalDB.get("inventoryRecords") || [];
     appCache.accessRequests = LocalDB.get("accessRequests") || [];
     appCache.adminStats = LocalDB.get("adminStats") || [];
@@ -3199,10 +3201,12 @@ async function initCloud() {
     LocalDB.set("founderPassword", appCache.founderPassword);
     LocalDB.set("adminPassword", appCache.adminPassword);
     appCache.inventoryDraft = data.inventoryDraft || null;
+    appCache.photoReportDrafts = data.photoReportDrafts || LocalDB.get("photoReportDrafts") || [];
     appCache.kpiContent = data.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
     appCache.stopList = data.stopList || LocalDB.get("stopList") || getDefaultStopList();
     appCache.adminShiftHandover = data.adminShiftHandover || LocalDB.get("adminShiftHandover") || null;
     LocalDB.set("inventoryDraft", appCache.inventoryDraft);
+    LocalDB.set("photoReportDrafts", appCache.photoReportDrafts);
     LocalDB.set("kpiContent", appCache.kpiContent);
     LocalDB.set("stopList", appCache.stopList);
     LocalDB.set("adminShiftHandover", appCache.adminShiftHandover);
@@ -3254,6 +3258,7 @@ async function loadCloudData() {
   LocalDB.set("founderPassword", appCache.founderPassword);
   LocalDB.set("adminPassword", appCache.adminPassword);
   appCache.inventoryDraft = settings.inventoryDraft || null;
+  appCache.photoReportDrafts = settings.photoReportDrafts || LocalDB.get("photoReportDrafts") || [];
   appCache.kpiContent = settings.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
   appCache.stopList = settings.stopList || LocalDB.get("stopList") || getDefaultStopList();
   appCache.adminShiftHandover = settings.adminShiftHandover || LocalDB.get("adminShiftHandover") || null;
@@ -3267,6 +3272,7 @@ async function loadCloudData() {
       kpiContent: appCache.kpiContent || getDefaultKpiContent(),
       stopList: appCache.stopList || getDefaultStopList(),
       adminShiftHandover: appCache.adminShiftHandover || null,
+      photoReportDrafts: appCache.photoReportDrafts || [],
       updatedAt: new Date().toISOString()
     }, { merge: true });
   }
@@ -3922,6 +3928,148 @@ async function deleteStaff(staffId) {
   }
 
   refreshVisibleData();
+}
+
+
+
+function getPhotoReportDrafts() {
+  return appCache.photoReportDrafts || [];
+}
+
+function getPhotoReportDraftKey(period, bathIndex) {
+  return `${period || 'morning'}_${String(bathIndex)}`;
+}
+
+function getPhotoReportDraft(period, bathIndex) {
+  const key = getPhotoReportDraftKey(period, bathIndex);
+  return getPhotoReportDrafts().find(d => String(d.key || '') === key) || null;
+}
+
+async function setPhotoReportDraft(draft) {
+  if (!draft || !draft.key) return;
+  const arr = getPhotoReportDrafts().filter(d => String(d.key || '') !== String(draft.key));
+  arr.unshift(draft);
+  appCache.photoReportDrafts = arr;
+  LocalDB.set("photoReportDrafts", arr);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("settings").doc("main").set({
+      photoReportDrafts: arr,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
+
+async function clearPhotoReportDraft(period, bathIndex) {
+  const key = getPhotoReportDraftKey(period, bathIndex);
+  appCache.photoReportDrafts = getPhotoReportDrafts().filter(d => String(d.key || '') !== key);
+  LocalDB.set("photoReportDrafts", appCache.photoReportDrafts);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("settings").doc("main").set({
+      photoReportDrafts: appCache.photoReportDrafts,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
+
+function serializeDraftPhoto(photo) {
+  if (!photo) return null;
+  if (typeof photo === "string") return photo;
+  if (photo.type === "telegram" || photo.file_id) {
+    return {
+      type: "telegram",
+      file_id: photo.file_id,
+      preview_url: photo.preview_url || null,
+      uploadedAt: photo.uploadedAt || photo.addedAt || new Date().toISOString()
+    };
+  }
+  if (photo.preview_url && !photo.file) {
+    return {
+      type: photo.type || "preview",
+      preview_url: photo.preview_url,
+      addedAt: photo.addedAt || new Date().toISOString()
+    };
+  }
+  return null;
+}
+
+function hydrateDraftPhotos(draft) {
+  const photos = {};
+  const sections = getSectionsForBathNameOrIndex(draft && draft.bathName, draft && draft.bathIndex);
+  sections.forEach(section => {
+    photos[section.key] = ((draft && draft.photos && draft.photos[section.key]) || []).filter(Boolean);
+  });
+  return photos;
+}
+
+let photoReportDraftSaveTimer = null;
+let photoReportDraftSaving = false;
+
+function schedulePhotoReportDraftSave() {
+  clearTimeout(photoReportDraftSaveTimer);
+  photoReportDraftSaveTimer = setTimeout(() => {
+    saveActivePhotoReportDraft().catch(err => {
+      console.error('photo report draft save error', err);
+      showToast('Не удалось сохранить черновик фотоотчета');
+    });
+  }, 250);
+}
+
+async function saveActivePhotoReportDraft() {
+  const waiter = getWaiter();
+  if (!activeReport || activeReport.bathIndex === null || activeReport.bathIndex === undefined || !waiter) return;
+  if (photoReportDraftSaving) return;
+  photoReportDraftSaving = true;
+
+  try {
+    const period = activeReport.period || activePhotoReportPeriod || 'morning';
+    const key = getPhotoReportDraftKey(period, activeReport.bathIndex);
+    const nowIso = new Date().toISOString();
+    const sections = getActiveReportSections();
+    const draftPhotos = {};
+
+    for (const section of sections) {
+      draftPhotos[section.key] = [];
+      const photos = activeReport.photos && activeReport.photos[section.key] ? activeReport.photos[section.key] : [];
+
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i];
+
+        if (photo && photo.type === "local" && photo.file) {
+          try {
+            const uploaded = await uploadReportPhoto(photo.file, section.key);
+            activeReport.photos[section.key][i] = uploaded;
+            draftPhotos[section.key].push(uploaded);
+          } catch (err) {
+            console.error('draft photo upload error', err);
+            const safe = serializeDraftPhoto(photo);
+            if (safe) draftPhotos[section.key].push(safe);
+          }
+        } else {
+          const safe = serializeDraftPhoto(photo);
+          if (safe) draftPhotos[section.key].push(safe);
+        }
+      }
+    }
+
+    const draft = {
+      key,
+      bathIndex: activeReport.bathIndex,
+      bathName: BATHS[activeReport.bathIndex],
+      period,
+      periodLabel: getPhotoPeriodLabel(period),
+      staffId: waiter.id || '',
+      staffName: waiter.name || 'Официант',
+      updatedAt: nowIso,
+      createdAt: (getPhotoReportDraft(period, activeReport.bathIndex) || {}).createdAt || nowIso,
+      photos: draftPhotos
+    };
+
+    await setPhotoReportDraft(draft);
+  } finally {
+    photoReportDraftSaving = false;
+  }
 }
 
 
@@ -4895,6 +5043,7 @@ function addReportCameraPhoto(sectionKey, localPhoto) {
   }
   current.push(localPhoto);
   renderBathReportContent();
+  schedulePhotoReportDraftSave();
   return true;
 }
 
@@ -6453,7 +6602,7 @@ const BATHS = ['Первая', 'Добрая', 'Малая', 'Лесная', 'Х
 let activePhotoReportPeriod = 'morning';
 
 function getPhotoPeriodLabel(period) {
-  return period === 'evening' ? 'Вечер' : 'Утро';
+  return period === 'evening' ? 'Ночь' : 'Утро';
 }
 
 function getPhotoPeriodIcon(period) {
@@ -6513,10 +6662,24 @@ function getActiveReportSections() {
 function renderBathList() {
   const el = document.getElementById('bath-list');
   el.innerHTML = '';
+  const waiter = getWaiter();
   BATHS.forEach((bath, i) => {
+    const draft = getPhotoReportDraft(activePhotoReportPeriod, i);
+    const isOwnDraft = draft && waiter && String(draft.staffId || '') === String(waiter.id || '');
+    const isLockedByOther = draft && waiter && String(draft.staffId || '') !== String(waiter.id || '');
+    const photoCount = draft && draft.photos
+      ? Object.values(draft.photos).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
+      : 0;
+
+    const subText = isLockedByOther
+      ? `Заполняется сейчас: ${escapeHtml(draft.staffName || 'сотрудник')}`
+      : isOwnDraft
+        ? `Продолжить черновик · фото: ${photoCount}`
+        : 'Нажмите, чтобы открыть отчет';
+
     const div = document.createElement('div');
-    div.className = 'card';
-    div.innerHTML = `<div class="card-title">${bath}</div><div class="card-sub" style="margin-top:4px;">Нажмите, чтобы открыть отчет</div>`;
+    div.className = isLockedByOther ? 'card disabled' : 'card';
+    div.innerHTML = `<div class="card-title">${bath}</div><div class="card-sub" style="margin-top:4px;">${subText}</div>`;
     div.onclick = () => openBathReport(i);
     el.appendChild(div);
   });
@@ -6526,11 +6689,33 @@ function renderBathList() {
 let activeReport = { bathIndex: null, period: 'morning', photos: {} };
 
 function openBathReport(bathIndex) {
+  const waiter = getWaiter();
+  if (!waiter) {
+    clearCurrentWaiter();
+    showToast('Сотрудник удалён из системы');
+    goHome();
+    goTo('screen-waiter-register');
+    return;
+  }
+
+  const existingDraft = getPhotoReportDraft(activePhotoReportPeriod, bathIndex);
+  if (existingDraft && String(existingDraft.staffId || '') !== String(waiter.id || '')) {
+    showToast(`Заполняется сейчас: ${existingDraft.staffName || 'сотрудник'}`);
+    return;
+  }
+
   activeReport = { bathIndex, period: activePhotoReportPeriod, photos: {} };
   getSectionsForBathIndex(bathIndex).forEach(s => { activeReport.photos[s.key] = []; });
+
+  if (existingDraft) {
+    activeReport.photos = hydrateDraftPhotos(existingDraft);
+    showToast('Черновик восстановлен');
+  }
+
   document.getElementById('bath-report-title').textContent = `${BATHS[bathIndex]} · ${getPhotoPeriodLabel(activeReport.period)}`;
   renderBathReportContent();
   goTo('screen-bath-report');
+  schedulePhotoReportDraftSave();
 }
 
 function renderBathReportContent() {
@@ -6601,6 +6786,7 @@ function handlePhotos(event, sectionKey) {
 
   activeReport.photos[sectionKey].push(localPhoto);
   renderBathReportContent();
+  schedulePhotoReportDraftSave();
   showToast("Фото добавлено");
 
   event.target.value = '';
@@ -6609,6 +6795,7 @@ function handlePhotos(event, sectionKey) {
 function removePhoto(sectionKey, idx) {
   activeReport.photos[sectionKey].splice(idx, 1);
   renderBathReportContent();
+  schedulePhotoReportDraftSave();
 }
 
 async function uploadAllReportPhotos() {
@@ -6663,6 +6850,7 @@ async function confirmReport() {
 
   try {
     showToast('Отправляем фото...');
+    await saveActivePhotoReportDraft();
     const uploadedPhotos = await uploadAllReportPhotos();
 
     const report = {
@@ -6684,7 +6872,9 @@ async function confirmReport() {
     const reports = getReports();
     reports.push(report);
     setReports(reports);
-    notifyFounders(`📷 Новый фотоотчёт\n\n${report.staffName} · ${report.bathName} · ${getPhotoPeriodLabel(report.period)}\n${formatDateRu(report.date)} · ${report.time}`);
+    await clearPhotoReportDraft(activeReport.period || getReportPeriodFromTime(now), activeReport.bathIndex);
+    renderBathList();
+    notifyFounders(`📷 Новый фотоотчёт\n\n${report.staffName} · ${report.bathName} · ${getPhotoPeriodLabel(report.reportPeriod)}\n${formatDateRu(report.date)} · ${report.time}`);
 
     showToast('Отчет отправлен ✓');
 
@@ -9613,6 +9803,7 @@ async function init() {
     appCache.adminProfiles = LocalDB.get("adminProfiles") || appCache.adminProfiles || [];
     appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || appCache.bathmasterOrders || [];
     appCache.repairRequests = LocalDB.get("repairRequests") || appCache.repairRequests || [];
+    appCache.photoReportDrafts = LocalDB.get("photoReportDrafts") || appCache.photoReportDrafts || [];
     appCache.founderTasks = LocalDB.get("founderTasks") || appCache.founderTasks || [];
     appCache.kpiContent = LocalDB.get("kpiContent") || appCache.kpiContent || getDefaultKpiContent();
     appCache.stopList = LocalDB.get("stopList") || appCache.stopList || getDefaultStopList();
