@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.079 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.080 тестирование</div>
   </div>
 </div>
 
@@ -2735,14 +2735,14 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.079";
+const APP_VERSION = "1.080";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
   version: APP_VERSION,
   channel: APP_CHANNEL,
   label: APP_VERSION_LABEL,
-  updatedAt: "2026-06-10"
+  updatedAt: "2026-06-11"
 };
 
 let db = null;
@@ -4883,7 +4883,7 @@ function useCameraShot() {
 }
 
 function addReportCameraPhoto(sectionKey, localPhoto) {
-  const section = SECTIONS.find(s => s.key === sectionKey);
+  const section = getActiveReportSections().find(s => s.key === sectionKey);
   if (!section || !activeReport || !activeReport.photos || !activeReport.photos[sectionKey]) {
     showToast('Раздел фото не найден');
     return false;
@@ -6485,6 +6485,30 @@ const SECTIONS = [
   { key: 'flowers', label: 'Цветы', limit: 5 },
   { key: 'station', label: 'Стейшн', limit: 3 },
 ];
+const SIMPLE_PHOTO_BATH_NAMES = ['Зона ожидания', 'Ресепшн'];
+const SIMPLE_REPORT_SECTIONS = [
+  { key: 'general', label: 'Фото', limit: 5 }
+];
+
+function isSimplePhotoBathByIndex(bathIndex) {
+  return SIMPLE_PHOTO_BATH_NAMES.includes(BATHS[Number(bathIndex)]);
+}
+
+function isSimplePhotoBathName(bathName) {
+  return SIMPLE_PHOTO_BATH_NAMES.includes(String(bathName || '').trim());
+}
+
+function getSectionsForBathIndex(bathIndex) {
+  return isSimplePhotoBathByIndex(bathIndex) ? SIMPLE_REPORT_SECTIONS : SECTIONS;
+}
+
+function getSectionsForBathNameOrIndex(bathName, bathIndex) {
+  return isSimplePhotoBathName(bathName) || isSimplePhotoBathByIndex(bathIndex) ? SIMPLE_REPORT_SECTIONS : SECTIONS;
+}
+
+function getActiveReportSections() {
+  return getSectionsForBathIndex(activeReport && activeReport.bathIndex);
+}
 
 function renderBathList() {
   const el = document.getElementById('bath-list');
@@ -6503,7 +6527,7 @@ let activeReport = { bathIndex: null, period: 'morning', photos: {} };
 
 function openBathReport(bathIndex) {
   activeReport = { bathIndex, period: activePhotoReportPeriod, photos: {} };
-  SECTIONS.forEach(s => { activeReport.photos[s.key] = []; });
+  getSectionsForBathIndex(bathIndex).forEach(s => { activeReport.photos[s.key] = []; });
   document.getElementById('bath-report-title').textContent = `${BATHS[bathIndex]} · ${getPhotoPeriodLabel(activeReport.period)}`;
   renderBathReportContent();
   goTo('screen-bath-report');
@@ -6512,8 +6536,8 @@ function openBathReport(bathIndex) {
 function renderBathReportContent() {
   const el = document.getElementById('bath-report-content');
   el.innerHTML = '';
-  SECTIONS.forEach(section => {
-    const photos = activeReport.photos[section.key];
+  getActiveReportSections().forEach(section => {
+    const photos = activeReport.photos[section.key] || [];
     const atLimit = photos.length >= section.limit;
 
     const div = document.createElement('div');
@@ -6547,8 +6571,8 @@ function renderBathReportContent() {
 
 function handlePhotos(event, sectionKey) {
   const files = Array.from(event.target.files || []);
-  const section = SECTIONS.find(s => s.key === sectionKey);
-  const current = activeReport.photos[sectionKey];
+  const section = getActiveReportSections().find(s => s.key === sectionKey);
+  const current = activeReport.photos[sectionKey] || [];
 
   if (!files.length) return;
 
@@ -6590,7 +6614,7 @@ function removePhoto(sectionKey, idx) {
 async function uploadAllReportPhotos() {
   const uploaded = {};
 
-  for (const section of SECTIONS) {
+  for (const section of getActiveReportSections()) {
     uploaded[section.key] = [];
 
     const photos = activeReport.photos[section.key] || [];
@@ -6609,7 +6633,7 @@ async function uploadAllReportPhotos() {
 }
 
 function submitReport() {
-  const totalPhotos = SECTIONS.reduce((sum, section) => {
+  const totalPhotos = getActiveReportSections().reduce((sum, section) => {
     return sum + ((activeReport.photos[section.key] || []).length);
   }, 0);
 
@@ -6679,21 +6703,22 @@ async function confirmReport() {
 let selectedDutyId = null;
 
 function renderDutyScreen() {
-  const staff = getStaff();
+  const allStaff = getStaff();
+  const staff = allStaff.filter(s => String(s.role || '') === 'waiter');
   const duty = getDutyAssignment();
   const listEl = document.getElementById('duty-staff-list');
   const emptyEl = document.getElementById('duty-empty');
   const infoEl = document.getElementById('current-duty-info');
+  const dutyPerson = duty ? staff.find(s => String(s.id) === String(duty.staffId)) : null;
 
-  selectedDutyId = duty ? duty.staffId : null;
+  selectedDutyId = dutyPerson ? duty.staffId : null;
 
-  if (duty) {
-    const person = staff.find(s => String(s.id) === String(duty.staffId));
+  if (duty && dutyPerson) {
     const dateText = duty.targetDate ? ` на ${formatDateRu(duty.targetDate)}` : '';
     infoEl.innerHTML = `
       <div class="duty-badge" style="display:inline-flex;">
         <span>🌅</span>
-        <span>Дежурный${dateText}: ${person ? person.name : 'Неизвестно'}</span>
+        <span>Дежурный${dateText}: ${dutyPerson.name}</span>
       </div>
       ${duty.tasks ? `<div style="font-size:13px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-top:8px;">${duty.tasks}</div>` : ''}`;
   } else {
@@ -6701,7 +6726,7 @@ function renderDutyScreen() {
   }
 
   const taskField = document.getElementById('duty-tasks');
-  if (taskField) taskField.value = duty && duty.tasks ? duty.tasks : '';
+  if (taskField) taskField.value = duty && dutyPerson && duty.tasks ? duty.tasks : '';
 
   if (staff.length === 0) {
     listEl.style.display = 'none';
@@ -6713,7 +6738,7 @@ function renderDutyScreen() {
   listEl.innerHTML = '';
 
   staff.forEach(s => {
-    const isSelected = s.id === selectedDutyId;
+    const isSelected = String(s.id) === String(selectedDutyId);
     const div = document.createElement('div');
     div.className = `duty-item${isSelected ? ' selected' : ''}`;
     div.id = `duty-${s.id}`;
@@ -6736,25 +6761,24 @@ function selectDutyPerson(id) {
 }
 
 function assignDuty() {
-  if (!selectedDutyId) { showToast('Выберите сотрудника'); return; }
-  const staff = getStaff();
+  if (!selectedDutyId) { showToast('Выберите официанта'); return; }
+  const staff = getStaff().filter(s => String(s.role || '') === 'waiter');
   const person = staff.find(s => String(s.id) === String(selectedDutyId));
+  if (!person) { showToast('Выберите официанта'); return; }
   const tasks = (document.getElementById('duty-tasks')?.value || '').trim();
 
   const targetDate = getNextShiftDateKey();
   document.getElementById('duty-confirm-title').textContent = 'Назначить дежурным?';
-  document.getElementById('duty-confirm-sub').textContent = person
-    ? `${person.name}\nДата смены: ${formatDateRu(targetDate)}${tasks ? '\n\nЗадачи:\n' + tasks : ''}`
-    : '';
+  document.getElementById('duty-confirm-sub').textContent = `${person.name}\nДата смены: ${formatDateRu(targetDate)}${tasks ? '\n\nЗадачи:\n' + tasks : ''}`;
   document.getElementById('duty-confirm-sub').style.whiteSpace = 'pre-line';
   openModal('modal-duty-confirm');
 }
 
 function confirmDuty() {
   closeModal('modal-duty-confirm');
-  const staff = getStaff();
-  const person = staff.find(s => String(s.id) === String(selectedDutyId));
-  if (!person) return;
+  const allStaff = getStaff();
+  const person = allStaff.find(s => String(s.id) === String(selectedDutyId) && String(s.role || '') === 'waiter');
+  if (!person) { showToast('Выберите официанта'); return; }
 
   const tasks = (document.getElementById('duty-tasks')?.value || '').trim();
   const targetDate = getNextShiftDateKey();
@@ -6764,7 +6788,7 @@ function confirmDuty() {
 
   // Update duty count
   person.dutyCount = (person.dutyCount || 0) + 1;
-  setStaff(staff);
+  setStaff(allStaff);
 
   setDutyAssignment({
     staffId: selectedDutyId,
@@ -7738,32 +7762,50 @@ function openFounderAdminStatistics() {
   renderFounderAdminStatistics();
 }
 
-let adminStatSwipeState = { id: null, startX: 0, currentX: 0 };
+let adminStatSwipeState = { id: null, startX: 0, startY: 0, currentX: 0, currentY: 0, locked: false };
 
 function startAdminStatSwipe(event, statId) {
   const touch = event.touches && event.touches[0];
   if (!touch) return;
-  adminStatSwipeState = { id: String(statId), startX: touch.clientX, currentX: touch.clientX };
+  adminStatSwipeState = { id: String(statId), startX: touch.clientX, startY: touch.clientY, currentX: touch.clientX, currentY: touch.clientY, locked: false };
 }
 
 function moveAdminStatSwipe(event, statId) {
   const touch = event.touches && event.touches[0];
   if (!touch || adminStatSwipeState.id !== String(statId)) return;
-  const dx = Math.max(0, touch.clientX - adminStatSwipeState.startX);
   adminStatSwipeState.currentX = touch.clientX;
+  adminStatSwipeState.currentY = touch.clientY;
+
+  const leftDx = Math.max(0, adminStatSwipeState.startX - touch.clientX);
+  const rightDx = Math.max(0, touch.clientX - adminStatSwipeState.startX);
+  const dy = Math.abs(touch.clientY - adminStatSwipeState.startY);
   const el = document.querySelector(`[data-admin-stat-id="${statId}"]`);
+
+  if (rightDx > 12 || dy > leftDx * 0.65) {
+    if (el) {
+      el.style.transform = '';
+      el.style.opacity = '';
+    }
+    return;
+  }
+
+  if (leftDx < 18) return;
+  if (event.cancelable) event.preventDefault();
+
   if (el) {
-    el.style.transform = `translateX(-${Math.min(dx, 140)}px)`;
-    el.style.opacity = String(Math.max(0.35, 1 - dx / 260));
+    const translate = Math.min(leftDx, 120);
+    el.style.transform = `translateX(-${translate}px)`;
+    el.style.opacity = String(Math.max(0.55, 1 - leftDx / 420));
   }
 }
 
 async function endAdminStatSwipe(event, statId) {
   if (adminStatSwipeState.id !== String(statId)) return;
-  const dx = Math.max(0, adminStatSwipeState.currentX - adminStatSwipeState.startX);
+  const dx = Math.max(0, adminStatSwipeState.startX - adminStatSwipeState.currentX);
+  const dy = Math.abs(adminStatSwipeState.currentY - adminStatSwipeState.startY);
   const el = document.querySelector(`[data-admin-stat-id="${statId}"]`);
 
-  if (dx > 110) {
+  if (dx > 150 && dy < 55) {
     if (el) {
       el.style.transform = 'translateX(-100%)';
       el.style.opacity = '0';
@@ -7784,7 +7826,7 @@ async function endAdminStatSwipe(event, statId) {
     el.style.opacity = '';
   }
 
-  adminStatSwipeState = { id: null, startX: 0, currentX: 0 };
+  adminStatSwipeState = { id: null, startX: 0, startY: 0, currentX: 0, currentY: 0, locked: false };
 }
 
 let activeAdminStatsChartMode = 'day';
@@ -9176,11 +9218,25 @@ function openShiftView(date, reps) {
 
     byBath[key].reports.push(r);
 
-    SECTIONS.forEach(section => {
-      if (!byBath[key].photos[section.key]) byBath[key].photos[section.key] = [];
-      const photos = (r.photos && r.photos[section.key]) ? r.photos[section.key] : [];
-      byBath[key].photos[section.key].push(...photos);
-    });
+    if (isSimplePhotoBathName(key)) {
+      if (!byBath[key].photos.general) byBath[key].photos.general = [];
+      const reportPhotos = [];
+      if (r.photos && Array.isArray(r.photos.general)) {
+        reportPhotos.push(...r.photos.general);
+      }
+      Object.keys(r.photos || {}).forEach(photoKey => {
+        if (photoKey !== 'general' && Array.isArray(r.photos[photoKey])) {
+          reportPhotos.push(...r.photos[photoKey]);
+        }
+      });
+      byBath[key].photos.general.push(...reportPhotos);
+    } else {
+      SECTIONS.forEach(section => {
+        if (!byBath[key].photos[section.key]) byBath[key].photos[section.key] = [];
+        const photos = (r.photos && r.photos[section.key]) ? r.photos[section.key] : [];
+        byBath[key].photos[section.key].push(...photos);
+      });
+    }
   });
 
   Object.values(byBath).forEach(group => {
@@ -9191,7 +9247,8 @@ function openShiftView(date, reps) {
         <div style="font-size:18px;font-weight:700;margin-bottom:4px;">${group.bathName}</div>
         <div style="font-size:13px;color:var(--text-2);margin-bottom:16px;">Отчеты: ${reporters}</div>`;
 
-    SECTIONS.forEach(section => {
+    const sections = isSimplePhotoBathName(group.bathName) ? SIMPLE_REPORT_SECTIONS : SECTIONS;
+    sections.forEach(section => {
       const photos = group.photos[section.key] || [];
       if (photos.length === 0) return;
       html += `
