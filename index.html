@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.082 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.084 тестирование</div>
   </div>
 </div>
 
@@ -2450,8 +2450,8 @@
     <div class="admin-stats-chart-card">
       <div class="admin-stats-chart-head">
         <div>
-          <div class="admin-stats-chart-title">Динамика контактов и броней</div>
-          <div class="admin-stats-chart-sub">Синяя линия: звонки + Telegram. Зеленая линия: брони общее.</div>
+          <div class="admin-stats-chart-title">Динамика входящих и броней</div>
+          <div class="admin-stats-chart-sub">Синяя линия: входящие. Зеленая линия: брони. Аквамарин: конверсия.</div>
         </div>
         <div class="admin-stats-chart-tabs">
           <button class="admin-stats-chart-tab active" id="admin-chart-tab-day" onclick="setAdminStatsChartMode('day')">Дни</button>
@@ -2463,8 +2463,9 @@
         <canvas id="admin-stats-chart-canvas"></canvas>
       </div>
       <div class="admin-stats-chart-legend">
-        <span><i class="admin-stats-chart-dot" style="background:#2f8cff;"></i>Контакты</span>
+        <span><i class="admin-stats-chart-dot" style="background:#2f8cff;"></i>Входящие</span>
         <span><i class="admin-stats-chart-dot" style="background:#2fcf7f;"></i>Брони</span>
+        <span><i class="admin-stats-chart-dot" style="background:#55f0e6;"></i>Конверсия</span>
       </div>
     </div>
     <div class="section-label">Даты</div>
@@ -2743,7 +2744,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.082";
+const APP_VERSION = "1.084";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -7967,12 +7968,20 @@ function openFounderAdminStatistics() {
   renderFounderAdminStatistics();
 }
 
-let adminStatSwipeState = { id: null, startX: 0, startY: 0, currentX: 0, currentY: 0, locked: false };
+let adminStatSwipeState = { id: null, startX: 0, startY: 0, currentX: 0, currentY: 0, startedAt: 0, horizontal: false };
 
 function startAdminStatSwipe(event, statId) {
   const touch = event.touches && event.touches[0];
   if (!touch) return;
-  adminStatSwipeState = { id: String(statId), startX: touch.clientX, startY: touch.clientY, currentX: touch.clientX, currentY: touch.clientY, locked: false };
+  adminStatSwipeState = {
+    id: String(statId),
+    startX: touch.clientX,
+    startY: touch.clientY,
+    currentX: touch.clientX,
+    currentY: touch.clientY,
+    startedAt: Date.now(),
+    horizontal: false
+  };
 }
 
 function moveAdminStatSwipe(event, statId) {
@@ -7986,21 +7995,25 @@ function moveAdminStatSwipe(event, statId) {
   const dy = Math.abs(touch.clientY - adminStatSwipeState.startY);
   const el = document.querySelector(`[data-admin-stat-id="${statId}"]`);
 
-  if (rightDx > 12 || dy > leftDx * 0.65) {
+  // Удаление статистики намеренно сделано строгим: только длинный, почти горизонтальный свайп влево.
+  // Обычный вертикальный скролл учредителя не должен случайно стирать отчёты, спасибо, уже наигрались.
+  if (rightDx > 8 || dy > 24 || (leftDx > 0 && dy > leftDx * 0.22)) {
     if (el) {
       el.style.transform = '';
       el.style.opacity = '';
     }
+    adminStatSwipeState.horizontal = false;
     return;
   }
 
-  if (leftDx < 18) return;
+  if (leftDx < 90) return;
+  adminStatSwipeState.horizontal = true;
   if (event.cancelable) event.preventDefault();
 
   if (el) {
-    const translate = Math.min(leftDx, 120);
+    const translate = Math.min(leftDx, 90);
     el.style.transform = `translateX(-${translate}px)`;
-    el.style.opacity = String(Math.max(0.55, 1 - leftDx / 420));
+    el.style.opacity = String(Math.max(0.72, 1 - leftDx / 650));
   }
 }
 
@@ -8008,9 +8021,23 @@ async function endAdminStatSwipe(event, statId) {
   if (adminStatSwipeState.id !== String(statId)) return;
   const dx = Math.max(0, adminStatSwipeState.startX - adminStatSwipeState.currentX);
   const dy = Math.abs(adminStatSwipeState.currentY - adminStatSwipeState.startY);
+  const elapsed = Date.now() - Number(adminStatSwipeState.startedAt || Date.now());
+  const screenWidth = window.innerWidth || 360;
+  const deleteThreshold = Math.max(240, Math.min(340, screenWidth * 0.68));
   const el = document.querySelector(`[data-admin-stat-id="${statId}"]`);
 
-  if (dx > 150 && dy < 55) {
+  if (adminStatSwipeState.horizontal && dx >= deleteThreshold && dy <= 24 && elapsed >= 260) {
+    if (el) {
+      el.style.transform = '';
+      el.style.opacity = '';
+    }
+
+    const confirmed = window.confirm('Удалить отчёт статистики администратора?');
+    if (!confirmed) {
+      adminStatSwipeState = { id: null, startX: 0, startY: 0, currentX: 0, currentY: 0, startedAt: 0, horizontal: false };
+      return;
+    }
+
     if (el) {
       el.style.transform = 'translateX(-100%)';
       el.style.opacity = '0';
@@ -8031,7 +8058,7 @@ async function endAdminStatSwipe(event, statId) {
     el.style.opacity = '';
   }
 
-  adminStatSwipeState = { id: null, startX: 0, startY: 0, currentX: 0, currentY: 0, locked: false };
+  adminStatSwipeState = { id: null, startX: 0, startY: 0, currentX: 0, currentY: 0, startedAt: 0, horizontal: false };
 }
 
 let activeAdminStatsChartMode = 'day';
@@ -8079,27 +8106,42 @@ function getAdminStatsChartBucket(stat, mode) {
   const date = parseAdminStatsDateKey(dateKey);
   if (!date) return null;
 
-  if (mode === 'month') {
-    const key = dateKey.slice(0, 7);
-    const label = date.toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' }).replace('.', '');
-    return { key, label };
-  }
-
-  if (mode === 'week') {
-    const start = new Date(date);
-    const day = start.getDay() || 7;
-    start.setDate(start.getDate() - day + 1);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    const key = formatAdminStatsDateKey(start);
-    const label = `${String(start.getDate()).padStart(2, '0')}.${String(start.getMonth() + 1).padStart(2, '0')}–${String(end.getDate()).padStart(2, '0')}.${String(end.getMonth() + 1).padStart(2, '0')}`;
-    return { key, label };
-  }
-
   return {
     key: dateKey,
-    label: `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`
+    label: `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`,
+    date
   };
+}
+
+function addAdminStatsDays(date, amount) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  next.setDate(next.getDate() + Number(amount || 0));
+  return next;
+}
+
+function getAdminStatsChartRange(mode, dataDays) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const parsed = (dataDays || [])
+    .map(key => parseAdminStatsDateKey(key))
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+  const lastDataDate = parsed.length ? parsed[parsed.length - 1] : today;
+  const end = new Date(Math.max(lastDataDate.getTime(), today.getTime()));
+  end.setHours(0, 0, 0, 0);
+
+  if (mode === 'week') {
+    return { start: addAdminStatsDays(end, -6), end, fillEmpty: true };
+  }
+
+  if (mode === 'month') {
+    return { start: addAdminStatsDays(end, -29), end, fillEmpty: true };
+  }
+
+  const firstDataDate = parsed.length ? parsed[0] : end;
+  return { start: firstDataDate, end, fillEmpty: false };
 }
 
 function getAdminStatsNumber(stat, keys) {
@@ -8123,22 +8165,57 @@ function getAdminStatsChartPoints(mode = activeAdminStatsChartMode) {
       grouped[bucket.key] = {
         key: bucket.key,
         label: bucket.label,
+        incoming: 0,
         contacts: 0,
-        bookings: 0
+        bookings: 0,
+        conversion: 0
       };
     }
 
     // Новые и старые записи считаются одинаково.
-    // Контакты = звонки + Telegram. Брони с ПВ намеренно не участвуют.
+    // Входящие = звонки + Telegram. Брони с ПВ намеренно не участвуют.
     const calls = getAdminStatsNumber(stat, ['calls', 'callCount', 'callsCount', 'zvonki']);
     const telegram = getAdminStatsNumber(stat, ['telegram', 'telegramCount', 'tg', 'telegramMessages']);
     const bookingsTotal = getAdminStatsNumber(stat, ['bookingsTotal', 'bookings', 'bookingTotal', 'totalBookings']);
 
-    grouped[bucket.key].contacts += calls + telegram;
+    grouped[bucket.key].incoming += calls + telegram;
+    grouped[bucket.key].contacts = grouped[bucket.key].incoming; // совместимость со старой логикой графика
     grouped[bucket.key].bookings += bookingsTotal;
   });
 
-  return Object.values(grouped).sort((a, b) => String(a.key).localeCompare(String(b.key)));
+  Object.values(grouped).forEach(point => {
+    point.conversion = point.incoming > 0 ? Math.round((point.bookings / point.incoming) * 100) : 0;
+  });
+
+  const dataKeys = Object.keys(grouped).sort();
+  const range = getAdminStatsChartRange(mode, dataKeys);
+  const startTime = range.start ? range.start.getTime() : 0;
+  const endTime = range.end ? range.end.getTime() : 0;
+
+  if (mode === 'week' || mode === 'month') {
+    const points = [];
+    for (let d = new Date(range.start); d <= range.end; d = addAdminStatsDays(d, 1)) {
+      const key = formatAdminStatsDateKey(d);
+      const existing = grouped[key];
+      points.push(existing || {
+        key,
+        label: `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`,
+        incoming: 0,
+        contacts: 0,
+        bookings: 0,
+        conversion: 0
+      });
+    }
+    return points;
+  }
+
+  return Object.values(grouped)
+    .filter(point => {
+      const date = parseAdminStatsDateKey(point.key);
+      const time = date ? date.getTime() : 0;
+      return !startTime || !endTime || (time >= startTime && time <= endTime);
+    })
+    .sort((a, b) => String(a.key).localeCompare(String(b.key)));
 }
 
 function drawAdminStatsChart() {
@@ -8170,7 +8247,7 @@ function drawAdminStatsChart() {
   ctx.fillStyle = '#0b0f14';
   ctx.fillRect(0, 0, width, height);
 
-  const maxValue = Math.max(100, ...points.map(p => Math.max(p.contacts, p.bookings)), 0);
+  const maxValue = Math.max(100, ...points.map(p => Math.max(p.incoming || p.contacts || 0, p.bookings || 0, p.conversion || 0)), 0);
   const yMax = Math.max(120, Math.ceil((maxValue + 20) / 20) * 20);
 
   ctx.strokeStyle = 'rgba(130, 150, 170, 0.18)';
@@ -8253,17 +8330,20 @@ function drawAdminStatsChart() {
     });
   }
 
-  drawLine('contacts', '#2f8cff');
+  drawLine('incoming', '#2f8cff');
   drawLine('bookings', '#2fcf7f');
+  drawLine('conversion', '#55f0e6');
 
   const latest = points[points.length - 1];
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';
   ctx.font = '11px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
   ctx.fillStyle = '#2f8cff';
-  ctx.fillText(`Контакты: ${latest.contacts}`, width - 10, 12);
+  ctx.fillText(`Входящие: ${latest.incoming || latest.contacts || 0}`, width - 10, 12);
   ctx.fillStyle = '#2fcf7f';
   ctx.fillText(`Брони: ${latest.bookings}`, width - 10, 28);
+  ctx.fillStyle = '#55f0e6';
+  ctx.fillText(`Конверсия: ${latest.conversion || 0}%`, width - 10, 44);
 }
 
 function renderAdminStatsChartTabs() {
@@ -8326,7 +8406,7 @@ function renderFounderAdminStatistics() {
       onclick="openFounderAdminStatisticsView('${stat.id}')">
       <div class="shift-date">${escapeHtml(d)}${unreadDotHtml(isFounderItemUnread('adminStats', stat.id, stat.createdAt))}</div>
       <div class="shift-meta">${escapeHtml(stat.name || 'Администратор')} · Звонки: ${calls} · Брони: ${total}</div>
-      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните влево, чтобы удалить</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Длинный свайп влево до конца + подтверждение для удаления</div>
     </div>`;
   }).join('');
 }
@@ -8462,7 +8542,7 @@ function renderFounderFines() {
     return `<div class="card swipe-delete-card" style="cursor:default;" data-fine-id="${f.id}" ontouchstart="startFineSwipe(event, '${f.id}')" ontouchmove="moveFineSwipe(event, '${f.id}')" ontouchend="endFineSwipe(event, '${f.id}')">
       <div class="card-title">${f.staffName}${f.staffRole ? ' · ' + f.staffRole : ''} · ${Number(f.amount).toLocaleString('ru-RU')} сум</div>
       <div class="card-sub">${date}${f.reason ? ' · ' + f.reason : ''}</div>
-      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните влево, чтобы удалить</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Длинный свайп влево до конца + подтверждение для удаления</div>
     </div>`;
   }).join('');
 }
@@ -8980,7 +9060,7 @@ function renderFounderAnonymousFeedback() {
       ${targetHtml}
       <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(item.text || '')}</div>
       ${photosHtml}
-      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните влево, чтобы удалить</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Длинный свайп влево до конца + подтверждение для удаления</div>
     </div>`;
   }).join('') : `<div class="empty" style="padding:34px 0;"><div class="empty-icon">💬</div><div class="empty-title">Пока пусто</div><div class="empty-sub">Новых записей нет</div></div>`;
 
@@ -9191,7 +9271,7 @@ function renderInventoryRecordsList() {
       ontouchend="endInventoryRecordSwipe(event, '${r.id}')">
       <div class="shift-date">${date}${unreadDotHtml(isFounderItemUnread('inventory', r.id, r.createdAt || r.submittedAt))}</div>
       <div class="shift-meta">${r.staffName || 'Неизвестно'}${r.staffRole ? ' · ' + r.staffRole : ''}${time ? ' · ' + time : ''} · ${filled} позиций</div>
-      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Смахните влево, чтобы удалить</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Длинный свайп влево до конца + подтверждение для удаления</div>
     </div>`;
   }).join('');
 }
