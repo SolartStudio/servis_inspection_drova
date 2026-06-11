@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.084 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.086 тестирование</div>
   </div>
 </div>
 
@@ -2744,7 +2744,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.084";
+const APP_VERSION = "1.086";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -7130,6 +7130,14 @@ async function confirmRepairRequest() {
 
 function getRepairStatusText(req) { if (!req) return 'Ожидает'; if (req.status === 'repaired') return 'Отремонтировано'; if (req.status === 'read_by_technician') return 'Просмотрено'; return 'Ожидает'; }
 function getRepairStatusColor(req) { if (!req) return 'var(--accent)'; if (req.status === 'repaired') return 'var(--success)'; if (req.status === 'read_by_technician') return 'var(--text-2)'; return 'var(--accent)'; }
+function normalizeRepairPhotoList(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === 'string') return value ? [value] : [];
+  if (typeof value === 'object') return [value];
+  return [];
+}
+
 
 function getRepairHistoryForActor(sourceRole) {
   const actor = getRepairActor(sourceRole);
@@ -7151,12 +7159,12 @@ function renderRepairHistoryForCurrentActor() {
 
   el.innerHTML = items.map(req => {
     const dateText = req.date ? `${formatDateRu(req.date)}${req.time ? ' · ' + req.time : ''}` : '';
-    const photos = (req.photos || []).slice(0, 3);
-    const fixedPhotos = (req.fixedPhotos || []).slice(0, 3);
+    const photos = normalizeRepairPhotoList(req.photos).slice(0, 3);
+    const fixedPhotos = normalizeRepairPhotoList(req.fixedPhotos).slice(0, 3);
     const photoHtml = photos.length ? `<div class="report-photo-grid" style="margin-top:12px;">${photos.map((photo, idx) => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
     const fixedHtml = fixedPhotos.length ? `<div style="font-size:12px;color:var(--text-3);margin-top:12px;margin-bottom:8px;">Фото после ремонта</div><div class="report-photo-grid">${fixedPhotos.map((photo, idx) => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
-    return `<div class="card" onclick="markFounderFeedbackRead('${item.id}')">
-      <div class="card-title">${escapeHtml(dateText || 'Без даты')}${unreadDotHtml(isFounderItemUnread('feedback', item.id, item.createdAt))}</div>
+    return `<div class="card" onclick="openRepairView('${req.id}', 'staff')">
+      <div class="card-title">${escapeHtml(dateText || 'Без даты')}</div>
       <div class="card-sub"><span style="color:${getRepairStatusColor(req)};font-weight:700;">${getRepairStatusText(req)}</span>${req.technicianName ? ' · ' + escapeHtml(req.technicianName) : ''}</div>
       <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(req.text || '')}</div>
       ${photoHtml}
@@ -7213,8 +7221,8 @@ function renderRepairView() {
   const mode = localStorage.getItem('repairViewMode') || 'technician';
   const dateText = req.date ? `${formatDateRu(req.date)}${req.time ? ' · ' + req.time : ''}` : '';
   title.textContent = 'Поломка';
-  activeRepairPhotoSet = req.photos || [];
-  activeRepairFixedPhotoSet = req.fixedPhotos || [];
+  activeRepairPhotoSet = normalizeRepairPhotoList(req.photos);
+  activeRepairFixedPhotoSet = normalizeRepairPhotoList(req.fixedPhotos);
   const photosHtml = activeRepairPhotoSet.length ? `<div class="section-label">Фото поломки</div><div class="report-photo-grid" style="margin-bottom:16px;">${activeRepairPhotoSet.map((photo, idx) => `<div class="report-photo-thumb" onclick="openRepairPhoto('main', ${idx})"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : `<div class="doc-placeholder">Фото поломки не прикрепляли.</div>`;
   const fixedPhotosHtml = activeRepairFixedPhotoSet.length ? `<div class="section-label">Фото после ремонта</div><div class="report-photo-grid" style="margin-bottom:16px;">${activeRepairFixedPhotoSet.map((photo, idx) => `<div class="report-photo-thumb" onclick="openRepairPhoto('fixed', ${idx})"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
   const closeBlock = mode === 'technician' && req.status !== 'repaired' ? `<div class="section-label">Закрытие заявки</div><div class="photo-section"><div class="photo-section-header"><span class="photo-section-title">Фото после починки</span><span class="photo-count" id="repair-close-photo-count">0 / 3</span></div><div class="photo-body"><div class="photo-grid" id="repair-close-photo-grid" style="display:none;"></div><div id="repair-close-add-btn" class="photo-actions"><button type="button" class="add-photo-btn" onclick="openCameraModal('repairClose')"><span>📷</span><span>Сделать фото</span></button></div></div></div><button class="btn btn-primary" onclick="closeRepairRequestWithPhoto()">Закрыть заявку</button>` : '';
