@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.089 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.090 тестирование</div>
   </div>
 </div>
 
@@ -2743,14 +2743,14 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.089";
+const APP_VERSION = "1.090";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
   version: APP_VERSION,
   channel: APP_CHANNEL,
   label: APP_VERSION_LABEL,
-  updatedAt: "2026-06-11"
+  updatedAt: "2026-06-13"
 };
 
 let db = null;
@@ -9875,12 +9875,13 @@ function getNextShiftDateKey(now = new Date()) {
   return toDateKey(d);
 }
 
-// Фотоотчеты привязаны к рабочей смене, которая закрывается в 06:00.
-// До 06:00 вечерний отчет относится к сегодняшней смене.
-// С 06:00 и дальше отчет готовится на следующую календарную смену.
+// Фотоотчеты не должны улетать в будущую дату.
+// Утро всегда относится к текущему календарному дню.
+// Ночь после 00:00 и до 06:00 относится к предыдущей ночной смене.
+// Ночь с 06:00 и дальше относится к текущему календарному дню.
 function getPhotoReportTargetDateKey(now = new Date(), period = null) {
   const d = new Date(now);
-  if (d.getHours() >= 6) d.setDate(d.getDate() + 1);
+  if (period === 'evening' && d.getHours() < 6) d.setDate(d.getDate() - 1);
   return toDateKey(d);
 }
 
