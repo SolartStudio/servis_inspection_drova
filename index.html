@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.090 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.091 тестирование</div>
   </div>
 </div>
 
@@ -2743,7 +2743,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.090";
+const APP_VERSION = "1.091";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2759,6 +2759,7 @@ const appCache = {
   staff: [],
   reports: [],
   dutyAssignment: null,
+  dutyAssignmentsByDate: {},
   founderPassword: "5552",
   adminPassword: "3235",
   fines: [],
@@ -2976,6 +2977,16 @@ function hasAdminSession() {
     return false;
   }
 
+  if (CLOUD_ENABLED) {
+    const id = session.adminId || localStorage.getItem("currentAdminProfileId");
+    const profile = id ? getAdminProfiles().find(a => String(a.id) === String(id)) : null;
+    if (!id || !profile) {
+      clearAdminSession();
+      clearCurrentAdminProfile();
+      return false;
+    }
+  }
+
   return true;
 }
 function getAdminProfiles() {
@@ -3015,6 +3026,16 @@ function clearCurrentAdminProfile() {
 function getCurrentAdminProfile() {
   const id = localStorage.getItem("currentAdminProfileId");
   const cloudProfile = id ? getAdminProfiles().find(a => String(a.id) === String(id)) : null;
+
+  if (CLOUD_ENABLED) {
+    if (id && !cloudProfile) {
+      clearAdminSession();
+      clearCurrentAdminProfile();
+      return null;
+    }
+    return cloudProfile || null;
+  }
+
   return cloudProfile || LocalDB.get("adminProfile") || null;
 }
 
@@ -3082,6 +3103,7 @@ async function initCloud() {
     appCache.staff = LocalDB.get("staff") || [];
     appCache.reports = LocalDB.get("reports") || [];
     appCache.dutyAssignment = LocalDB.get("dutyAssignment") || null;
+    appCache.dutyAssignmentsByDate = LocalDB.get("dutyAssignmentsByDate") || {};
     appCache.founderPassword = LocalDB.get("founderPassword") || "5552";
     appCache.adminPassword = LocalDB.get("adminPassword") || "3235";
     appCache.fines = LocalDB.get("fines") || [];
@@ -3204,6 +3226,8 @@ async function initCloud() {
   db.collection("settings").doc("main").onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : {};
     appCache.dutyAssignment = data.dutyAssignment || null;
+    appCache.dutyAssignmentsByDate = data.dutyAssignmentsByDate || LocalDB.get("dutyAssignmentsByDate") || {};
+    LocalDB.set("dutyAssignmentsByDate", appCache.dutyAssignmentsByDate);
     appCache.founderPassword = data.founderPassword || LocalDB.get("founderPassword") || "5552";
     appCache.adminPassword = data.adminPassword || LocalDB.get("adminPassword") || "3235";
     LocalDB.set("founderPassword", appCache.founderPassword);
@@ -3261,6 +3285,8 @@ async function loadCloudData() {
 
   const settings = settingsDoc.exists ? settingsDoc.data() : {};
   appCache.dutyAssignment = settings.dutyAssignment || null;
+  appCache.dutyAssignmentsByDate = settings.dutyAssignmentsByDate || LocalDB.get("dutyAssignmentsByDate") || {};
+  LocalDB.set("dutyAssignmentsByDate", appCache.dutyAssignmentsByDate);
   appCache.founderPassword = settings.founderPassword || LocalDB.get("founderPassword") || "5552";
   appCache.adminPassword = settings.adminPassword || LocalDB.get("adminPassword") || "3235";
   LocalDB.set("founderPassword", appCache.founderPassword);
@@ -3277,6 +3303,7 @@ async function loadCloudData() {
       founderPassword: "5552",
       adminPassword: "3235",
       dutyAssignment: null,
+      dutyAssignmentsByDate: {},
       kpiContent: appCache.kpiContent || getDefaultKpiContent(),
       stopList: appCache.stopList || getDefaultStopList(),
       adminShiftHandover: appCache.adminShiftHandover || null,
@@ -3286,7 +3313,39 @@ async function loadCloudData() {
   }
 }
 
+function enforceCurrentAccessStillValid() {
+  if (!CLOUD_ENABLED) return true;
+  if (hasFounderSession()) return true;
+
+  const currentScreen = screenStack && screenStack[screenStack.length - 1] ? String(screenStack[screenStack.length - 1]) : '';
+
+  const currentAdminId = localStorage.getItem("currentAdminProfileId");
+  if (currentAdminId && !getAdminProfiles().some(a => String(a.id) === String(currentAdminId))) {
+    clearAdminSession();
+    clearCurrentAdminProfile();
+    if (currentScreen.includes('admin')) {
+      goHome();
+      showToast('Ваш доступ был отозван');
+    }
+    return false;
+  }
+
+  const currentStaffId = localStorage.getItem("currentStaffId");
+  const currentStaffRole = localStorage.getItem("currentStaffRole");
+  if (currentStaffId && !getStaff().some(s => String(s.id) === String(currentStaffId))) {
+    clearStaffRoleSession(currentStaffRole);
+    if (currentScreen && currentScreen !== 'screen-home' && !currentScreen.includes('founder')) {
+      goHome();
+      showToast('Ваш доступ был отозван');
+    }
+    return false;
+  }
+
+  return true;
+}
+
 function refreshVisibleData() {
+  if (!enforceCurrentAccessStillValid()) return;
   const current = screenStack && screenStack[screenStack.length - 1];
   if (!current) return;
   refreshScreen(current);
@@ -3810,6 +3869,32 @@ function setDutyAssignment(data) {
       showToast("Ошибка назначения");
     });
   }
+}
+
+function getDutyAssignmentsByDate() {
+  return appCache.dutyAssignmentsByDate || {};
+}
+
+async function setDutyAssignmentForDate(dateKey, data) {
+  if (!dateKey || !data) return;
+  const archive = { ...getDutyAssignmentsByDate(), [String(dateKey)]: data };
+  appCache.dutyAssignmentsByDate = archive;
+  LocalDB.set("dutyAssignmentsByDate", archive);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("settings").doc("main").set({
+      dutyAssignmentsByDate: archive,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
+
+function getDutyAssignmentForDate(dateKey) {
+  if (!dateKey) return null;
+  const archive = getDutyAssignmentsByDate();
+  if (archive && archive[String(dateKey)]) return archive[String(dateKey)];
+  const current = getDutyAssignment();
+  return current && String(current.targetDate || '') === String(dateKey) ? current : null;
 }
 
 function getFounderPassword() {
@@ -6990,14 +7075,20 @@ function confirmDuty() {
   person.dutyCount = (person.dutyCount || 0) + 1;
   setStaff(allStaff);
 
-  setDutyAssignment({
+  const dutySnapshot = {
     staffId: selectedDutyId,
     staffName: person.name,
-    staffLogin: person.login,
+    staffLogin: person.login || '',
     targetDate,
     tasks,
     messageText,
     assignedAt: new Date().toISOString()
+  };
+
+  setDutyAssignment(dutySnapshot);
+  setDutyAssignmentForDate(targetDate, dutySnapshot).catch(err => {
+    console.error('duty archive save error', err);
+    showToast('Ошибка сохранения истории дежурного');
   });
 
   notifyStaffMember(person, `🌅 Вы назначены дежурным\n\nДата: ${formatDateRu(targetDate)}${tasks ? '\n\nЗадачи:\n' + tasks : ''}`);
@@ -9205,12 +9296,10 @@ function renderShifts() {
   const dates = Object.keys(byDate).sort().reverse();
   dates.forEach(date => {
     const reps = byDate[date];
-    const duty = getDutyAssignment();
-    const staff = getStaff();
+    const duty = getDutyAssignmentForDate(date);
     let dutyName = 'Не назначен';
-    if (duty && duty.targetDate === date) {
-      const p = staff.find(s => String(s.id) === String(duty.staffId));
-      if (p) dutyName = p.name;
+    if (duty && duty.staffName) {
+      dutyName = duty.staffName;
     }
 
     const div = document.createElement('div');
@@ -9497,22 +9586,18 @@ function openShiftView(date, reps) {
   updateUnreadBadges();
   const el = document.getElementById('shift-view-content');
   activeShiftPhotoGallery = [];
-  const duty = getDutyAssignment();
-  const staff = getStaff();
+  const duty = getDutyAssignmentForDate(date);
 
   document.getElementById('shift-view-title').textContent = formatDateRu(date);
 
   let dutyName = 'Не назначен';
-  if (duty && duty.targetDate === date) {
-    const p = staff.find(s => String(s.id) === String(duty.staffId));
-    if (p) dutyName = p.name;
-  }
+  if (duty && duty.staffName) dutyName = duty.staffName;
 
   let html = `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:20px;">
       <div style="font-size:12px;color:var(--text-3);letter-spacing:0.5px;margin-bottom:6px;">ДЕЖУРНЫЙ УТРОМ · ${formatDateRu(date)}</div>
       <div style="font-size:17px;font-weight:600;">${dutyName}</div>
-      ${duty && duty.targetDate === date && duty.tasks ? `<div style="font-size:13px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-top:10px;">${escapeHtml(duty.tasks)}</div>` : ''}
+      ${duty && duty.tasks ? `<div style="font-size:13px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-top:10px;">${escapeHtml(duty.tasks)}</div>` : ''}
     </div>`;
 
   const byBath = {};
@@ -9912,6 +9997,7 @@ async function init() {
     appCache.staff = LocalDB.get("staff") || appCache.staff || [];
     appCache.reports = LocalDB.get("reports") || appCache.reports || [];
     appCache.dutyAssignment = LocalDB.get("dutyAssignment") || appCache.dutyAssignment || null;
+    appCache.dutyAssignmentsByDate = LocalDB.get("dutyAssignmentsByDate") || appCache.dutyAssignmentsByDate || {};
     appCache.founderPassword = LocalDB.get("founderPassword") || appCache.founderPassword || "5552";
     appCache.adminPassword = LocalDB.get("adminPassword") || appCache.adminPassword || "3235";
     appCache.fines = LocalDB.get("fines") || appCache.fines || [];
