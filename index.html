@@ -2750,7 +2750,7 @@ window.DROVA_INSPECTOR_VERSION = {
   version: APP_VERSION,
   channel: APP_CHANNEL,
   label: APP_VERSION_LABEL,
-  updatedAt: "2026-06-14"
+  updatedAt: "2026-06-13"
 };
 
 let db = null;
@@ -2759,6 +2759,7 @@ const appCache = {
   staff: [],
   reports: [],
   dutyAssignment: null,
+  dutyAssignmentsByDate: {},
   founderPassword: "5552",
   adminPassword: "3235",
   fines: [],
@@ -2771,7 +2772,7 @@ const appCache = {
   adminShiftHandover: null,
   bathmasterOrders: [],
   repairRequests: [],
-  repairReminderLog: {},
+  technicianRepairReminderLog: {},
   founderTasks: [],
   forgottenItems: [],
   anonymousFeedback: [],
@@ -2977,6 +2978,16 @@ function hasAdminSession() {
     return false;
   }
 
+  if (CLOUD_ENABLED) {
+    const id = session.adminId || localStorage.getItem("currentAdminProfileId");
+    const profile = id ? getAdminProfiles().find(a => String(a.id) === String(id)) : null;
+    if (!id || !profile) {
+      clearAdminSession();
+      clearCurrentAdminProfile();
+      return false;
+    }
+  }
+
   return true;
 }
 function getAdminProfiles() {
@@ -3016,6 +3027,16 @@ function clearCurrentAdminProfile() {
 function getCurrentAdminProfile() {
   const id = localStorage.getItem("currentAdminProfileId");
   const cloudProfile = id ? getAdminProfiles().find(a => String(a.id) === String(id)) : null;
+
+  if (CLOUD_ENABLED) {
+    if (id && !cloudProfile) {
+      clearAdminSession();
+      clearCurrentAdminProfile();
+      return null;
+    }
+    return cloudProfile || null;
+  }
+
   return cloudProfile || LocalDB.get("adminProfile") || null;
 }
 
@@ -3083,6 +3104,7 @@ async function initCloud() {
     appCache.staff = LocalDB.get("staff") || [];
     appCache.reports = LocalDB.get("reports") || [];
     appCache.dutyAssignment = LocalDB.get("dutyAssignment") || null;
+    appCache.dutyAssignmentsByDate = LocalDB.get("dutyAssignmentsByDate") || {};
     appCache.founderPassword = LocalDB.get("founderPassword") || "5552";
     appCache.adminPassword = LocalDB.get("adminPassword") || "3235";
     appCache.fines = LocalDB.get("fines") || [];
@@ -3095,7 +3117,7 @@ async function initCloud() {
     appCache.adminShiftHandover = LocalDB.get("adminShiftHandover") || null;
     appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || [];
     appCache.repairRequests = LocalDB.get("repairRequests") || [];
-    appCache.repairReminderLog = LocalDB.get("repairReminderLog") || {};
+    appCache.technicianRepairReminderLog = LocalDB.get("technicianRepairReminderLog") || {};
     appCache.founderTasks = LocalDB.get("founderTasks") || [];
     appCache.forgottenItems = LocalDB.get("forgottenItems") || [];
     appCache.anonymousFeedback = LocalDB.get("anonymousFeedback") || [];
@@ -3206,6 +3228,8 @@ async function initCloud() {
   db.collection("settings").doc("main").onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : {};
     appCache.dutyAssignment = data.dutyAssignment || null;
+    appCache.dutyAssignmentsByDate = data.dutyAssignmentsByDate || LocalDB.get("dutyAssignmentsByDate") || {};
+    LocalDB.set("dutyAssignmentsByDate", appCache.dutyAssignmentsByDate);
     appCache.founderPassword = data.founderPassword || LocalDB.get("founderPassword") || "5552";
     appCache.adminPassword = data.adminPassword || LocalDB.get("adminPassword") || "3235";
     LocalDB.set("founderPassword", appCache.founderPassword);
@@ -3215,6 +3239,8 @@ async function initCloud() {
     appCache.kpiContent = data.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
     appCache.stopList = data.stopList || LocalDB.get("stopList") || getDefaultStopList();
     appCache.adminShiftHandover = data.adminShiftHandover || LocalDB.get("adminShiftHandover") || null;
+    appCache.technicianRepairReminderLog = data.technicianRepairReminderLog || LocalDB.get("technicianRepairReminderLog") || {};
+    LocalDB.set("technicianRepairReminderLog", appCache.technicianRepairReminderLog);
     LocalDB.set("inventoryDraft", appCache.inventoryDraft);
     LocalDB.set("photoReportDrafts", appCache.photoReportDrafts);
     LocalDB.set("kpiContent", appCache.kpiContent);
@@ -3263,6 +3289,8 @@ async function loadCloudData() {
 
   const settings = settingsDoc.exists ? settingsDoc.data() : {};
   appCache.dutyAssignment = settings.dutyAssignment || null;
+  appCache.dutyAssignmentsByDate = settings.dutyAssignmentsByDate || LocalDB.get("dutyAssignmentsByDate") || {};
+  LocalDB.set("dutyAssignmentsByDate", appCache.dutyAssignmentsByDate);
   appCache.founderPassword = settings.founderPassword || LocalDB.get("founderPassword") || "5552";
   appCache.adminPassword = settings.adminPassword || LocalDB.get("adminPassword") || "3235";
   LocalDB.set("founderPassword", appCache.founderPassword);
@@ -3272,16 +3300,20 @@ async function loadCloudData() {
   appCache.kpiContent = settings.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
   appCache.stopList = settings.stopList || LocalDB.get("stopList") || getDefaultStopList();
   appCache.adminShiftHandover = settings.adminShiftHandover || LocalDB.get("adminShiftHandover") || null;
+  appCache.technicianRepairReminderLog = settings.technicianRepairReminderLog || LocalDB.get("technicianRepairReminderLog") || {};
   LocalDB.set("adminShiftHandover", appCache.adminShiftHandover);
+  LocalDB.set("technicianRepairReminderLog", appCache.technicianRepairReminderLog);
 
   if (!settingsDoc.exists) {
     await db.collection("settings").doc("main").set({
       founderPassword: "5552",
       adminPassword: "3235",
       dutyAssignment: null,
+      dutyAssignmentsByDate: {},
       kpiContent: appCache.kpiContent || getDefaultKpiContent(),
       stopList: appCache.stopList || getDefaultStopList(),
       adminShiftHandover: appCache.adminShiftHandover || null,
+      technicianRepairReminderLog: appCache.technicianRepairReminderLog || {},
       photoReportDrafts: appCache.photoReportDrafts || [],
       updatedAt: new Date().toISOString()
     }, { merge: true });
@@ -3814,6 +3846,32 @@ function setDutyAssignment(data) {
   }
 }
 
+function getDutyAssignmentsByDate() {
+  return appCache.dutyAssignmentsByDate || {};
+}
+
+async function setDutyAssignmentForDate(dateKey, data) {
+  if (!dateKey || !data) return;
+  const archive = { ...getDutyAssignmentsByDate(), [String(dateKey)]: data };
+  appCache.dutyAssignmentsByDate = archive;
+  LocalDB.set("dutyAssignmentsByDate", archive);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("settings").doc("main").set({
+      dutyAssignmentsByDate: archive,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
+
+function getDutyAssignmentForDate(dateKey) {
+  if (!dateKey) return null;
+  const archive = getDutyAssignmentsByDate();
+  if (archive && archive[String(dateKey)]) return archive[String(dateKey)];
+  const current = getDutyAssignment();
+  return current && String(current.targetDate || '') === String(dateKey) ? current : null;
+}
+
 function getFounderPassword() {
   return appCache.founderPassword || "5552";
 }
@@ -4201,90 +4259,6 @@ async function updateRepairRequest(req) {
 }
 
 
-function getRepairReminderLog() {
-  return appCache.repairReminderLog || {};
-}
-
-async function setRepairReminderLogEntry(key, data) {
-  if (!key) return;
-  const next = { ...getRepairReminderLog(), [String(key)]: data };
-  appCache.repairReminderLog = next;
-  LocalDB.set("repairReminderLog", next);
-
-  if (CLOUD_ENABLED && db) {
-    await db.collection("settings").doc("main").set({
-      repairReminderLog: next,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-  }
-}
-
-function getPendingRepairRequestsForTechnicianReminder() {
-  return getRepairRequests()
-    .filter(req => req && String(req.status || 'new') !== 'repaired')
-    .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
-}
-
-function buildTechnicianRepairReminderText(items, slotLabel) {
-  const list = (items || []).map((req, idx) => {
-    const text = String(req.text || '').trim();
-    const shortText = text.length > 180 ? text.slice(0, 180) + '...' : text;
-    const fromText = `${req.sourceRoleLabel || 'Подразделение'} · ${req.staffName || 'Сотрудник'}`;
-    return `${idx + 1}. Задача: ${shortText || 'Без описания'}
-От: ${fromText}
-Ожидает выполнения`;
-  }).join('\n\n');
-
-  return `🛠️ Невыполненные задачи технику · ${slotLabel}
-
-${list}
-
-Закройте задачу после выполнения в Drova Inspector → Техник → Заявки на ремонт`;
-}
-
-async function sendTechnicianRepairReminderForSlot(slotHour) {
-  const pending = getPendingRepairRequestsForTechnicianReminder();
-  const now = new Date();
-  const dateKey = toDateKey(now);
-  const slotLabel = `${String(slotHour).padStart(2, '0')}:00`;
-  const logKey = `${dateKey}_${slotLabel}`;
-  const existing = getRepairReminderLog()[logKey];
-
-  if (existing && existing.sentAt) return;
-
-  await setRepairReminderLogEntry(logKey, {
-    sentAt: new Date().toISOString(),
-    slot: slotLabel,
-    pendingIds: pending.map(req => String(req.id)),
-    pendingCount: pending.length
-  });
-
-  if (!pending.length) return;
-
-  await notifyRole('technician', buildTechnicianRepairReminderText(pending, slotLabel));
-}
-
-function checkTechnicianRepairReminderSchedule() {
-  if (!TELEGRAM_PHOTO_ENABLED) return;
-  const now = new Date();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
-
-  // Напоминания отправляются только в утренние окна 08:00 и 12:00.
-  // Окно 0-10 минут нужно, чтобы Telegram WebView не промахнулся из-за сна телефона.
-  if ((hour === 8 || hour === 12) && minute <= 10) {
-    sendTechnicianRepairReminderForSlot(hour).catch(err => console.warn('technician repair reminder error', err));
-  }
-}
-
-let technicianRepairReminderTimer = null;
-function startTechnicianRepairReminderScheduler() {
-  if (technicianRepairReminderTimer) return;
-  checkTechnicianRepairReminderSchedule();
-  technicianRepairReminderTimer = setInterval(checkTechnicianRepairReminderSchedule, 60 * 1000);
-}
-
-
 function getForgottenItems() {
   return appCache.forgottenItems || [];
 }
@@ -4629,6 +4603,98 @@ function notifyFounders(textValue) {
 function notifyStaffMember(staff, textValue) {
   const id = getTelegramIdForStaff(staff);
   return id ? notifyTelegramUsers([id], textValue) : Promise.resolve({ ok:false, sent:0, skipped:true });
+}
+
+
+// ============================================================
+// TECHNICIAN REPAIR REMINDERS — Telegram bot notifications
+// Напоминания о незакрытых поломках уходят в того же бота через /notify.
+// Важно: из HTML это сработает только когда Mini App открыт в 08:00 или 12:00.
+// Для гарантированной отправки при закрытом приложении нужен Cloudflare Worker Cron.
+// ============================================================
+let technicianRepairReminderTimer = null;
+let technicianRepairReminderBusy = false;
+
+function getTechnicianRepairReminderLog() {
+  return appCache.technicianRepairReminderLog || {};
+}
+
+async function setTechnicianRepairReminderLog(log) {
+  appCache.technicianRepairReminderLog = log || {};
+  LocalDB.set("technicianRepairReminderLog", appCache.technicianRepairReminderLog);
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("settings").doc("main").set({
+      technicianRepairReminderLog: appCache.technicianRepairReminderLog,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
+
+function isRepairWaitingForTechnician(req) {
+  return !!req && String(req.status || 'new') !== 'repaired';
+}
+
+function buildTechnicianRepairReminderText(req) {
+  const taskText = String(req && req.text ? req.text : 'Без описания').trim();
+  const fromText = `${req && req.sourceRoleLabel ? req.sourceRoleLabel : 'Сотрудник'}${req && req.staffName ? ' · ' + req.staffName : ''}`;
+  return `🛠️ Задача: ${taskText}\nОт: ${fromText}\nОжидает выполнения`;
+}
+
+function pruneTechnicianRepairReminderLog(log, todayKey) {
+  const next = {};
+  Object.keys(log || {}).forEach(key => {
+    if (key.startsWith(todayKey + '_')) next[key] = log[key];
+  });
+  return next;
+}
+
+async function runTechnicianRepairReminderCheck(forceSlot = null) {
+  if (technicianRepairReminderBusy) return;
+  if (!TELEGRAM_PHOTO_ENABLED) return;
+
+  const now = new Date();
+  const hour = now.getHours();
+  const slot = forceSlot || (hour === 8 ? '08' : (hour === 12 ? '12' : ''));
+  if (!slot) return;
+
+  const technicianIds = getTelegramIdsForRole('technician');
+  if (!technicianIds.length) return;
+
+  const waiting = getRepairRequests().filter(isRepairWaitingForTechnician);
+  if (!waiting.length) return;
+
+  technicianRepairReminderBusy = true;
+  try {
+    const todayKey = toDateKey(now);
+    let log = pruneTechnicianRepairReminderLog(getTechnicianRepairReminderLog(), todayKey);
+    let changed = false;
+
+    for (const req of waiting) {
+      const reqId = String(req.id || '');
+      if (!reqId) continue;
+      const key = `${todayKey}_${slot}_${reqId}`;
+      if (log[key]) continue;
+
+      const result = await notifyTelegramUsers(technicianIds, buildTechnicianRepairReminderText(req));
+      if (result && result.ok !== false) {
+        log[key] = new Date().toISOString();
+        changed = true;
+      }
+    }
+
+    if (changed) await setTechnicianRepairReminderLog(log);
+  } catch (err) {
+    console.warn('technician repair reminder error', err);
+  } finally {
+    technicianRepairReminderBusy = false;
+  }
+}
+
+function startTechnicianRepairReminderTimer() {
+  if (technicianRepairReminderTimer) return;
+  runTechnicianRepairReminderCheck();
+  technicianRepairReminderTimer = setInterval(runTechnicianRepairReminderCheck, 60 * 1000);
 }
 
 
@@ -7076,14 +7142,20 @@ function confirmDuty() {
   person.dutyCount = (person.dutyCount || 0) + 1;
   setStaff(allStaff);
 
-  setDutyAssignment({
+  const dutySnapshot = {
     staffId: selectedDutyId,
     staffName: person.name,
-    staffLogin: person.login,
+    staffLogin: person.login || '',
     targetDate,
     tasks,
     messageText,
     assignedAt: new Date().toISOString()
+  };
+
+  setDutyAssignment(dutySnapshot);
+  setDutyAssignmentForDate(targetDate, dutySnapshot).catch(err => {
+    console.error('duty archive save error', err);
+    showToast('Ошибка сохранения истории дежурного');
   });
 
   notifyStaffMember(person, `🌅 Вы назначены дежурным\n\nДата: ${formatDateRu(targetDate)}${tasks ? '\n\nЗадачи:\n' + tasks : ''}`);
@@ -7202,7 +7274,7 @@ async function confirmRepairRequest() {
     const now = new Date();
     const req = { id: Date.now(), sourceRole: activeRepairSourceRole, sourceRoleLabel: getRoleLabel(activeRepairSourceRole), staffId: actor.id, staffName: actor.name || getRoleLabel(activeRepairSourceRole), staffLogin: actor.login || '', text: textValue, photos, fixedPhotos: [], status: 'new', date: toDateKey(now), time: now.toTimeString().slice(0, 5), createdAt: now.toISOString(), technicianReadAt: null, repairedAt: null };
     await saveRepairRequest(req);
-    notifyRole('technician', `🛠️ Новая заявка на ремонт\n\n${req.sourceRoleLabel}: ${req.staffName}\n${req.text}\n\nОткройте Drova Inspector → Техник → Заявки на ремонт`);
+    notifyRole('technician', `🛠️ Задача: ${req.text}\nОт: ${req.sourceRoleLabel} · ${req.staffName}\nОжидает выполнения`);
     if (req.sourceRole === 'cook') {
       notifyRole('cook', `🛠️ Новая заявка на ремонт от повара\n\n${req.staffName}: ${req.text}`);
     }
@@ -9291,12 +9363,10 @@ function renderShifts() {
   const dates = Object.keys(byDate).sort().reverse();
   dates.forEach(date => {
     const reps = byDate[date];
-    const duty = getDutyAssignment();
-    const staff = getStaff();
+    const duty = getDutyAssignmentForDate(date);
     let dutyName = 'Не назначен';
-    if (duty && duty.targetDate === date) {
-      const p = staff.find(s => String(s.id) === String(duty.staffId));
-      if (p) dutyName = p.name;
+    if (duty && duty.staffName) {
+      dutyName = duty.staffName;
     }
 
     const div = document.createElement('div');
@@ -9583,22 +9653,18 @@ function openShiftView(date, reps) {
   updateUnreadBadges();
   const el = document.getElementById('shift-view-content');
   activeShiftPhotoGallery = [];
-  const duty = getDutyAssignment();
-  const staff = getStaff();
+  const duty = getDutyAssignmentForDate(date);
 
   document.getElementById('shift-view-title').textContent = formatDateRu(date);
 
   let dutyName = 'Не назначен';
-  if (duty && duty.targetDate === date) {
-    const p = staff.find(s => String(s.id) === String(duty.staffId));
-    if (p) dutyName = p.name;
-  }
+  if (duty && duty.staffName) dutyName = duty.staffName;
 
   let html = `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:20px;">
       <div style="font-size:12px;color:var(--text-3);letter-spacing:0.5px;margin-bottom:6px;">ДЕЖУРНЫЙ УТРОМ · ${formatDateRu(date)}</div>
       <div style="font-size:17px;font-weight:600;">${dutyName}</div>
-      ${duty && duty.targetDate === date && duty.tasks ? `<div style="font-size:13px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-top:10px;">${escapeHtml(duty.tasks)}</div>` : ''}
+      ${duty && duty.tasks ? `<div style="font-size:13px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-top:10px;">${escapeHtml(duty.tasks)}</div>` : ''}
     </div>`;
 
   const byBath = {};
@@ -9998,6 +10064,7 @@ async function init() {
     appCache.staff = LocalDB.get("staff") || appCache.staff || [];
     appCache.reports = LocalDB.get("reports") || appCache.reports || [];
     appCache.dutyAssignment = LocalDB.get("dutyAssignment") || appCache.dutyAssignment || null;
+    appCache.dutyAssignmentsByDate = LocalDB.get("dutyAssignmentsByDate") || appCache.dutyAssignmentsByDate || {};
     appCache.founderPassword = LocalDB.get("founderPassword") || appCache.founderPassword || "5552";
     appCache.adminPassword = LocalDB.get("adminPassword") || appCache.adminPassword || "3235";
     appCache.fines = LocalDB.get("fines") || appCache.fines || [];
@@ -10008,7 +10075,7 @@ async function init() {
     appCache.adminProfiles = LocalDB.get("adminProfiles") || appCache.adminProfiles || [];
     appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || appCache.bathmasterOrders || [];
     appCache.repairRequests = LocalDB.get("repairRequests") || appCache.repairRequests || [];
-    appCache.repairReminderLog = LocalDB.get("repairReminderLog") || appCache.repairReminderLog || {};
+    appCache.technicianRepairReminderLog = LocalDB.get("technicianRepairReminderLog") || appCache.technicianRepairReminderLog || {};
     appCache.photoReportDrafts = LocalDB.get("photoReportDrafts") || appCache.photoReportDrafts || [];
     appCache.founderTasks = LocalDB.get("founderTasks") || appCache.founderTasks || [];
     appCache.kpiContent = LocalDB.get("kpiContent") || appCache.kpiContent || getDefaultKpiContent();
@@ -10037,7 +10104,7 @@ async function init() {
   renderFounderBathmasters();
   renderFounderRepairs();
   updateUnreadBadges();
-  startTechnicianRepairReminderScheduler();
+  startTechnicianRepairReminderTimer();
 
   if (!CLOUD_ENABLED) {
     showToast("Firebase config не заполнен");
