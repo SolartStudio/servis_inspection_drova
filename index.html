@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.092 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.093 тестирование</div>
   </div>
 </div>
 
@@ -2739,18 +2739,23 @@ const firebaseConfig = {
 // Пример: "https://drova-photo-worker.YOUR_SUBDOMAIN.workers.dev"
 const TELEGRAM_PHOTO_WORKER_URL = "https://drova-telegram-storage.swiftkartofel.workers.dev";
 
+// Deep links for Telegram notifications.
+// If your Worker knows BOT_USERNAME + WEBAPP_SHORT_NAME, it can build the button from startParam.
+// If not, fill base like: "https://t.me/your_bot/your_app" and HTML will send a ready URL.
+const TELEGRAM_MINI_APP_DEEP_LINK_BASE = "";
+
 const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.092";
+const APP_VERSION = "1.093";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
   version: APP_VERSION,
   channel: APP_CHANNEL,
   label: APP_VERSION_LABEL,
-  updatedAt: "2026-06-13"
+  updatedAt: "2026-06-14"
 };
 
 let db = null;
@@ -4531,7 +4536,7 @@ function getPhotoDisplaySrc(photo) {
 }
 
 
-async function notifyTelegramUsers(telegramIds, textValue) {
+async function notifyTelegramUsers(telegramIds, textValue, options = {}) {
   const ids = (telegramIds || [])
     .map(v => String(v || '').trim())
     .filter(Boolean);
@@ -4540,14 +4545,29 @@ async function notifyTelegramUsers(telegramIds, textValue) {
     return { ok: false, sent: 0, skipped: true };
   }
 
+  const startParam = options && options.startParam ? String(options.startParam).trim() : '';
+  const buttonText = options && options.buttonText ? String(options.buttonText).trim() : (startParam ? 'Перейти' : '');
+  const deepLinkUrl = options && options.deepLinkUrl
+    ? String(options.deepLinkUrl).trim()
+    : buildMiniAppDeepLink(startParam);
+
+  const payload = {
+    telegramIds: ids,
+    text: textValue
+  };
+
+  // Worker should translate this into an inline keyboard button.
+  // Backward-compatible: old Worker simply ignores unknown fields if it is written sanely.
+  if (startParam) payload.startParam = startParam;
+  if (buttonText) payload.buttonText = buttonText;
+  if (deepLinkUrl) payload.deepLinkUrl = deepLinkUrl;
+  if (deepLinkUrl) payload.buttonUrl = deepLinkUrl;
+
   try {
     const response = await fetch(TELEGRAM_PHOTO_WORKER_URL + "/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        telegramIds: ids,
-        text: textValue
-      })
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json().catch(() => null);
@@ -4559,6 +4579,17 @@ async function notifyTelegramUsers(telegramIds, textValue) {
     console.warn("notify error", err);
     return { ok: false, sent: 0, error: String(err) };
   }
+}
+
+function buildMiniAppDeepLink(startParam) {
+  const param = String(startParam || '').trim();
+  if (!param || !TELEGRAM_MINI_APP_DEEP_LINK_BASE) return '';
+  const base = TELEGRAM_MINI_APP_DEEP_LINK_BASE.replace(/\?+$/, '');
+  return `${base}?startapp=${encodeURIComponent(param)}`;
+}
+
+function notifyTelegramUsersWithLink(telegramIds, textValue, startParam, buttonText = 'Перейти') {
+  return notifyTelegramUsers(telegramIds, textValue, { startParam, buttonText });
 }
 
 function getTelegramIdsForRole(role) {
@@ -4586,8 +4617,8 @@ function getTelegramIdForStaff(staff) {
   return staff ? String(staff.telegramId || staff.chatId || staff.telegramID || '').trim() : '';
 }
 
-function notifyRole(role, textValue) {
-  return notifyTelegramUsers([...new Set(getTelegramIdsForRole(role))], textValue);
+function notifyRole(role, textValue, options = {}) {
+  return notifyTelegramUsers([...new Set(getTelegramIdsForRole(role))], textValue, options);
 }
 
 function getFounderAndAdminTelegramIds() {
@@ -4596,13 +4627,13 @@ function getFounderAndAdminTelegramIds() {
     .filter(Boolean))];
 }
 
-function notifyFounders(textValue) {
-  return notifyTelegramUsers(getFounderAndAdminTelegramIds(), textValue);
+function notifyFounders(textValue, options = {}) {
+  return notifyTelegramUsers(getFounderAndAdminTelegramIds(), textValue, options);
 }
 
-function notifyStaffMember(staff, textValue) {
+function notifyStaffMember(staff, textValue, options = {}) {
   const id = getTelegramIdForStaff(staff);
-  return id ? notifyTelegramUsers([id], textValue) : Promise.resolve({ ok:false, sent:0, skipped:true });
+  return id ? notifyTelegramUsers([id], textValue, options) : Promise.resolve({ ok:false, sent:0, skipped:true });
 }
 
 
@@ -4676,7 +4707,7 @@ async function runTechnicianRepairReminderCheck(forceSlot = null) {
       const key = `${todayKey}_${slot}_${reqId}`;
       if (log[key]) continue;
 
-      const result = await notifyTelegramUsers(technicianIds, buildTechnicianRepairReminderText(req));
+      const result = await notifyTelegramUsers(technicianIds, buildTechnicianRepairReminderText(req), { startParam: 'technician_repairs', buttonText: 'Перейти' });
       if (result && result.ok !== false) {
         log[key] = new Date().toISOString();
         changed = true;
@@ -4698,6 +4729,115 @@ function startTechnicianRepairReminderTimer() {
 }
 
 
+
+// ============================================================
+// TELEGRAM NOTIFICATION DEEP LINKS
+// Opens the target Mini App section from bot button startapp/start_param.
+// ============================================================
+let pendingDeepLinkRoute = '';
+let deepLinkHandled = false;
+
+function getTelegramStartParam() {
+  try {
+    const unsafe = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe
+      ? window.Telegram.WebApp.initDataUnsafe
+      : null;
+    if (unsafe && unsafe.start_param) return String(unsafe.start_param || '').trim();
+  } catch (_) {}
+
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    return String(params.get('startapp') || params.get('start_param') || params.get('tgWebAppStartParam') || '').trim();
+  } catch (_) {
+    return '';
+  }
+}
+
+function initDeepLinkRoute() {
+  pendingDeepLinkRoute = getTelegramStartParam();
+  if (!pendingDeepLinkRoute || deepLinkHandled) return;
+  setTimeout(runPendingDeepLinkRoute, 450);
+}
+
+function routeAfterRoleOpen(callback) {
+  setTimeout(() => {
+    try { callback(); } catch (err) { console.warn('deep link route error', err); }
+  }, 450);
+}
+
+function runPendingDeepLinkRoute() {
+  const route = String(pendingDeepLinkRoute || '').trim();
+  if (!route || deepLinkHandled) return;
+
+  const openStaffRoute = (role, opener) => {
+    if (role === 'admin') {
+      if (!hasAdminSession()) {
+        enterAdmin();
+        return;
+      }
+      goTo('screen-admin-menu');
+      routeAfterRoleOpen(opener);
+      deepLinkHandled = true;
+      return;
+    }
+
+    const staff = getCurrentApprovedStaffForRole(role);
+    if (!staff) {
+      enterRole(role);
+      routeAfterRoleOpen(() => {
+        if (getCurrentApprovedStaffForRole(role)) {
+          opener();
+          deepLinkHandled = true;
+        }
+      });
+      return;
+    }
+
+    enterRole(role);
+    routeAfterRoleOpen(opener);
+    deepLinkHandled = true;
+  };
+
+  if (route === 'access_requests') {
+    if (!hasAdminSession()) {
+      enterAdmin();
+      return;
+    }
+    goTo('screen-admin-menu');
+    routeAfterRoleOpen(openAccessRequests);
+    deepLinkHandled = true;
+    return;
+  }
+
+  if (route === 'technician_repairs') {
+    openStaffRoute('technician', openTechnicianRepairs);
+    return;
+  }
+
+  if (route === 'waiter_stoplist') {
+    openStaffRoute('waiter', openWaiterStopList);
+    return;
+  }
+
+  if (route.startsWith('tasks_')) {
+    const role = route.replace('tasks_', '') || 'waiter';
+    if (role === 'waiter') openStaffRoute('waiter', openWaiterTasks);
+    else openStaffRoute(role, () => openStaffTasks(role));
+    return;
+  }
+
+  if (route === 'founder_repairs') {
+    if (!hasFounderSession()) {
+      enterFounder();
+      return;
+    }
+    goTo('screen-founder-menu');
+    routeAfterRoleOpen(openFounderRepairs);
+    deepLinkHandled = true;
+    return;
+  }
+}
+
 // ============================================================
 // NAVIGATION
 // ============================================================
@@ -4709,6 +4849,7 @@ function goTo(screenId) {
   document.getElementById(screenId).classList.add('active');
   screenStack.push(screenId);
   saveLastScreen(screenId);
+  if (pendingDeepLinkRoute && !deepLinkHandled && screenId !== 'screen-home') routeAfterRoleOpen(runPendingDeepLinkRoute);
   window.scrollTo(0, 0);
 }
 
@@ -5440,6 +5581,7 @@ function enterFounder() {
 function enterAdmin() {
   if (hasAdminSession()) {
     goTo('screen-admin-menu');
+    routeAfterRoleOpen(runPendingDeepLinkRoute);
     return;
   }
 
@@ -6025,7 +6167,7 @@ async function saveCookStopList() {
       ? `⛔ Обновлён стоп-лист\n\n${textValue}\n\nОткройте Drova Inspector → Официант → Стоп лист`
       : `⛔ Стоп-лист очищен\n\nОткройте Drova Inspector → Официант → Стоп лист`;
 
-    notifyRole('waiter', message);
+    notifyRole('waiter', message, { startParam: 'waiter_stoplist', buttonText: 'Перейти' });
     notifyFounders(`⛔ Повар обновил стоп-лист\n\n${cook.name || 'Повар'}\n\n${textValue || 'Стоп-лист очищен'}`);
 
     updateUnreadBadges();
@@ -6256,7 +6398,7 @@ ${textValue}
 
 Откройте Drova Inspector → Задачи`;
     if (telegramIds.length) {
-      notifyTelegramUsers(telegramIds, notifyText).then(res => {
+      notifyTelegramUsers(telegramIds, notifyText, { startParam: `tasks_${targetRole}`, buttonText: 'Перейти' }).then(res => {
         if (res && res.sent) showToast(`Задача отправлена, уведомлений: ${res.sent}`);
         else console.warn('task notify skipped or failed', targetRole, res);
       });
@@ -7843,6 +7985,7 @@ async function checkAdminPwd() {
     screenStack.pop();
     document.getElementById('screen-admin-login').classList.remove('active');
     goTo('screen-admin-menu');
+    routeAfterRoleOpen(runPendingDeepLinkRoute);
   } catch (e) {
     console.error(e);
     showToast('Ошибка сохранения администратора');
@@ -10105,6 +10248,7 @@ async function init() {
   renderFounderRepairs();
   updateUnreadBadges();
   startTechnicianRepairReminderTimer();
+  initDeepLinkRoute();
 
   if (!CLOUD_ENABLED) {
     showToast("Firebase config не заполнен");
