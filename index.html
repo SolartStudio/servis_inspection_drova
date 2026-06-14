@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.093 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.094 тестирование</div>
   </div>
 </div>
 
@@ -2743,12 +2743,13 @@ const TELEGRAM_PHOTO_WORKER_URL = "https://drova-telegram-storage.swiftkartofel.
 // If your Worker knows BOT_USERNAME + WEBAPP_SHORT_NAME, it can build the button from startParam.
 // If not, fill base like: "https://t.me/your_bot/your_app" and HTML will send a ready URL.
 const TELEGRAM_MINI_APP_DEEP_LINK_BASE = "";
+const NOTIFICATION_OPEN_BUTTON_TEXT = "Открыть в приложении";
 
 const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.093";
+const APP_VERSION = "1.094";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -3776,7 +3777,7 @@ async function submitAccessRequest() {
 
   try {
     await saveAccessRequest(req);
-    notifyRole('admin', `✅ Новая заявка на вход\n\n${req.roleLabel}: ${req.name} · ${req.login}\n\nОткройте Drova Inspector → Администратор → Одобрить вход`);
+    notifyRole('admin', `✅ Новая заявка на вход\n\n${req.roleLabel}: ${req.name} · ${req.login}\n\nОткройте Drova Inspector → Администратор → Одобрить вход`, { startParam: 'access_requests', buttonText: NOTIFICATION_OPEN_BUTTON_TEXT });
     notifyFounders(`✅ Новая заявка на вход\n\n${req.roleLabel}: ${req.name} · ${req.login}`);
     setSavedAccessRequest({ id: req.id, role: req.role, login: req.login, name: req.name });
     showAccessPending(req.role, req.login);
@@ -4546,7 +4547,7 @@ async function notifyTelegramUsers(telegramIds, textValue, options = {}) {
   }
 
   const startParam = options && options.startParam ? String(options.startParam).trim() : '';
-  const buttonText = options && options.buttonText ? String(options.buttonText).trim() : (startParam ? 'Перейти' : '');
+  const buttonText = options && options.buttonText ? String(options.buttonText).trim() : (startParam ? NOTIFICATION_OPEN_BUTTON_TEXT : '');
   const deepLinkUrl = options && options.deepLinkUrl
     ? String(options.deepLinkUrl).trim()
     : buildMiniAppDeepLink(startParam);
@@ -4560,8 +4561,23 @@ async function notifyTelegramUsers(telegramIds, textValue, options = {}) {
   // Backward-compatible: old Worker simply ignores unknown fields if it is written sanely.
   if (startParam) payload.startParam = startParam;
   if (buttonText) payload.buttonText = buttonText;
+  if (buttonText) payload.buttonLabel = buttonText;
   if (deepLinkUrl) payload.deepLinkUrl = deepLinkUrl;
   if (deepLinkUrl) payload.buttonUrl = deepLinkUrl;
+  if (startParam || deepLinkUrl) {
+    payload.button = {
+      text: buttonText || NOTIFICATION_OPEN_BUTTON_TEXT,
+      startParam,
+      url: deepLinkUrl || ''
+    };
+    payload.inlineButton = payload.button;
+    payload.webAppStartParam = startParam;
+  }
+  if (deepLinkUrl && buttonText) {
+    payload.reply_markup = {
+      inline_keyboard: [[{ text: buttonText, url: deepLinkUrl }]]
+    };
+  }
 
   try {
     const response = await fetch(TELEGRAM_PHOTO_WORKER_URL + "/notify", {
@@ -4588,7 +4604,7 @@ function buildMiniAppDeepLink(startParam) {
   return `${base}?startapp=${encodeURIComponent(param)}`;
 }
 
-function notifyTelegramUsersWithLink(telegramIds, textValue, startParam, buttonText = 'Перейти') {
+function notifyTelegramUsersWithLink(telegramIds, textValue, startParam, buttonText = NOTIFICATION_OPEN_BUTTON_TEXT) {
   return notifyTelegramUsers(telegramIds, textValue, { startParam, buttonText });
 }
 
@@ -4707,7 +4723,7 @@ async function runTechnicianRepairReminderCheck(forceSlot = null) {
       const key = `${todayKey}_${slot}_${reqId}`;
       if (log[key]) continue;
 
-      const result = await notifyTelegramUsers(technicianIds, buildTechnicianRepairReminderText(req), { startParam: 'technician_repairs', buttonText: 'Перейти' });
+      const result = await notifyTelegramUsers(technicianIds, buildTechnicianRepairReminderText(req), { startParam: 'technician_repairs', buttonText: NOTIFICATION_OPEN_BUTTON_TEXT });
       if (result && result.ok !== false) {
         log[key] = new Date().toISOString();
         changed = true;
@@ -6167,7 +6183,7 @@ async function saveCookStopList() {
       ? `⛔ Обновлён стоп-лист\n\n${textValue}\n\nОткройте Drova Inspector → Официант → Стоп лист`
       : `⛔ Стоп-лист очищен\n\nОткройте Drova Inspector → Официант → Стоп лист`;
 
-    notifyRole('waiter', message, { startParam: 'waiter_stoplist', buttonText: 'Перейти' });
+    notifyRole('waiter', message, { startParam: 'waiter_stoplist', buttonText: NOTIFICATION_OPEN_BUTTON_TEXT });
     notifyFounders(`⛔ Повар обновил стоп-лист\n\n${cook.name || 'Повар'}\n\n${textValue || 'Стоп-лист очищен'}`);
 
     updateUnreadBadges();
@@ -6398,7 +6414,7 @@ ${textValue}
 
 Откройте Drova Inspector → Задачи`;
     if (telegramIds.length) {
-      notifyTelegramUsers(telegramIds, notifyText, { startParam: `tasks_${targetRole}`, buttonText: 'Перейти' }).then(res => {
+      notifyTelegramUsers(telegramIds, notifyText, { startParam: `tasks_${targetRole}`, buttonText: NOTIFICATION_OPEN_BUTTON_TEXT }).then(res => {
         if (res && res.sent) showToast(`Задача отправлена, уведомлений: ${res.sent}`);
         else console.warn('task notify skipped or failed', targetRole, res);
       });
@@ -7416,11 +7432,11 @@ async function confirmRepairRequest() {
     const now = new Date();
     const req = { id: Date.now(), sourceRole: activeRepairSourceRole, sourceRoleLabel: getRoleLabel(activeRepairSourceRole), staffId: actor.id, staffName: actor.name || getRoleLabel(activeRepairSourceRole), staffLogin: actor.login || '', text: textValue, photos, fixedPhotos: [], status: 'new', date: toDateKey(now), time: now.toTimeString().slice(0, 5), createdAt: now.toISOString(), technicianReadAt: null, repairedAt: null };
     await saveRepairRequest(req);
-    notifyRole('technician', `🛠️ Задача: ${req.text}\nОт: ${req.sourceRoleLabel} · ${req.staffName}\nОжидает выполнения`);
+    notifyRole('technician', `🛠️ Задача: ${req.text}\nОт: ${req.sourceRoleLabel} · ${req.staffName}\nОжидает выполнения`, { startParam: 'technician_repairs', buttonText: NOTIFICATION_OPEN_BUTTON_TEXT });
     if (req.sourceRole === 'cook') {
       notifyRole('cook', `🛠️ Новая заявка на ремонт от повара\n\n${req.staffName}: ${req.text}`);
     }
-    notifyFounders(`🛠️ Новая заявка на ремонт\n\n${req.sourceRoleLabel}: ${req.staffName}\n${req.text}`);
+    notifyFounders(`🛠️ Новая заявка на ремонт\n\n${req.sourceRoleLabel}: ${req.staffName}\n${req.text}`, { startParam: 'founder_repairs', buttonText: NOTIFICATION_OPEN_BUTTON_TEXT });
     activeRepairPhotos = [];
     document.getElementById('repair-create-text').value = '';
     renderRepairCreatePhotos();
