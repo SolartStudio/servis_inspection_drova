@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.094 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.095 тестирование</div>
   </div>
 </div>
 
@@ -2749,7 +2749,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.094";
+const APP_VERSION = "1.095";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -4010,13 +4010,23 @@ function getPhotoReportDrafts() {
   return appCache.photoReportDrafts || [];
 }
 
-function getPhotoReportDraftKey(period, bathIndex) {
-  return `${period || 'morning'}_${String(bathIndex)}`;
+function getPhotoReportDraftKey(period, bathIndex, staffId = '') {
+  const base = `${period || 'morning'}_${String(bathIndex)}`;
+  return staffId ? `${base}_${String(staffId)}` : base;
 }
 
-function getPhotoReportDraft(period, bathIndex) {
-  const key = getPhotoReportDraftKey(period, bathIndex);
-  return getPhotoReportDrafts().find(d => String(d.key || '') === key) || null;
+function getPhotoReportDraft(period, bathIndex, staffId = '') {
+  const drafts = getPhotoReportDrafts();
+  const baseKey = getPhotoReportDraftKey(period, bathIndex);
+
+  if (staffId) {
+    const ownKey = getPhotoReportDraftKey(period, bathIndex, staffId);
+    return drafts.find(d => String(d.key || '') === ownKey)
+      || drafts.find(d => String(d.key || '') === baseKey && String(d.staffId || '') === String(staffId))
+      || null;
+  }
+
+  return drafts.find(d => String(d.key || '') === baseKey) || null;
 }
 
 async function setPhotoReportDraft(draft) {
@@ -4034,9 +4044,17 @@ async function setPhotoReportDraft(draft) {
   }
 }
 
-async function clearPhotoReportDraft(period, bathIndex) {
-  const key = getPhotoReportDraftKey(period, bathIndex);
-  appCache.photoReportDrafts = getPhotoReportDrafts().filter(d => String(d.key || '') !== key);
+async function clearPhotoReportDraft(period, bathIndex, staffId = '') {
+  const baseKey = getPhotoReportDraftKey(period, bathIndex);
+  const ownKey = staffId ? getPhotoReportDraftKey(period, bathIndex, staffId) : baseKey;
+
+  appCache.photoReportDrafts = getPhotoReportDrafts().filter(d => {
+    const key = String(d.key || '');
+    if (staffId) {
+      return !(key === ownKey || (key === baseKey && String(d.staffId || '') === String(staffId)));
+    }
+    return key !== baseKey;
+  });
   LocalDB.set("photoReportDrafts", appCache.photoReportDrafts);
 
   if (CLOUD_ENABLED && db) {
@@ -4098,7 +4116,7 @@ async function saveActivePhotoReportDraft() {
 
   try {
     const period = activeReport.period || activePhotoReportPeriod || 'morning';
-    const key = getPhotoReportDraftKey(period, activeReport.bathIndex);
+    const key = getPhotoReportDraftKey(period, activeReport.bathIndex, waiter.id || '');
     const nowIso = new Date().toISOString();
     const sections = getActiveReportSections();
     const draftPhotos = {};
@@ -4136,7 +4154,7 @@ async function saveActivePhotoReportDraft() {
       staffId: waiter.id || '',
       staffName: waiter.name || 'Официант',
       updatedAt: nowIso,
-      createdAt: (getPhotoReportDraft(period, activeReport.bathIndex) || {}).createdAt || nowIso,
+      createdAt: (getPhotoReportDraft(period, activeReport.bathIndex, waiter.id || '') || {}).createdAt || nowIso,
       photos: draftPhotos
     };
 
@@ -6984,21 +7002,17 @@ function renderBathList() {
   el.innerHTML = '';
   const waiter = getWaiter();
   BATHS.forEach((bath, i) => {
-    const draft = getPhotoReportDraft(activePhotoReportPeriod, i);
-    const isOwnDraft = draft && waiter && String(draft.staffId || '') === String(waiter.id || '');
-    const isLockedByOther = draft && waiter && String(draft.staffId || '') !== String(waiter.id || '');
+    const draft = waiter ? getPhotoReportDraft(activePhotoReportPeriod, i, waiter.id || '') : null;
     const photoCount = draft && draft.photos
       ? Object.values(draft.photos).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
       : 0;
 
-    const subText = isLockedByOther
-      ? `Заполняется сейчас: ${escapeHtml(draft.staffName || 'сотрудник')}`
-      : isOwnDraft
-        ? `Продолжить черновик · фото: ${photoCount}`
-        : 'Нажмите, чтобы открыть отчет';
+    const subText = draft
+      ? `Продолжить свой черновик · фото: ${photoCount}`
+      : 'Нажмите, чтобы открыть отчет';
 
     const div = document.createElement('div');
-    div.className = isLockedByOther ? 'card disabled' : 'card';
+    div.className = 'card';
     div.innerHTML = `<div class="card-title">${bath}</div><div class="card-sub" style="margin-top:4px;">${subText}</div>`;
     div.onclick = () => openBathReport(i);
     el.appendChild(div);
@@ -7018,11 +7032,7 @@ function openBathReport(bathIndex) {
     return;
   }
 
-  const existingDraft = getPhotoReportDraft(activePhotoReportPeriod, bathIndex);
-  if (existingDraft && String(existingDraft.staffId || '') !== String(waiter.id || '')) {
-    showToast(`Заполняется сейчас: ${existingDraft.staffName || 'сотрудник'}`);
-    return;
-  }
+  const existingDraft = getPhotoReportDraft(activePhotoReportPeriod, bathIndex, waiter.id || '');
 
   activeReport = { bathIndex, period: activePhotoReportPeriod, photos: {} };
   getSectionsForBathIndex(bathIndex).forEach(s => { activeReport.photos[s.key] = []; });
@@ -7072,6 +7082,31 @@ function renderBathReportContent() {
       </div>`;
     el.appendChild(div);
   });
+
+  const totalPhotos = getActiveReportSections().reduce((sum, section) => sum + ((activeReport.photos[section.key] || []).length), 0);
+  const waiter = getWaiter();
+  const ownDraft = waiter ? getPhotoReportDraft(activeReport.period || activePhotoReportPeriod, activeReport.bathIndex, waiter.id || '') : null;
+  if (ownDraft || totalPhotos > 0) {
+    const resetWrap = document.createElement('div');
+    resetWrap.style.marginTop = '18px';
+    resetWrap.innerHTML = `<button type="button" class="btn btn-secondary" onclick="deleteActivePhotoReportDraft()">Удалить черновик</button>`;
+    el.appendChild(resetWrap);
+  }
+}
+
+async function deleteActivePhotoReportDraft() {
+  const waiter = getWaiter();
+  if (!waiter || !activeReport || activeReport.bathIndex === null || activeReport.bathIndex === undefined) return;
+  const ok = window.confirm('Удалить черновик этого фотоотчета? Фото из черновика будут сброшены.');
+  if (!ok) return;
+
+  const period = activeReport.period || activePhotoReportPeriod || 'morning';
+  await clearPhotoReportDraft(period, activeReport.bathIndex, waiter.id || '');
+  activeReport.photos = {};
+  getSectionsForBathIndex(activeReport.bathIndex).forEach(s => { activeReport.photos[s.key] = []; });
+  renderBathReportContent();
+  renderBathList();
+  showToast('Черновик удалён');
 }
 
 function handlePhotos(event, sectionKey) {
@@ -7192,7 +7227,7 @@ async function confirmReport() {
     const reports = getReports();
     reports.push(report);
     setReports(reports);
-    await clearPhotoReportDraft(activeReport.period || getReportPeriodFromTime(now), activeReport.bathIndex);
+    await clearPhotoReportDraft(activeReport.period || getReportPeriodFromTime(now), activeReport.bathIndex, waiter.id || '');
     renderBathList();
     notifyFounders(`📷 Новый фотоотчёт\n\n${report.staffName} · ${report.bathName} · ${getPhotoPeriodLabel(report.reportPeriod)}\n${formatDateRu(report.date)} · ${report.time}`);
 
