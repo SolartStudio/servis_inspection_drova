@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.095 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.096 тестирование</div>
   </div>
 </div>
 
@@ -2654,7 +2654,7 @@
     <div class="modal-title">Файл готов</div>
     <div class="modal-sub" id="export-ready-text">Файл подготовлен.</div>
     <div class="modal-actions">
-      <a class="btn btn-primary" id="export-ready-link" href="#" download>Открыть файл</a>
+      <a class="btn btn-primary" id="export-ready-link" href="#" download>Открыть файл отдельно</a>
       <button class="btn btn-secondary" onclick="closeExportModal()">Вернуться в приложение</button>
     </div>
   </div>
@@ -2749,14 +2749,14 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.095";
+const APP_VERSION = "1.096";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
   version: APP_VERSION,
   channel: APP_CHANNEL,
   label: APP_VERSION_LABEL,
-  updatedAt: "2026-06-14"
+  updatedAt: "2026-06-17"
 };
 
 let db = null;
@@ -9682,9 +9682,10 @@ function openInventoryRecordView(recordId) {
       В шаблоне показаны все 41 позиции. Пустые строки остаются пустыми, чтобы было видно, что сотрудник не заполнил.
     </div>
     <div class="button-row">
-      <button class="btn btn-secondary" onclick="saveInventoryAsJpg('${record.id}')">Сохранить JPG</button>
-      <button class="btn btn-secondary" onclick="downloadInventoryCsv('${record.id}')">Скачать CSV</button>
+      <button class="btn btn-secondary" onclick="copyInventoryCsv('${record.id}')">Скопировать таблицу</button>
+      <button class="btn btn-secondary" onclick="downloadInventoryCsv('${record.id}')">Подготовить CSV</button>
     </div>
+    <button class="btn btn-secondary" style="margin-bottom:16px;" onclick="saveInventoryAsJpg('${record.id}')">Подготовить JPG</button>
     <div class="inventory-view-table" id="inventory-export-area">
       ${rows}
     </div>`;
@@ -9710,17 +9711,10 @@ function openExportFile(url, filename, text) {
 
   link.href = url;
   link.download = filename;
-  msg.textContent = text || 'Файл подготовлен.';
+  msg.textContent = text || 'Файл подготовлен. Telegram может открыть файл отдельно, поэтому автоматическое открытие отключено. Нажмите кнопку только если файл действительно нужен.';
 
-  // Пробуем скачать автоматически. В Telegram это может быть заблокировано,
-  // поэтому ниже остаётся кнопка "Открыть файл" и кнопка возврата.
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
+  // В Telegram Mini App/iOS автоклик по Blob часто уводит пользователя в отдельный просмотр
+  // без нормального возврата. Поэтому файл больше не открывается автоматически.
   openModal('modal-export-ready');
 }
 
@@ -9733,10 +9727,8 @@ function escapeCsvCell(value) {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
-function downloadInventoryCsv(recordId) {
-  const record = getInventoryRecordById(recordId);
-  if (!record) return;
-
+function buildInventoryCsvText(record) {
+  if (!record) return '';
   const values = record.values || {};
   const rows = [];
 
@@ -9751,11 +9743,50 @@ function downloadInventoryCsv(recordId) {
     rows.push([idx + 1, name, value !== undefined && value !== null ? String(value) : '']);
   });
 
-  const csv = '\ufeff' + rows.map(row => row.map(escapeCsvCell).join(';')).join('\n');
+  return '\ufeff' + rows.map(row => row.map(escapeCsvCell).join(';')).join('\n');
+}
+
+async function copyInventoryCsv(recordId) {
+  const record = getInventoryRecordById(recordId);
+  if (!record) return;
+  const csv = buildInventoryCsvText(record);
+
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(csv);
+      showToast('Таблица скопирована');
+      return;
+    }
+  } catch (err) {
+    console.warn('clipboard write failed', err);
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = csv;
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    showToast('Таблица скопирована');
+  } catch (err) {
+    showToast('Не удалось скопировать таблицу');
+  }
+  textarea.remove();
+}
+
+function downloadInventoryCsv(recordId) {
+  const record = getInventoryRecordById(recordId);
+  if (!record) return;
+
+  const csv = buildInventoryCsvText(record);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
 
-  openExportFile(url, `inventory_${record.date || 'date'}_${record.staffName || 'staff'}.csv`, 'CSV готов. Если Telegram не скачал файл автоматически, нажмите “Открыть файл”.');
+  openExportFile(url, `inventory_${record.date || 'date'}_${record.staffName || 'staff'}.csv`, 'CSV подготовлен. Автооткрытие отключено, чтобы Mini App не уводил вас на отдельную страницу без нормального возврата.');
 }
 
 // Старое имя оставляем как переходник, чтобы ничего не сломалось.
@@ -9835,7 +9866,7 @@ function saveInventoryAsJpg(recordId) {
     }
 
     const url = URL.createObjectURL(blob);
-    openExportFile(url, `inventory_${record.date || 'date'}_${record.staffName || 'staff'}.jpg`, 'JPG готов. Если Telegram открыл файл отдельным просмотром, вернитесь назад кнопкой Telegram или нажмите “Вернуться в приложение”.');
+    openExportFile(url, `inventory_${record.date || 'date'}_${record.staffName || 'staff'}.jpg`, 'JPG подготовлен. Автооткрытие отключено, чтобы Mini App не уводил вас на отдельную страницу без нормального возврата.');
   }, 'image/jpeg', 0.92);
 }
 
