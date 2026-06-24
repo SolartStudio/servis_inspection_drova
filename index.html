@@ -1138,6 +1138,7 @@
     width: 100%;
     height: 100%;
     display: block;
+    touch-action: none;
   }
   .admin-stats-chart-legend {
     display: flex;
@@ -1212,7 +1213,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.099 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.100 тестирование</div>
   </div>
 </div>
 
@@ -2751,7 +2752,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.099";
+const APP_VERSION = "1.100";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -4926,6 +4927,7 @@ function isSwipeBackBlockedTarget(target) {
   if (target.closest && target.closest('#camera-overlay.open')) return true;
   if (target.closest && target.closest('.modal-overlay.open')) return true;
   if (target.closest && target.closest('.swipe-delete-card')) return true;
+  if (target.closest && target.closest('.admin-stats-chart-wrap')) return true;
   if (target.closest && target.closest('input, textarea, select, button, a')) return true;
   if (target.closest && target.closest('.fullscreen-photo')) return true;
   return false;
@@ -8445,7 +8447,7 @@ async function endAdminStatSwipe(event, statId) {
   adminStatSwipeState = { id: null, startX: 0, startY: 0, currentX: 0, currentY: 0, startedAt: 0, horizontal: false };
 }
 
-let adminStatsChartWindowDays = 30;
+let adminStatsChartWindowDays = 20;
 let adminStatsChartOffsetDays = 0;
 let adminStatsChartPanState = { active: false, startX: 0, startOffset: 0 };
 
@@ -8565,13 +8567,28 @@ function getAdminStatsChartRange(points) {
   fallback.setHours(0, 0, 0, 0);
   const firstDate = list.length ? new Date(list[0].date) : fallback;
   const latestDate = list.length ? new Date(list[list.length - 1].date) : fallback;
-  const maxOffset = Math.max(0, daysBetweenAdminStatsDates(firstDate, latestDate) - adminStatsChartWindowDays + 1);
-  adminStatsChartOffsetDays = Math.max(0, Math.min(Number(adminStatsChartOffsetDays || 0), maxOffset));
-  const endDate = addAdminStatsDays(latestDate, -adminStatsChartOffsetDays);
-  const startDate = addAdminStatsDays(endDate, -(adminStatsChartWindowDays - 1));
-  return { firstDate, latestDate, startDate, endDate, maxOffset };
-}
+  const windowDays = Math.max(1, Number(adminStatsChartWindowDays || 20));
+  const fullSpanDays = Math.max(1, daysBetweenAdminStatsDates(firstDate, latestDate) + 1);
+  const maxOffset = Math.max(0, fullSpanDays - windowDays);
 
+  adminStatsChartOffsetDays = Math.max(0, Math.min(Number(adminStatsChartOffsetDays || 0), maxOffset));
+
+  // Правый край окна двигаем свайпом назад/вперёд, но левый край никогда не уходит раньше первой реальной даты.
+  // Поэтому больше не появляется пустой хвост до 06.06, ради чего мы, собственно, опять спасаем график от самого себя.
+  let endDate = addAdminStatsDays(latestDate, -adminStatsChartOffsetDays);
+  let startDate = addAdminStatsDays(endDate, -(windowDays - 1));
+
+  if (startDate < firstDate) {
+    startDate = new Date(firstDate);
+    endDate = addAdminStatsDays(startDate, Math.min(windowDays - 1, fullSpanDays - 1));
+  }
+
+  if (endDate > latestDate) {
+    endDate = new Date(latestDate);
+  }
+
+  return { firstDate, latestDate, startDate, endDate, maxOffset, windowDays };
+}
 function getAdminStatsChartPoints() {
   const points = getAdminStatsSortedDailyPoints();
   const range = getAdminStatsChartRange(points);
@@ -8708,11 +8725,15 @@ function drawAdminStatsChart() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
+  const drawnTickKeys = new Set();
   for (let d = new Date(firstDate); d <= lastDate; d = addAdminStatsDays(d, 5)) {
     const x = left + ((d.getTime() - firstDate.getTime()) / totalMs) * chartW;
+    const tickKey = formatAdminStatsDateKey(d);
+    drawnTickKeys.add(tickKey);
     ctx.fillText(formatAdminStatsShortDate(d), x, top + chartH + 12);
   }
-  if (formatAdminStatsDateKey(lastDate) !== formatAdminStatsDateKey(firstDate)) {
+  const lastKey = formatAdminStatsDateKey(lastDate);
+  if (!drawnTickKeys.has(lastKey)) {
     ctx.fillText(formatAdminStatsShortDate(lastDate), width - right, top + chartH + 12);
   }
 
