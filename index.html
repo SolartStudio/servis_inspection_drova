@@ -1212,7 +1212,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.097 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.099 тестирование</div>
   </div>
 </div>
 
@@ -2458,12 +2458,7 @@
       <div class="admin-stats-chart-head">
         <div>
           <div class="admin-stats-chart-title">Динамика входящих и броней</div>
-          <div class="admin-stats-chart-sub">Синяя линия: входящие. Зеленая линия: брони. Конверсия считается числом справа.</div>
-        </div>
-        <div class="admin-stats-chart-tabs">
-          <button class="admin-stats-chart-tab active" id="admin-chart-tab-day" onclick="setAdminStatsChartMode('day')">Дни</button>
-          <button class="admin-stats-chart-tab" id="admin-chart-tab-week" onclick="setAdminStatsChartMode('week')">Неделя</button>
-          <button class="admin-stats-chart-tab" id="admin-chart-tab-month" onclick="setAdminStatsChartMode('month')">Месяц</button>
+          <div class="admin-stats-chart-sub">Двигайте график влево или вправо пальцем. Синяя линия: входящие. Зеленая линия: брони.</div>
         </div>
       </div>
       <div class="admin-stats-chart-wrap">
@@ -2756,7 +2751,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.097";
+const APP_VERSION = "1.099";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -8450,10 +8445,13 @@ async function endAdminStatSwipe(event, statId) {
   adminStatSwipeState = { id: null, startX: 0, startY: 0, currentX: 0, currentY: 0, startedAt: 0, horizontal: false };
 }
 
-let activeAdminStatsChartMode = 'day';
+let adminStatsChartWindowDays = 30;
+let adminStatsChartOffsetDays = 0;
+let adminStatsChartPanState = { active: false, startX: 0, startOffset: 0 };
 
 function setAdminStatsChartMode(mode) {
-  activeAdminStatsChartMode = ['day', 'week', 'month'].includes(mode) ? mode : 'day';
+  // Режимы больше не используются. Оставлено как безопасная заглушка для старых onclick/кэша.
+  adminStatsChartOffsetDays = 0;
   renderFounderAdminStatistics();
 }
 
@@ -8482,6 +8480,7 @@ function parseAdminStatsDateKey(dateKey) {
   const match = String(dateKey || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  date.setHours(0, 0, 0, 0);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
@@ -8490,16 +8489,9 @@ function formatAdminStatsDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function getAdminStatsChartBucket(stat, mode) {
-  const dateKey = normalizeAdminStatsDateKey(stat);
-  const date = parseAdminStatsDateKey(dateKey);
-  if (!date) return null;
-
-  return {
-    key: dateKey,
-    label: `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`,
-    date
-  };
+function formatAdminStatsShortDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function addAdminStatsDays(date, amount) {
@@ -8509,30 +8501,10 @@ function addAdminStatsDays(date, amount) {
   return next;
 }
 
-function getAdminStatsChartRange(mode, dataDays) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const parsed = (dataDays || [])
-    .map(key => parseAdminStatsDateKey(key))
-    .filter(Boolean)
-    .sort((a, b) => a - b);
-  const firstDataDate = parsed.length ? parsed[0] : today;
-  const lastDataDate = parsed.length ? parsed[parsed.length - 1] : today;
-  const end = new Date(lastDataDate);
-  end.setHours(0, 0, 0, 0);
-
-  if (mode === 'week') {
-    const rawStart = addAdminStatsDays(end, -6);
-    return { start: rawStart < firstDataDate ? firstDataDate : rawStart, end, fillEmpty: true };
-  }
-
-  if (mode === 'month') {
-    const rawStart = addAdminStatsDays(end, -29);
-    return { start: rawStart < firstDataDate ? firstDataDate : rawStart, end, fillEmpty: true };
-  }
-
-  return { start: firstDataDate, end, fillEmpty: false };
+function daysBetweenAdminStatsDates(a, b) {
+  if (!(a instanceof Date) || !(b instanceof Date)) return 0;
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.round((b.getTime() - a.getTime()) / dayMs);
 }
 
 function getAdminStatsNumber(stat, keys) {
@@ -8546,72 +8518,118 @@ function getAdminStatsNumber(stat, keys) {
   return 0;
 }
 
-function getAdminStatsChartPoints(mode = activeAdminStatsChartMode) {
+function getAdminStatsDailyGroups() {
   const grouped = {};
   getAdminStats().forEach(stat => {
-    const bucket = getAdminStatsChartBucket(stat, mode);
-    if (!bucket) return;
+    const key = normalizeAdminStatsDateKey(stat);
+    const date = parseAdminStatsDateKey(key);
+    if (!date) return;
 
-    if (!grouped[bucket.key]) {
-      grouped[bucket.key] = {
-        key: bucket.key,
-        label: bucket.label,
+    if (!grouped[key]) {
+      grouped[key] = {
+        key,
+        label: formatAdminStatsShortDate(date),
+        date,
         incoming: 0,
         contacts: 0,
         bookings: 0,
-        conversion: 0
+        conversion: 0,
+        hasData: true
       };
     }
 
-    // Новые и старые записи считаются одинаково.
     // Входящие = звонки + Telegram. Брони с ПВ намеренно не участвуют.
     const calls = getAdminStatsNumber(stat, ['calls', 'callCount', 'callsCount', 'zvonki']);
     const telegram = getAdminStatsNumber(stat, ['telegram', 'telegramCount', 'tg', 'telegramMessages']);
     const bookingsTotal = getAdminStatsNumber(stat, ['bookingsTotal', 'bookings', 'bookingTotal', 'totalBookings']);
 
-    grouped[bucket.key].incoming += calls + telegram;
-    grouped[bucket.key].contacts = grouped[bucket.key].incoming; // совместимость со старой логикой графика
-    grouped[bucket.key].bookings += bookingsTotal;
+    grouped[key].incoming += calls + telegram;
+    grouped[key].contacts = grouped[key].incoming;
+    grouped[key].bookings += bookingsTotal;
   });
 
   Object.values(grouped).forEach(point => {
     point.conversion = point.incoming > 0 ? Math.round((point.bookings / point.incoming) * 100) : 0;
   });
 
-  const dataKeys = Object.keys(grouped).sort();
-  const range = getAdminStatsChartRange(mode, dataKeys);
-  const startTime = range.start ? range.start.getTime() : 0;
-  const endTime = range.end ? range.end.getTime() : 0;
+  return grouped;
+}
 
-  if (mode === 'week' || mode === 'month') {
-    const points = [];
-    for (let d = new Date(range.start); d <= range.end; d = addAdminStatsDays(d, 1)) {
-      const key = formatAdminStatsDateKey(d);
-      const existing = grouped[key];
-      points.push(existing || {
-        key,
-        label: `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`,
-        incoming: 0,
-        contacts: 0,
-        bookings: 0,
-        conversion: 0
-      });
+function getAdminStatsSortedDailyPoints() {
+  return Object.values(getAdminStatsDailyGroups()).sort((a, b) => a.date - b.date);
+}
+
+function getAdminStatsChartRange(points) {
+  const list = points && points.length ? points : getAdminStatsSortedDailyPoints();
+  const fallback = new Date();
+  fallback.setHours(0, 0, 0, 0);
+  const firstDate = list.length ? new Date(list[0].date) : fallback;
+  const latestDate = list.length ? new Date(list[list.length - 1].date) : fallback;
+  const maxOffset = Math.max(0, daysBetweenAdminStatsDates(firstDate, latestDate) - adminStatsChartWindowDays + 1);
+  adminStatsChartOffsetDays = Math.max(0, Math.min(Number(adminStatsChartOffsetDays || 0), maxOffset));
+  const endDate = addAdminStatsDays(latestDate, -adminStatsChartOffsetDays);
+  const startDate = addAdminStatsDays(endDate, -(adminStatsChartWindowDays - 1));
+  return { firstDate, latestDate, startDate, endDate, maxOffset };
+}
+
+function getAdminStatsChartPoints() {
+  const points = getAdminStatsSortedDailyPoints();
+  const range = getAdminStatsChartRange(points);
+  return points.filter(p => p.date >= range.startDate && p.date <= range.endDate);
+}
+
+function getAdminStatsTotals(points) {
+  return (points || getAdminStatsSortedDailyPoints()).reduce((acc, p) => {
+    acc.incoming += Number(p.incoming || p.contacts || 0);
+    acc.bookings += Number(p.bookings || 0);
+    return acc;
+  }, { incoming: 0, bookings: 0 });
+}
+
+function setupAdminStatsChartPan() {
+  const canvas = document.getElementById('admin-stats-chart-canvas');
+  if (!canvas || canvas.dataset.panReady === '1') return;
+  canvas.dataset.panReady = '1';
+
+  canvas.addEventListener('touchstart', (event) => {
+    const touch = event.touches && event.touches[0];
+    if (!touch) return;
+    adminStatsChartPanState = {
+      active: true,
+      startX: touch.clientX,
+      startOffset: Number(adminStatsChartOffsetDays || 0)
+    };
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', (event) => {
+    if (!adminStatsChartPanState.active) return;
+    const touch = event.touches && event.touches[0];
+    if (!touch) return;
+    const dx = touch.clientX - adminStatsChartPanState.startX;
+    const width = Math.max(1, canvas.clientWidth || 320);
+    const daysDelta = Math.round((-dx / width) * adminStatsChartWindowDays);
+    const range = getAdminStatsChartRange();
+    const nextOffset = Math.max(0, Math.min(adminStatsChartPanState.startOffset + daysDelta, range.maxOffset));
+    if (nextOffset !== adminStatsChartOffsetDays) {
+      adminStatsChartOffsetDays = nextOffset;
+      drawAdminStatsChart();
     }
-    return points;
-  }
+    if (event.cancelable) event.preventDefault();
+  }, { passive: false });
 
-  return Object.values(grouped)
-    .filter(point => {
-      const date = parseAdminStatsDateKey(point.key);
-      const time = date ? date.getTime() : 0;
-      return !startTime || !endTime || (time >= startTime && time <= endTime);
-    })
-    .sort((a, b) => String(a.key).localeCompare(String(b.key)));
+  canvas.addEventListener('touchend', () => {
+    adminStatsChartPanState.active = false;
+  }, { passive: true });
+
+  canvas.addEventListener('touchcancel', () => {
+    adminStatsChartPanState.active = false;
+  }, { passive: true });
 }
 
 function drawAdminStatsChart() {
   const canvas = document.getElementById('admin-stats-chart-canvas');
   if (!canvas) return;
+  setupAdminStatsChartPan();
 
   const wrap = canvas.parentElement;
   const width = Math.max(320, Math.floor((wrap && wrap.clientWidth) || canvas.clientWidth || 320));
@@ -8627,6 +8645,8 @@ function drawAdminStatsChart() {
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
+  const allPoints = getAdminStatsSortedDailyPoints();
+  const range = getAdminStatsChartRange(allPoints);
   const points = getAdminStatsChartPoints();
   const left = 38;
   const right = 42;
@@ -8638,8 +8658,9 @@ function drawAdminStatsChart() {
   ctx.fillStyle = '#0b0f14';
   ctx.fillRect(0, 0, width, height);
 
-  const maxValue = Math.max(100, ...points.map(p => Math.max(p.incoming || p.contacts || 0, p.bookings || 0)), 0);
-  const yMax = Math.max(120, Math.ceil((maxValue + 20) / 20) * 20);
+  const maxValue = Math.max(20, ...allPoints.map(p => Math.max(Number(p.incoming || p.contacts || 0), Number(p.bookings || 0))), 0);
+  const yStep = maxValue <= 50 ? 10 : (maxValue <= 120 ? 20 : Math.ceil(maxValue / 6 / 10) * 10);
+  const yMax = Math.max(yStep * 2, Math.ceil(maxValue / yStep) * yStep);
 
   ctx.strokeStyle = 'rgba(130, 150, 170, 0.18)';
   ctx.lineWidth = 1;
@@ -8648,7 +8669,7 @@ function drawAdminStatsChart() {
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
 
-  for (let y = 20; y <= yMax; y += 20) {
+  for (let y = yStep; y <= yMax; y += yStep) {
     const py = top + chartH - (y / yMax) * chartH;
     ctx.beginPath();
     ctx.moveTo(left, py);
@@ -8664,7 +8685,7 @@ function drawAdminStatsChart() {
   ctx.lineTo(width - right, top + chartH);
   ctx.stroke();
 
-  if (!points.length) {
+  if (!allPoints.length) {
     ctx.fillStyle = '#7f8ea3';
     ctx.font = '13px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
     ctx.textAlign = 'center';
@@ -8673,43 +8694,56 @@ function drawAdminStatsChart() {
     return;
   }
 
-  const getX = (i) => {
-    if (points.length === 1) return left + chartW / 2;
-    return left + (i / (points.length - 1)) * chartW;
+  const firstDate = range.startDate;
+  const lastDate = range.endDate;
+  const totalMs = Math.max(1, lastDate.getTime() - firstDate.getTime());
+  const getX = (point) => {
+    if (!point || !point.date) return left;
+    return left + ((point.date.getTime() - firstDate.getTime()) / totalMs) * chartW;
   };
   const getY = (value) => top + chartH - (Number(value || 0) / yMax) * chartH;
 
-  const maxLabels = width < 390 ? 4 : 6;
-  const labelEvery = Math.max(1, Math.ceil(points.length / maxLabels));
   ctx.fillStyle = '#7f8ea3';
   ctx.font = '10px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
-  points.forEach((p, i) => {
-    const x = getX(i);
-    if (i % labelEvery === 0 || i === points.length - 1) {
-      ctx.fillText(p.label, x, top + chartH + 12);
-    }
-  });
+  for (let d = new Date(firstDate); d <= lastDate; d = addAdminStatsDays(d, 5)) {
+    const x = left + ((d.getTime() - firstDate.getTime()) / totalMs) * chartW;
+    ctx.fillText(formatAdminStatsShortDate(d), x, top + chartH + 12);
+  }
+  if (formatAdminStatsDateKey(lastDate) !== formatAdminStatsDateKey(firstDate)) {
+    ctx.fillText(formatAdminStatsShortDate(lastDate), width - right, top + chartH + 12);
+  }
+
+  if (!points.length) {
+    ctx.fillStyle = '#7f8ea3';
+    ctx.font = '13px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('В этом отрезке нет данных', width / 2, height / 2);
+  }
 
   function drawLine(field, color) {
+    const series = points.filter(p => p && p[field] !== null && p[field] !== undefined);
+    if (!series.length) return;
+
     ctx.strokeStyle = color;
     ctx.lineWidth = 2.4;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
-    ctx.beginPath();
 
-    points.forEach((p, i) => {
-      const x = getX(i);
+    ctx.beginPath();
+    series.forEach((p, i) => {
+      const x = getX(p);
       const y = getY(p[field]);
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
 
-    points.forEach((p, i) => {
-      const x = getX(i);
+    series.forEach(p => {
+      const x = getX(p);
       const y = getY(p[field]);
       ctx.beginPath();
       ctx.fillStyle = '#0b0f14';
@@ -8724,36 +8758,22 @@ function drawAdminStatsChart() {
   drawLine('incoming', '#2f8cff');
   drawLine('bookings', '#2fcf7f');
 
-  // Итоги справа считаются по выбранному масштабу.
-  // День показывает значение последнего фактического дня, неделя/месяц — сумму периода.
-  // Иначе человек видит одинаковые цифры на всех вкладках и начинает подозревать график в философии.
-  const nonEmptyPoints = points.filter(p => Number(p.incoming || p.contacts || 0) > 0 || Number(p.bookings || 0) > 0);
-  const totalSource = activeAdminStatsChartMode === 'day'
-    ? (nonEmptyPoints.length ? [nonEmptyPoints[nonEmptyPoints.length - 1]] : [])
-    : points;
+  const totals = getAdminStatsTotals(allPoints);
+  const conversion = totals.incoming > 0 ? Math.round((totals.bookings / totals.incoming) * 100) : 0;
 
-  const periodTotals = totalSource.reduce((acc, p) => {
-    acc.incoming += Number(p.incoming || p.contacts || 0);
-    acc.bookings += Number(p.bookings || 0);
-    return acc;
-  }, { incoming: 0, bookings: 0 });
-  periodTotals.conversion = periodTotals.incoming > 0 ? Math.round((periodTotals.bookings / periodTotals.incoming) * 100) : 0;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';
   ctx.font = '11px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
   ctx.fillStyle = '#2f8cff';
-  ctx.fillText(`Входящие: ${periodTotals.incoming}`, width - 10, 12);
+  ctx.fillText(`Входящие: ${totals.incoming}`, width - 10, 12);
   ctx.fillStyle = '#2fcf7f';
-  ctx.fillText(`Брони: ${periodTotals.bookings}`, width - 10, 28);
+  ctx.fillText(`Брони: ${totals.bookings}`, width - 10, 28);
   ctx.fillStyle = '#55f0e6';
-  ctx.fillText(`Конверсия: ${periodTotals.conversion}%`, width - 10, 44);
+  ctx.fillText(`Конверсия: ${conversion}%`, width - 10, 44);
 }
 
 function renderAdminStatsChartTabs() {
-  ['day', 'week', 'month'].forEach(mode => {
-    const el = document.getElementById('admin-chart-tab-' + mode);
-    if (el) el.classList.toggle('active', activeAdminStatsChartMode === mode);
-  });
+  // Переключатели периодов удалены. Функция оставлена, чтобы не трогать соседнюю логику.
 }
 
 function renderFounderAdminStatistics() {
