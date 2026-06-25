@@ -1213,7 +1213,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.101 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.102 тестирование</div>
   </div>
 </div>
 
@@ -2752,7 +2752,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.101";
+const APP_VERSION = "1.102";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -9237,7 +9237,8 @@ function openAnonymousFeedback() {
 }
 
 function switchAnonymousFeedbackType(type) {
-  activeAnonymousFeedbackType = type === 'complaint' ? 'complaint' : 'suggestion';
+  if (type === 'staff') activeAnonymousFeedbackType = 'staff';
+  else activeAnonymousFeedbackType = type === 'complaint' ? 'complaint' : 'suggestion';
   activeAnonymousFeedbackPhotos = [];
   renderAnonymousFeedback();
 }
@@ -9276,6 +9277,7 @@ function renderAnonymousFeedback() {
   const el = document.getElementById('anonymous-feedback-content');
   if (!el) return;
   const isComplaint = activeAnonymousFeedbackType === 'complaint';
+  const isStaff = activeAnonymousFeedbackType === 'staff';
   const targets = getAnonymousTargetEmployees();
   const targetSelect = isComplaint ? `
       <div class="field">
@@ -9286,21 +9288,21 @@ function renderAnonymousFeedback() {
         </select>
       </div>` : '';
 
-  el.innerHTML = `
-    <div class="tabs">
-      <div class="tab ${!isComplaint ? 'active' : ''}" onclick="switchAnonymousFeedbackType('suggestion')">Предложения</div>
-      <div class="tab ${isComplaint ? 'active' : ''}" onclick="switchAnonymousFeedbackType('complaint')">Жалобы</div>
-    </div>
-    <div class="doc-placeholder">
-      Учредители видят только текст сообщения и фото. Имя отправителя скрыто.
-    </div>
-    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
-      ${targetSelect}
+  const staffFields = isStaff ? `
       <div class="field">
-        <label>${isComplaint ? 'Текст жалобы' : 'Текст предложения'}</label>
-        <textarea id="anonymous-feedback-text" placeholder="Напишите текст..."></textarea>
-        <div class="error-msg" id="anonymous-feedback-error">Напишите текст</div>
+        <label>Число</label>
+        <input type="text" id="anonymous-feedback-number" placeholder="Введите число" inputmode="numeric">
       </div>
+      <div class="field">
+        <label>Обед или ужин</label>
+        <select id="anonymous-feedback-meal">
+          <option value="">Выберите</option>
+          <option value="lunch">Обед</option>
+          <option value="dinner">Ужин</option>
+        </select>
+      </div>` : '';
+
+  const photosSection = !isStaff ? `
       <div class="photo-section" style="margin-bottom:14px;">
         <div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="anonymous-feedback-photo-count">0 / 5</span></div>
         <div class="photo-body">
@@ -9310,10 +9312,32 @@ function renderAnonymousFeedback() {
             <button type="button" class="add-photo-btn" onclick="openGalleryInput('anonymousFeedback')"><span>🖼️</span><span>Прикрепить из галереи</span></button>
           </div>
         </div>
+      </div>` : '';
+
+  const textLabel = isStaff ? 'Текст жалобы по стаффу' : (isComplaint ? 'Текст жалобы' : 'Текст предложения');
+  const errorText = isStaff ? 'Заполните текст, число и выберите обед или ужин' : 'Напишите текст';
+
+  el.innerHTML = `
+    <div class="tabs">
+      <div class="tab ${!isComplaint && !isStaff ? 'active' : ''}" onclick="switchAnonymousFeedbackType('suggestion')">Предложения</div>
+      <div class="tab ${isComplaint ? 'active' : ''}" onclick="switchAnonymousFeedbackType('complaint')">Жалобы</div>
+      <div class="tab ${isStaff ? 'active' : ''}" onclick="switchAnonymousFeedbackType('staff')">Стафф</div>
+    </div>
+    <div class="doc-placeholder">
+      Учредители видят только текст сообщения и фото. Имя отправителя скрыто.
+    </div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      ${targetSelect}
+      ${staffFields}
+      <div class="field">
+        <label>${textLabel}</label>
+        <textarea id="anonymous-feedback-text" placeholder="Напишите текст..."></textarea>
+        <div class="error-msg" id="anonymous-feedback-error">${errorText}</div>
       </div>
+      ${photosSection}
       <button class="btn btn-primary" onclick="submitAnonymousFeedback()">Отправить</button>
     </div>`;
-  renderAnonymousFeedbackPhotos();
+  if (!isStaff) renderAnonymousFeedbackPhotos();
 }
 
 async function submitAnonymousFeedback() {
@@ -9325,25 +9349,32 @@ async function submitAnonymousFeedback() {
   const textEl = document.getElementById('anonymous-feedback-text');
   const err = document.getElementById('anonymous-feedback-error');
   const textValue = (textEl ? textEl.value : '').trim();
-  if (!textValue) {
+  const isComplaint = activeAnonymousFeedbackType === 'complaint';
+  const isStaff = activeAnonymousFeedbackType === 'staff';
+  const staffNumber = isStaff ? (document.getElementById('anonymous-feedback-number')?.value || '').trim() : '';
+  const staffMeal = isStaff ? (document.getElementById('anonymous-feedback-meal')?.value || '').trim() : '';
+
+  if (!textValue || (isStaff && (!staffNumber || !staffMeal))) {
     if (err) err.classList.add('show');
     return;
   }
   if (err) err.classList.remove('show');
 
-  const isComplaint = activeAnonymousFeedbackType === 'complaint';
   const selectedKey = isComplaint ? (document.getElementById('anonymous-feedback-target')?.value || '') : '';
   const target = selectedKey ? getAnonymousTargetEmployees().find(s => String(s._key || ('staff:' + String(s.id))) === String(selectedKey)) : null;
 
   try {
-    showToast(activeAnonymousFeedbackPhotos.length ? 'Отправляем фото...' : 'Отправляем...');
-    const photos = await uploadTaskPhotos(activeAnonymousFeedbackPhotos, 'anonymousFeedback');
+    showToast(!isStaff && activeAnonymousFeedbackPhotos.length ? 'Отправляем фото...' : 'Отправляем...');
+    const photos = isStaff ? [] : await uploadTaskPhotos(activeAnonymousFeedbackPhotos, 'anonymousFeedback');
     const now = new Date();
     const item = {
       id: Date.now(),
-      type: isComplaint ? 'complaint' : 'suggestion',
+      type: isStaff ? 'staff' : (isComplaint ? 'complaint' : 'suggestion'),
       text: textValue,
       photos,
+      staffNumber: isStaff ? staffNumber : '',
+      staffMeal: isStaff ? staffMeal : '',
+      staffMealLabel: isStaff ? (staffMeal === 'lunch' ? 'Обед' : 'Ужин') : '',
       targetKey: target ? String(target._key || ('staff:' + String(target.id))) : '',
       targetId: target ? String(target.id || '') : '',
       targetName: target ? String(target.name || '') : '',
@@ -9354,9 +9385,10 @@ async function submitAnonymousFeedback() {
       createdAt: now.toISOString()
     };
     await saveAnonymousFeedback(item);
-    const label = isComplaint ? 'жалоба' : 'предложение';
+    const label = isStaff ? 'жалоба по стаффу' : (isComplaint ? 'жалоба' : 'предложение');
     const targetLine = target ? `\nНа: ${target.name || 'Сотрудник'} · ${getStaffRole(target)}` : '';
-    notifyFounders(`💬 Новая анонимная ${label}${targetLine}\n\nОткройте Учредитель → Жалобы и предложения`);
+    const staffLine = isStaff ? `\nЧисло: ${staffNumber}\nПрием пищи: ${item.staffMealLabel}` : '';
+    notifyFounders(`💬 Новая анонимная ${label}${targetLine}${staffLine}\n\nОткройте Учредитель → Жалобы и предложения`);
     activeAnonymousFeedbackPhotos = [];
     if (textEl) textEl.value = '';
     showToast('Отправлено анонимно ✓');
@@ -9479,7 +9511,8 @@ function openFounderAnonymousFeedback() {
 }
 
 function switchFounderAnonymousTab(type) {
-  activeFounderAnonymousTab = type === 'suggestion' ? 'suggestion' : 'complaint';
+  if (type === 'staff') activeFounderAnonymousTab = 'staff';
+  else activeFounderAnonymousTab = type === 'suggestion' ? 'suggestion' : 'complaint';
   markFounderItemsRead('feedback', getAnonymousFeedback().filter(x => String(x.type || 'suggestion') === activeFounderAnonymousTab), item => item.id);
   renderFounderAnonymousFeedback();
 }
@@ -9488,13 +9521,21 @@ function renderFounderAnonymousFeedback() {
   const el = document.getElementById('founder-anonymous-feedback-content');
   if (!el) return;
   const isSuggestion = activeFounderAnonymousTab === 'suggestion';
+  const isStaff = activeFounderAnonymousTab === 'staff';
+  const currentType = isStaff ? 'staff' : (isSuggestion ? 'suggestion' : 'complaint');
+  const complaintUnread = getAnonymousFeedback().filter(x => String(x.type || '') === 'complaint' && isFounderItemUnread('feedback', x.id, x.createdAt)).length;
+  const suggestionUnread = getAnonymousFeedback().filter(x => String(x.type || 'suggestion') === 'suggestion' && isFounderItemUnread('feedback', x.id, x.createdAt)).length;
+  const staffUnread = getAnonymousFeedback().filter(x => String(x.type || '') === 'staff' && isFounderItemUnread('feedback', x.id, x.createdAt)).length;
   const items = getAnonymousFeedback()
-    .filter(x => String(x.type || 'suggestion') === (isSuggestion ? 'suggestion' : 'complaint'))
+    .filter(x => String(x.type || 'suggestion') === currentType)
     .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+  const badgeHtml = (count) => `<span class="notify-badge ${count ? 'show' : ''}" style="${count ? 'display:inline-flex;' : ''}">${count}</span>`;
 
   const listHtml = items.length ? items.map(item => {
     const dateText = `${item.date ? formatDateRu(item.date) : ''}${item.time ? ' · ' + escapeHtml(item.time) : ''}`;
     const targetHtml = item.targetName ? `<div class="card-sub" style="margin-top:6px;">На кого: ${escapeHtml(item.targetName)} · ${escapeHtml(item.targetRoleLabel || getRoleLabel(item.targetRole))}</div>` : '';
+    const staffMetaHtml = String(item.type || '') === 'staff' ? `<div class="card-sub" style="margin-top:6px;">Число: ${escapeHtml(item.staffNumber || '—')} · ${escapeHtml(item.staffMealLabel || (item.staffMeal === 'lunch' ? 'Обед' : (item.staffMeal === 'dinner' ? 'Ужин' : '—')))}</div>` : '';
     const photosHtml = (item.photos || []).length ? `<div class="report-photo-grid" style="margin-top:12px;">${(item.photos || []).slice(0,5).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
     return `<div class="card swipe-delete-card" style="cursor:default;" data-feedback-id="${item.id}"
       ontouchstart="startAnonymousFeedbackSwipe(event, '${item.id}')"
@@ -9502,6 +9543,7 @@ function renderFounderAnonymousFeedback() {
       ontouchend="endAnonymousFeedbackSwipe(event, '${item.id}')">
       <div class="card-title">${escapeHtml(dateText || 'Без даты')}</div>
       ${targetHtml}
+      ${staffMetaHtml}
       <div style="font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line;">${escapeHtml(item.text || '')}</div>
       ${photosHtml}
       <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Длинный свайп влево до конца + подтверждение для удаления</div>
@@ -9510,10 +9552,11 @@ function renderFounderAnonymousFeedback() {
 
   el.innerHTML = `
     <div class="tabs">
-      <div class="tab ${!isSuggestion ? 'active' : ''}" onclick="switchFounderAnonymousTab('complaint')">Жалобы <span class="notify-badge ${getAnonymousFeedback().filter(x => String(x.type || '') === 'complaint' && isFounderItemUnread('feedback', x.id, x.createdAt)).length ? 'show' : ''}" style="${getAnonymousFeedback().filter(x => String(x.type || '') === 'complaint' && isFounderItemUnread('feedback', x.id, x.createdAt)).length ? 'display:inline-flex;' : ''}">${getAnonymousFeedback().filter(x => String(x.type || '') === 'complaint' && isFounderItemUnread('feedback', x.id, x.createdAt)).length}</span></div>
-      <div class="tab ${isSuggestion ? 'active' : ''}" onclick="switchFounderAnonymousTab('suggestion')">Предложения <span class="notify-badge ${getAnonymousFeedback().filter(x => String(x.type || 'suggestion') === 'suggestion' && isFounderItemUnread('feedback', x.id, x.createdAt)).length ? 'show' : ''}" style="${getAnonymousFeedback().filter(x => String(x.type || 'suggestion') === 'suggestion' && isFounderItemUnread('feedback', x.id, x.createdAt)).length ? 'display:inline-flex;' : ''}">${getAnonymousFeedback().filter(x => String(x.type || 'suggestion') === 'suggestion' && isFounderItemUnread('feedback', x.id, x.createdAt)).length}</span></div>
+      <div class="tab ${!isSuggestion && !isStaff ? 'active' : ''}" onclick="switchFounderAnonymousTab('complaint')">Жалобы ${badgeHtml(complaintUnread)}</div>
+      <div class="tab ${isSuggestion ? 'active' : ''}" onclick="switchFounderAnonymousTab('suggestion')">Предложения ${badgeHtml(suggestionUnread)}</div>
+      <div class="tab ${isStaff ? 'active' : ''}" onclick="switchFounderAnonymousTab('staff')">Стафф ${badgeHtml(staffUnread)}</div>
     </div>
-    <div class="doc-placeholder">Авторы не отображаются и не сохраняются. Видны только текст, фото и сотрудник, если он указан в жалобе.</div>
+    <div class="doc-placeholder">Авторы не отображаются и не сохраняются. Видны только текст, фото и сотрудник, если он указан в жалобе. В стаффе видны число и обед/ужин.</div>
     ${listHtml}`;
 }
 
