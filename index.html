@@ -1213,7 +1213,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.102 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.103 тестирование</div>
   </div>
 </div>
 
@@ -2016,6 +2016,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openFounderCooks()">
+      <div class="menu-icon">👨‍🍳</div>
+      <div class="menu-text">
+        <div class="menu-title-row"><div class="menu-title">Повара</div><span class="notify-badge" id="badge-founder-cooks">0</span></div>
+        <div class="menu-desc">Стафф отчеты поваров</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openFounderRepairs()">
       <div class="menu-icon">🛠️</div>
       <div class="menu-text">
@@ -2340,6 +2348,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openCookStaffReport()">
+      <div class="menu-icon">📷</div>
+      <div class="menu-text">
+        <div class="menu-title">Стафф отчет</div>
+        <div class="menu-desc">Фото стаффа и комментарий</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openCookStopList()">
       <div class="menu-icon">⛔</div>
       <div class="menu-text">
@@ -2370,6 +2386,36 @@
     <span class="header-title">Стоп лист</span>
   </div>
   <div class="content content-padded" id="cook-stoplist-content"></div>
+</div>
+
+<!-- ===== SCREEN: COOK STAFF REPORT ===== -->
+<div class="screen" id="screen-cook-staff-report">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Стафф отчет</span>
+  </div>
+  <div class="content content-padded" id="cook-staff-report-content"></div>
+</div>
+
+<!-- ===== SCREEN: FOUNDER COOKS ===== -->
+<div class="screen" id="screen-founder-cooks">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Повара</span>
+  </div>
+  <div class="content">
+    <div class="section-label">Смены</div>
+    <div id="founder-cooks-list"></div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: FOUNDER COOK REPORTS VIEW ===== -->
+<div class="screen" id="screen-founder-cook-reports-view">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="founder-cook-reports-view-title">Смена повара</span>
+  </div>
+  <div class="content content-padded" id="founder-cook-reports-view-content"></div>
 </div>
 
 <!-- ===== SCREEN: COOK INVENTORY ===== -->
@@ -2752,7 +2798,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.102";
+const APP_VERSION = "1.103";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2781,6 +2827,7 @@ const appCache = {
   adminShiftHandover: null,
   bathmasterOrders: [],
   repairRequests: [],
+  cookStaffReports: [],
   technicianRepairReminderLog: {},
   founderTasks: [],
   forgottenItems: [],
@@ -3126,6 +3173,7 @@ async function initCloud() {
     appCache.adminShiftHandover = LocalDB.get("adminShiftHandover") || null;
     appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || [];
     appCache.repairRequests = LocalDB.get("repairRequests") || [];
+    appCache.cookStaffReports = LocalDB.get("cookStaffReports") || [];
     appCache.technicianRepairReminderLog = LocalDB.get("technicianRepairReminderLog") || {};
     appCache.founderTasks = LocalDB.get("founderTasks") || [];
     appCache.forgottenItems = LocalDB.get("forgottenItems") || [];
@@ -3206,6 +3254,15 @@ async function initCloud() {
     showToast("Ошибка загрузки поломок");
   });
 
+  db.collection("cookStaffReports").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    appCache.cookStaffReports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    LocalDB.set("cookStaffReports", appCache.cookStaffReports);
+    refreshVisibleData();
+  }, (err) => {
+    console.error("cook staff reports snapshot error", err);
+    showToast("Ошибка загрузки отчетов повара");
+  });
+
   db.collection("founderTasks").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
     appCache.founderTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     LocalDB.set("founderTasks", appCache.founderTasks);
@@ -3263,7 +3320,7 @@ async function initCloud() {
 }
 
 async function loadCloudData() {
-  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, repairRequestsSnap, founderTasksSnap, forgottenItemsSnap, anonymousFeedbackSnap, settingsDoc] = await Promise.all([
+  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, repairRequestsSnap, cookStaffReportsSnap, founderTasksSnap, forgottenItemsSnap, anonymousFeedbackSnap, settingsDoc] = await Promise.all([
     db.collection("staff").get(),
     db.collection("reports").orderBy("createdAt", "desc").get(),
     db.collection("fines").orderBy("createdAt", "desc").get(),
@@ -3273,6 +3330,7 @@ async function loadCloudData() {
     db.collection("adminProfiles").orderBy("createdAt", "desc").get(),
     db.collection("bathmasterOrders").orderBy("createdAt", "desc").get(),
     db.collection("repairRequests").orderBy("createdAt", "desc").get(),
+    db.collection("cookStaffReports").orderBy("createdAt", "desc").get(),
     db.collection("founderTasks").orderBy("createdAt", "desc").get(),
     db.collection("forgottenItems").orderBy("createdAt", "desc").get(),
     db.collection("anonymousFeedback").orderBy("createdAt", "desc").get(),
@@ -3288,6 +3346,7 @@ async function loadCloudData() {
   appCache.adminProfiles = adminProfilesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.bathmasterOrders = bathmasterOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.repairRequests = repairRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.cookStaffReports = cookStaffReportsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.founderTasks = founderTasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.forgottenItems = forgottenItemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.anonymousFeedback = anonymousFeedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -3295,6 +3354,7 @@ async function loadCloudData() {
   LocalDB.set("adminProfiles", appCache.adminProfiles);
   LocalDB.set("founderTasks", appCache.founderTasks);
   LocalDB.set("anonymousFeedback", appCache.anonymousFeedback);
+  LocalDB.set("cookStaffReports", appCache.cookStaffReports);
 
   const settings = settingsDoc.exists ? settingsDoc.data() : {};
   appCache.dutyAssignment = settings.dutyAssignment || null;
@@ -4285,6 +4345,17 @@ async function updateRepairRequest(req) {
   renderRepairHistoryForCurrentActor();
 }
 
+function getCookStaffReports() { return appCache.cookStaffReports || []; }
+
+async function saveCookStaffReport(report) {
+  const arr = getCookStaffReports().filter(r => String(r.id) !== String(report.id));
+  arr.unshift(report);
+  appCache.cookStaffReports = arr;
+  LocalDB.set("cookStaffReports", arr);
+  updateUnreadBadges();
+  if (CLOUD_ENABLED && db) await db.collection("cookStaffReports").doc(String(report.id)).set(report, { merge: true });
+}
+
 
 function getForgottenItems() {
   return appCache.forgottenItems || [];
@@ -4434,6 +4505,7 @@ function getUnreadCounts() {
   const repairUnreadForFounder = getFounderUnreadCount('repair', getRepairRequests(), r => r.id, r => r.createdAt);
   const feedbackUnread = getFounderUnreadCount('feedback', getAnonymousFeedback(), r => r.id, r => r.createdAt);
   const repairUnreadForTechnician = getRepairRequests().filter(r => r.status === 'new').length;
+  const cookReportsUnread = getFounderUnreadCount('cookStaffReport', getCookStaffReports(), r => r.id, r => r.createdAt);
   const waiterTasksUnread = getUnreadTasksForRole('waiter').length;
   const bathmasterTasksUnread = getUnreadTasksForRole('bathmaster').length;
   const masseurTasksUnread = getUnreadTasksForRole('masseur').length;
@@ -4452,6 +4524,8 @@ function getUnreadCounts() {
     masseurOrders: masseurOrdersUnread,
     masseurs: masseurOrdersUnread,
     repairsFounder: repairUnreadForFounder,
+    cookReports: cookReportsUnread,
+    cooks: cookReportsUnread,
     repairsTechnician: repairUnreadForTechnician,
     feedback: feedbackUnread,
     waiterTasks: waiterTasksUnread,
@@ -4485,6 +4559,7 @@ function updateUnreadBadges() {
   setBadge("badge-tab-masseur-orders", c.masseurOrders);
   setBadge("badge-founder-feedback", c.feedback);
   setBadge("badge-founder-repairs", c.repairsFounder);
+  setBadge("badge-founder-cooks", c.cooks);
   setBadge("badge-technician-repairs", c.repairsTechnician);
   setBadge("badge-waiter-tasks", c.waiterTasks);
   setBadge("badge-bathmaster-tasks", c.bathmasterTasks);
@@ -5021,6 +5096,7 @@ function refreshScreen(id) {
   if (id === 'screen-technician-menu') renderTechnicianMenu();
   if (id === 'screen-cook-menu') renderCookMenu();
   if (id === 'screen-cook-stoplist') renderCookStopList();
+  if (id === 'screen-cook-staff-report') renderCookStaffReport();
   if (id === 'screen-waiter-stoplist') renderWaiterStopList();
   if (id === 'screen-technician-repairs') renderTechnicianRepairs();
   if (id === 'screen-founder-repairs') renderFounderRepairs();
@@ -5031,6 +5107,8 @@ function refreshScreen(id) {
   if (id === 'screen-founder-fines') renderFounderFines();
   if (id === 'screen-founder-admin-statistics') renderFounderAdminStatistics();
   if (id === 'screen-founder-admin-statistics-view') renderFounderAdminStatisticsView();
+  if (id === 'screen-founder-cooks') renderFounderCooks();
+  if (id === 'screen-founder-cook-reports-view') renderFounderCookReportsView();
   if (id === 'screen-inventory-start') renderInventoryStart();
   if (id === 'screen-inventory-form') renderInventoryForm();
   if (id === 'screen-founder-waiters') {
@@ -5108,6 +5186,9 @@ function addLocalPhotoToCameraTarget(localPhoto) {
   }
   if (cameraTarget === 'anonymousFeedback') {
     return addAnonymousFeedbackPhoto(localPhoto);
+  }
+  if (cameraTarget === 'cookStaffReport') {
+    return addCookStaffReportPhoto(localPhoto);
   }
 
   showToast('Раздел фото не найден');
@@ -6144,6 +6225,129 @@ function renderCookMenu() {
   }
   const nameEl = document.getElementById('cook-menu-name');
   if (nameEl) nameEl.textContent = cook.name || 'Повар';
+}
+
+
+let activeCookStaffReportPhotos = [];
+let activeFounderCookReportDate = '';
+
+function openCookStaffReport() {
+  if (!getCook()) { showToast('Сначала войдите как повар'); return; }
+  activeCookStaffReportPhotos = [];
+  renderCookStaffReport();
+  goTo('screen-cook-staff-report');
+}
+
+function renderCookStaffReportPhotos() {
+  const grid = document.getElementById('cook-staff-report-photo-grid');
+  const count = document.getElementById('cook-staff-report-photo-count');
+  const addBtn = document.getElementById('cook-staff-report-add-btn');
+  if (!grid || !count || !addBtn) return;
+  count.textContent = `${activeCookStaffReportPhotos.length} / 2`;
+  grid.style.display = activeCookStaffReportPhotos.length ? 'grid' : 'none';
+  addBtn.classList.toggle('hidden', activeCookStaffReportPhotos.length >= 2);
+  grid.innerHTML = activeCookStaffReportPhotos.map((photo, idx) => `<div class="photo-thumb" onclick="openFullscreen('${photo.preview_url}')"><img src="${photo.preview_url}" alt=""><button class="remove-photo" onclick="event.stopPropagation(); removeCookStaffReportPhoto(${idx})">✕</button></div>`).join('');
+}
+
+function addCookStaffReportPhoto(localPhoto) {
+  if (activeCookStaffReportPhotos.length >= 2) {
+    showToast('Лимит фото: 2');
+    return false;
+  }
+  activeCookStaffReportPhotos.push(localPhoto);
+  renderCookStaffReportPhotos();
+  return true;
+}
+
+function removeCookStaffReportPhoto(index) {
+  activeCookStaffReportPhotos.splice(index, 1);
+  renderCookStaffReportPhotos();
+}
+
+function renderCookStaffReport() {
+  const el = document.getElementById('cook-staff-report-content');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="section-label">Новый отчет</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div class="field">
+        <label>Комментарий</label>
+        <textarea id="cook-staff-report-text" placeholder="Текст по желанию"></textarea>
+      </div>
+      <div class="photo-section" style="margin-bottom:14px;">
+        <div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="cook-staff-report-photo-count">0 / 2</span></div>
+        <div class="photo-body">
+          <div class="photo-grid" id="cook-staff-report-photo-grid" style="display:none;"></div>
+          <div id="cook-staff-report-add-btn" class="photo-actions" style="display:grid;gap:8px;">
+            <button type="button" class="add-photo-btn" onclick="openCameraModal('cookStaffReport')"><span>📷</span><span>Сделать фото</span></button>
+            <button type="button" class="add-photo-btn" onclick="openGalleryInput('cookStaffReport')"><span>🖼️</span><span>Выбрать из галереи</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="error-msg" id="cook-staff-report-error" style="margin-bottom:12px;">Добавьте хотя бы 1 фото</div>
+      <button class="btn btn-primary" onclick="submitCookStaffReport()">Отправить отчет</button>
+    </div>
+    <div class="section-label">Мои последние отчеты</div>
+    <div id="cook-staff-report-history"></div>`;
+  renderCookStaffReportPhotos();
+  renderCookStaffReportHistory();
+}
+
+function renderCookStaffReportHistory() {
+  const el = document.getElementById('cook-staff-report-history');
+  if (!el) return;
+  const cook = getCook();
+  const items = getCookStaffReports()
+    .filter(r => cook && String(r.staffId) === String(cook.id))
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+    .slice(0, 10);
+  if (!items.length) {
+    el.innerHTML = `<div class="empty" style="padding:28px 0;"><div class="empty-icon">📷</div><div class="empty-title">Пока пусто</div><div class="empty-sub">Отправленные стафф отчеты появятся здесь</div></div>`;
+    return;
+  }
+  el.innerHTML = items.map(r => {
+    const dateText = r.date ? `${formatDateRu(r.date)}${r.time ? ' · ' + r.time : ''}` : '';
+    const photosHtml = (r.photos || []).length ? `<div class="report-photo-grid" style="margin-top:12px;">${(r.photos || []).slice(0,2).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+    return `<div class="card" style="cursor:default;"><div class="card-title">${escapeHtml(dateText || 'Без даты')}</div>${r.text ? `<div style="font-size:15px;line-height:1.5;margin-top:10px;white-space:pre-line;">${escapeHtml(r.text)}</div>` : ''}${photosHtml}</div>`;
+  }).join('');
+}
+
+async function submitCookStaffReport() {
+  const cook = getCook();
+  const err = document.getElementById('cook-staff-report-error');
+  const textValue = (document.getElementById('cook-staff-report-text')?.value || '').trim();
+  if (!cook) { showToast('Сначала войдите как повар'); return; }
+  if (!activeCookStaffReportPhotos.length) {
+    if (err) err.classList.add('show');
+    return;
+  }
+  if (err) err.classList.remove('show');
+  try {
+    showToast('Отправляем фото...');
+    const photos = await uploadTaskPhotos(activeCookStaffReportPhotos, 'cookStaffReport');
+    const now = new Date();
+    const report = {
+      id: Date.now(),
+      staffId: cook.id,
+      staffName: cook.name || 'Повар',
+      staffLogin: cook.login || '',
+      text: textValue,
+      photos,
+      date: toDateKey(now),
+      time: now.toTimeString().slice(0, 5),
+      createdAt: now.toISOString()
+    };
+    await saveCookStaffReport(report);
+    notifyFounders(`👨‍🍳 Новый стафф отчет повара\n\n${report.staffName}${report.text ? '\n' + report.text : ''}`);
+    activeCookStaffReportPhotos = [];
+    const textEl = document.getElementById('cook-staff-report-text');
+    if (textEl) textEl.value = '';
+    renderCookStaffReport();
+    showToast('Отчет отправлен ✓');
+  } catch (e) {
+    console.error(e);
+    showToast('Ошибка отправки отчета');
+  }
 }
 
 function openCookInventory() {
@@ -9116,6 +9320,72 @@ function renderMasseurOrdersForFounder() {
 
 function openFounderWaiters() {
   goTo('screen-founder-waiters');
+}
+
+
+function openFounderCooks() {
+  markFounderItemsRead('cookStaffReport', getCookStaffReports(), r => r.id);
+  renderFounderCooks();
+  goTo('screen-founder-cooks');
+}
+
+function renderFounderCooks() {
+  const el = document.getElementById('founder-cooks-list');
+  if (!el) return;
+  const reports = getCookStaffReports().slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  if (!reports.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">👨‍🍳</div><div class="empty-title">Пока нет отчетов</div><div class="empty-sub">Стафф отчеты поваров появятся здесь</div></div>`;
+    return;
+  }
+  const byDate = {};
+  reports.forEach(r => {
+    const key = r.date || toDateKey(new Date(r.createdAt || Date.now()));
+    if (!byDate[key]) byDate[key] = [];
+    byDate[key].push(r);
+  });
+  el.innerHTML = Object.keys(byDate).sort().reverse().map(date => {
+    const reps = byDate[date];
+    const latest = Math.max(...reps.map(r => getTimeMs(r.createdAt)));
+    const formatted = formatDateRu(date);
+    return `<div class="shift-card" onclick="openFounderCookReportsView('${date}')">
+      <div class="shift-date">${escapeHtml(formatted)}${unreadDotHtml(latest > getReadMarker(founderReadKey('cookReportDate', date)))}</div>
+      <div class="shift-meta">${reps.length} ${plural(reps.length, 'отчет', 'отчета', 'отчетов')}</div>
+    </div>`;
+  }).join('');
+}
+
+function openFounderCookReportsView(date) {
+  activeFounderCookReportDate = String(date || '');
+  const reports = getCookStaffReports().filter(r => String(r.date || '') === activeFounderCookReportDate);
+  markFounderItemsRead('cookStaffReport', reports, r => r.id);
+  setReadMarker(founderReadKey('cookReportDate', activeFounderCookReportDate));
+  renderFounderCookReportsView();
+  goTo('screen-founder-cook-reports-view');
+}
+
+function renderFounderCookReportsView() {
+  const title = document.getElementById('founder-cook-reports-view-title');
+  const content = document.getElementById('founder-cook-reports-view-content');
+  if (!title || !content) return;
+  title.textContent = activeFounderCookReportDate ? `Повара · ${formatDateRu(activeFounderCookReportDate)}` : 'Повара';
+  const items = getCookStaffReports()
+    .filter(r => String(r.date || '') === String(activeFounderCookReportDate))
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  if (!items.length) {
+    content.innerHTML = `<div class="empty"><div class="empty-icon">👨‍🍳</div><div class="empty-title">Отчеты не найдены</div></div>`;
+    return;
+  }
+  content.innerHTML = items.map(r => {
+    const dateText = `${r.date ? formatDateRu(r.date) : ''}${r.time ? ' · ' + escapeHtml(r.time) : ''}`;
+    const photosHtml = (r.photos || []).length ? `<div class="report-photo-grid" style="margin-top:12px;">${(r.photos || []).slice(0,2).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+    return `<div class="report-section">
+      <div class="report-section-header">${escapeHtml(r.staffName || 'Повар')}${r.staffLogin ? ' · ' + escapeHtml(r.staffLogin) : ''} · ${escapeHtml(dateText)}</div>
+      <div class="report-section-body">
+        ${r.text ? `<div class="doc-placeholder" style="white-space:pre-line;color:var(--text);">${escapeHtml(r.text)}</div>` : ''}
+        ${photosHtml}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function openFounderAdmins() {
