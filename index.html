@@ -1213,7 +1213,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.100 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.101 тестирование</div>
   </div>
 </div>
 
@@ -2649,7 +2649,7 @@
 <div class="modal-overlay" id="modal-repair-confirm"><div class="modal"><div class="modal-title">Отправить заявку?</div><div class="modal-sub">Проверьте текст и фото. Техник увидит заявку после отправки.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmRepairRequest()">Да, отправить</button><button class="btn btn-secondary" onclick="closeModal('modal-repair-confirm')">Нет, вернуться</button></div></div></div>
 
 <!-- ===== MODAL: REPAIR CLOSE CONFIRM ===== -->
-<div class="modal-overlay" id="modal-repair-close-confirm"><div class="modal"><div class="modal-title">Закрыть заявку?</div><div class="modal-sub">Заявка будет отмечена как отремонтированная. Фото после ремонта обязательно.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmCloseRepairRequest()">Да, закрыть</button><button class="btn btn-secondary" onclick="closeModal('modal-repair-close-confirm')">Нет, вернуться</button></div></div></div>
+<div class="modal-overlay" id="modal-repair-close-confirm"><div class="modal"><div class="modal-title">Закрыть заявку?</div><div class="modal-sub">Заявка будет отмечена как отремонтированная. Фото после ремонта можно прикрепить при необходимости.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmCloseRepairRequest()">Да, закрыть</button><button class="btn btn-secondary" onclick="closeModal('modal-repair-close-confirm')">Нет, вернуться</button></div></div></div>
 
 <!-- ===== MODAL: EXPORT READY ===== -->
 <div class="modal-overlay" id="modal-export-ready">
@@ -2752,14 +2752,14 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.100";
+const APP_VERSION = "1.101";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
   version: APP_VERSION,
   channel: APP_CHANNEL,
   label: APP_VERSION_LABEL,
-  updatedAt: "2026-06-24"
+  updatedAt: "2026-06-25"
 };
 
 let db = null;
@@ -7613,7 +7613,7 @@ function handleRepairClosePhotos(event) {
   event.target.value = '';
 }
 function removeRepairClosePhoto(index) { activeRepairClosePhotos.splice(index, 1); renderRepairClosePhotos(); }
-function closeRepairRequestWithPhoto() { if (!activeRepairClosePhotos.length) { showToast('Добавьте фото после ремонта'); return; } openModal('modal-repair-close-confirm'); }
+function closeRepairRequestWithPhoto() { openModal('modal-repair-close-confirm'); }
 
 async function confirmCloseRepairRequest() {
   closeModal('modal-repair-close-confirm');
@@ -7621,7 +7621,7 @@ async function confirmCloseRepairRequest() {
   const tech = getCurrentTechnician();
   if (!req || !tech) { showToast('Заявка не найдена'); return; }
   try {
-    showToast('Отправляем фото...');
+    showToast(activeRepairClosePhotos.length ? 'Отправляем фото...' : 'Закрываем заявку...');
     const photos = await uploadRepairPhotos(activeRepairClosePhotos, 'repairFixed');
     req.fixedPhotos = photos;
     req.status = 'repaired';
