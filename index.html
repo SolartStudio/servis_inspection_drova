@@ -1213,7 +1213,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.103 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.104 тестирование</div>
   </div>
 </div>
 
@@ -1647,6 +1647,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openAdminTrainingReport()">
+      <div class="menu-icon">🎓</div>
+      <div class="menu-text">
+        <div class="menu-title">Обучение</div>
+        <div class="menu-desc">Отчет по обучению официантов</div>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
     <div class="menu-item" onclick="openAdminKpi()">
       <div class="menu-icon">📈</div>
       <div class="menu-text">
@@ -1810,6 +1818,15 @@
       <button class="btn btn-primary" onclick="submitAdminStatistics()">Отправить</button>
     </div>
   </div>
+</div>
+
+<!-- ===== SCREEN: ADMIN TRAINING REPORT ===== -->
+<div class="screen" id="screen-admin-training-report">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title">Обучение</span>
+  </div>
+  <div class="content content-padded" id="admin-training-report-content"></div>
 </div>
 
 <!-- ===== SCREEN: ADMIN SHIFT HANDOVER ===== -->
@@ -2587,11 +2604,22 @@
       <div class="tab active" id="tab-shifts" onclick="switchTab('shifts')">Смены <span class="notify-badge" id="badge-tab-shifts">0</span></div>
       <div class="tab" id="tab-staff" onclick="switchTab('staff')">Сотрудники</div>
       <div class="tab" id="tab-inventory" onclick="switchTab('inventory')">Инвентаризация <span class="notify-badge" id="badge-tab-inventory">0</span></div>
+      <div class="tab" id="tab-training" onclick="switchTab('training')">Обучение <span class="notify-badge" id="badge-tab-training">0</span></div>
     </div>
     <div id="panel-shifts"></div>
     <div id="panel-staff" style="display:none;"></div>
     <div id="panel-inventory" style="display:none;"></div>
+    <div id="panel-training" style="display:none;"></div>
   </div>
+</div>
+
+<!-- ===== SCREEN: FOUNDER TRAINING REPORT VIEW ===== -->
+<div class="screen" id="screen-founder-training-report-view">
+  <div class="header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <span class="header-title" id="founder-training-report-view-title">Обучение</span>
+  </div>
+  <div class="content content-padded" id="founder-training-report-view-content"></div>
 </div>
 
 
@@ -2684,6 +2712,9 @@
 </div>
 
 
+
+<!-- ===== MODAL: ADMIN TRAINING CONFIRM ===== -->
+<div class="modal-overlay" id="modal-admin-training-confirm"><div class="modal"><div class="modal-title">Отправить отчет обучения?</div><div class="modal-sub">Учредитель увидит дату, время, администратора, тему, сотрудников и фото.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmAdminTrainingReport()">Да, отправить</button><button class="btn btn-secondary" onclick="closeModal('modal-admin-training-confirm')">Нет, вернуться</button></div></div></div>
 
 <!-- ===== MODAL: FOUNDER TASK CONFIRM ===== -->
 <div class="modal-overlay" id="modal-founder-task-confirm"><div class="modal"><div class="modal-title">Отправить задачу?</div><div class="modal-sub">Сотрудники выбранного подразделения увидят задачу в своём разделе. Фото отправятся после подтверждения.</div><div class="modal-actions"><button class="btn btn-primary" onclick="confirmFounderTask()">Да, отправить</button><button class="btn btn-secondary" onclick="closeModal('modal-founder-task-confirm')">Нет, вернуться</button></div></div></div>
@@ -2798,7 +2829,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.103";
+const APP_VERSION = "1.104";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
@@ -2828,6 +2859,7 @@ const appCache = {
   bathmasterOrders: [],
   repairRequests: [],
   cookStaffReports: [],
+  adminTrainingReports: [],
   technicianRepairReminderLog: {},
   founderTasks: [],
   forgottenItems: [],
@@ -3174,6 +3206,7 @@ async function initCloud() {
     appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || [];
     appCache.repairRequests = LocalDB.get("repairRequests") || [];
     appCache.cookStaffReports = LocalDB.get("cookStaffReports") || [];
+    appCache.adminTrainingReports = LocalDB.get("adminTrainingReports") || [];
     appCache.technicianRepairReminderLog = LocalDB.get("technicianRepairReminderLog") || {};
     appCache.founderTasks = LocalDB.get("founderTasks") || [];
     appCache.forgottenItems = LocalDB.get("forgottenItems") || [];
@@ -3263,6 +3296,15 @@ async function initCloud() {
     showToast("Ошибка загрузки отчетов повара");
   });
 
+  db.collection("adminTrainingReports").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    appCache.adminTrainingReports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    LocalDB.set("adminTrainingReports", appCache.adminTrainingReports);
+    refreshVisibleData();
+  }, (err) => {
+    console.error("admin training reports snapshot error", err);
+    showToast("Ошибка загрузки отчетов обучения");
+  });
+
   db.collection("founderTasks").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
     appCache.founderTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     LocalDB.set("founderTasks", appCache.founderTasks);
@@ -3320,7 +3362,7 @@ async function initCloud() {
 }
 
 async function loadCloudData() {
-  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, repairRequestsSnap, cookStaffReportsSnap, founderTasksSnap, forgottenItemsSnap, anonymousFeedbackSnap, settingsDoc] = await Promise.all([
+  const [staffSnap, reportsSnap, finesSnap, inventorySnap, accessRequestsSnap, adminStatsSnap, adminProfilesSnap, bathmasterOrdersSnap, repairRequestsSnap, cookStaffReportsSnap, adminTrainingReportsSnap, founderTasksSnap, forgottenItemsSnap, anonymousFeedbackSnap, settingsDoc] = await Promise.all([
     db.collection("staff").get(),
     db.collection("reports").orderBy("createdAt", "desc").get(),
     db.collection("fines").orderBy("createdAt", "desc").get(),
@@ -3331,6 +3373,7 @@ async function loadCloudData() {
     db.collection("bathmasterOrders").orderBy("createdAt", "desc").get(),
     db.collection("repairRequests").orderBy("createdAt", "desc").get(),
     db.collection("cookStaffReports").orderBy("createdAt", "desc").get(),
+    db.collection("adminTrainingReports").orderBy("createdAt", "desc").get(),
     db.collection("founderTasks").orderBy("createdAt", "desc").get(),
     db.collection("forgottenItems").orderBy("createdAt", "desc").get(),
     db.collection("anonymousFeedback").orderBy("createdAt", "desc").get(),
@@ -3347,6 +3390,7 @@ async function loadCloudData() {
   appCache.bathmasterOrders = bathmasterOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.repairRequests = repairRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.cookStaffReports = cookStaffReportsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.adminTrainingReports = adminTrainingReportsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.founderTasks = founderTasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.forgottenItems = forgottenItemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.anonymousFeedback = anonymousFeedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -4356,6 +4400,17 @@ async function saveCookStaffReport(report) {
   if (CLOUD_ENABLED && db) await db.collection("cookStaffReports").doc(String(report.id)).set(report, { merge: true });
 }
 
+function getAdminTrainingReports() { return appCache.adminTrainingReports || []; }
+
+async function saveAdminTrainingReport(report) {
+  const arr = getAdminTrainingReports().filter(r => String(r.id) !== String(report.id));
+  arr.unshift(report);
+  appCache.adminTrainingReports = arr;
+  LocalDB.set("adminTrainingReports", arr);
+  updateUnreadBadges();
+  if (CLOUD_ENABLED && db) await db.collection("adminTrainingReports").doc(String(report.id)).set(report, { merge: true });
+}
+
 
 function getForgottenItems() {
   return appCache.forgottenItems || [];
@@ -4506,6 +4561,7 @@ function getUnreadCounts() {
   const feedbackUnread = getFounderUnreadCount('feedback', getAnonymousFeedback(), r => r.id, r => r.createdAt);
   const repairUnreadForTechnician = getRepairRequests().filter(r => r.status === 'new').length;
   const cookReportsUnread = getFounderUnreadCount('cookStaffReport', getCookStaffReports(), r => r.id, r => r.createdAt);
+  const trainingReportsUnread = getFounderUnreadCount('adminTrainingReport', getAdminTrainingReports(), r => r.id, r => r.createdAt);
   const waiterTasksUnread = getUnreadTasksForRole('waiter').length;
   const bathmasterTasksUnread = getUnreadTasksForRole('bathmaster').length;
   const masseurTasksUnread = getUnreadTasksForRole('masseur').length;
@@ -4525,6 +4581,7 @@ function getUnreadCounts() {
     masseurs: masseurOrdersUnread,
     repairsFounder: repairUnreadForFounder,
     cookReports: cookReportsUnread,
+    trainingReports: trainingReportsUnread,
     cooks: cookReportsUnread,
     repairsTechnician: repairUnreadForTechnician,
     feedback: feedbackUnread,
@@ -4549,6 +4606,7 @@ function updateUnreadBadges() {
   setBadge("badge-founder-waiters", c.waiters);
   setBadge("badge-tab-shifts", c.reports);
   setBadge("badge-tab-inventory", c.inventory);
+  setBadge("badge-tab-training", c.trainingReports);
 
   setBadge("badge-founder-admins", c.admins);
   setBadge("badge-founder-admin-statistics", c.adminStats);
@@ -5083,6 +5141,7 @@ function refreshScreen(id) {
   if (id === 'screen-duty') renderDutyScreen();
   if (id === 'screen-admin-fines') renderAdminFines();
   if (id === 'screen-admin-statistics') renderAdminStatisticsForm();
+  if (id === 'screen-admin-training-report') renderAdminTrainingReport();
   if (id === 'screen-admin-shift-handover') renderAdminShiftHandover();
   if (id === 'screen-admin-access-requests') renderAccessRequests();
   if (id === 'screen-waiter-forgotten-item') renderWaiterForgottenItem();
@@ -5107,6 +5166,7 @@ function refreshScreen(id) {
   if (id === 'screen-founder-fines') renderFounderFines();
   if (id === 'screen-founder-admin-statistics') renderFounderAdminStatistics();
   if (id === 'screen-founder-admin-statistics-view') renderFounderAdminStatisticsView();
+  if (id === 'screen-founder-training-report-view') renderFounderTrainingReportView();
   if (id === 'screen-founder-cooks') renderFounderCooks();
   if (id === 'screen-founder-cook-reports-view') renderFounderCookReportsView();
   if (id === 'screen-inventory-start') renderInventoryStart();
@@ -5115,6 +5175,7 @@ function refreshScreen(id) {
     renderShifts();
     renderStaff();
     renderInventoryRecordsList();
+    renderFounderTrainingReportsList();
   }
 }
 
@@ -5189,6 +5250,9 @@ function addLocalPhotoToCameraTarget(localPhoto) {
   }
   if (cameraTarget === 'cookStaffReport') {
     return addCookStaffReportPhoto(localPhoto);
+  }
+  if (cameraTarget === 'adminTrainingReport') {
+    return addAdminTrainingReportPhoto(localPhoto);
   }
 
   showToast('Раздел фото не найден');
@@ -6175,6 +6239,133 @@ function openWaiterAttestation() {
   goTo('screen-waiter-attestation');
 }
 
+
+
+// ============================================================
+// ADMIN TRAINING REPORTS — admin sends, founder views in waiters
+// ============================================================
+let activeAdminTrainingReportPhotos = [];
+let activeFounderTrainingReportId = null;
+
+function openAdminTrainingReport() {
+  if (!getCurrentAdminProfile() && !hasAdminSession()) { showToast('Сначала войдите как администратор'); return; }
+  activeAdminTrainingReportPhotos = [];
+  renderAdminTrainingReport();
+  goTo('screen-admin-training-report');
+}
+
+function renderAdminTrainingReportPhotos() {
+  const grid = document.getElementById('admin-training-report-photo-grid');
+  const count = document.getElementById('admin-training-report-photo-count');
+  const addBtn = document.getElementById('admin-training-report-add-btn');
+  if (!grid || !count || !addBtn) return;
+  count.textContent = `${activeAdminTrainingReportPhotos.length} / 3`;
+  grid.style.display = activeAdminTrainingReportPhotos.length ? 'grid' : 'none';
+  addBtn.classList.toggle('hidden', activeAdminTrainingReportPhotos.length >= 3);
+  grid.innerHTML = activeAdminTrainingReportPhotos.map((photo, idx) => `<div class="photo-thumb" onclick="openFullscreen('${photo.preview_url}')"><img src="${photo.preview_url}" alt=""><button class="remove-photo" onclick="event.stopPropagation(); removeAdminTrainingReportPhoto(${idx})">✕</button></div>`).join('');
+}
+
+function addAdminTrainingReportPhoto(localPhoto) {
+  if (activeAdminTrainingReportPhotos.length >= 3) { showToast('Лимит фото: 3'); return false; }
+  activeAdminTrainingReportPhotos.push(localPhoto);
+  renderAdminTrainingReportPhotos();
+  return true;
+}
+
+function removeAdminTrainingReportPhoto(index) {
+  activeAdminTrainingReportPhotos.splice(index, 1);
+  renderAdminTrainingReportPhotos();
+}
+
+function renderAdminTrainingReport() {
+  const el = document.getElementById('admin-training-report-content');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="section-label">Новый отчет</div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div class="field"><label>Число</label><input type="text" id="admin-training-date-text" placeholder="Например: 27.06"></div>
+      <div class="field"><label>Тема</label><input type="text" id="admin-training-topic" placeholder="Тема обучения"></div>
+      <div class="field"><label>Сотрудники</label><textarea id="admin-training-staff" placeholder="Введите имена сотрудников, каждый с новой строки"></textarea></div>
+      <div class="photo-section" style="margin-bottom:14px;">
+        <div class="photo-section-header"><span class="photo-section-title">Фото</span><span class="photo-count" id="admin-training-report-photo-count">0 / 3</span></div>
+        <div class="photo-body"><div class="photo-grid" id="admin-training-report-photo-grid" style="display:none;"></div><div id="admin-training-report-add-btn" class="photo-actions" style="display:grid;gap:8px;"><button type="button" class="add-photo-btn" onclick="openCameraModal('adminTrainingReport')"><span>📷</span><span>Сделать фото</span></button><button type="button" class="add-photo-btn" onclick="openGalleryInput('adminTrainingReport')"><span>🖼️</span><span>Выбрать из галереи</span></button></div></div>
+      </div>
+      <div class="error-msg" id="admin-training-report-error" style="margin-bottom:12px;">Заполните число, тему и сотрудников</div>
+      <button class="btn btn-primary" onclick="submitAdminTrainingReport()">Отправить</button>
+    </div>
+    <div class="section-label">Последние отчеты</div><div id="admin-training-report-history"></div>`;
+  renderAdminTrainingReportPhotos();
+  renderAdminTrainingReportHistory();
+}
+
+function getCurrentAdminActor() { return getCurrentAdminProfile() || { id: 'admin-session', name: getAdminDisplayName(), login: '' }; }
+
+function renderAdminTrainingReportHistory() {
+  const el = document.getElementById('admin-training-report-history');
+  if (!el) return;
+  const admin = getCurrentAdminActor();
+  const items = getAdminTrainingReports().filter(r => !admin.id || String(r.adminId || '') === String(admin.id || '')).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 10);
+  if (!items.length) { el.innerHTML = `<div class="empty" style="padding:28px 0;"><div class="empty-icon">🎓</div><div class="empty-title">Пока пусто</div><div class="empty-sub">Отправленные отчеты обучения появятся здесь</div></div>`; return; }
+  el.innerHTML = items.map(r => { const dateText = r.createdAt ? new Date(r.createdAt).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''; return `<div class="card" style="cursor:default;"><div class="card-title">${escapeHtml(r.topic || 'Без темы')}</div><div class="card-sub">${escapeHtml(r.dateText || '')}${dateText ? ' · ' + escapeHtml(dateText) : ''}</div><div style="font-size:14px;line-height:1.5;margin-top:10px;white-space:pre-line;">${escapeHtml(r.staffText || '')}</div></div>`; }).join('');
+}
+
+function submitAdminTrainingReport() {
+  const dateText = (document.getElementById('admin-training-date-text')?.value || '').trim();
+  const topic = (document.getElementById('admin-training-topic')?.value || '').trim();
+  const staffText = (document.getElementById('admin-training-staff')?.value || '').trim();
+  const err = document.getElementById('admin-training-report-error');
+  if (!dateText || !topic || !staffText) { if (err) err.classList.add('show'); return; }
+  if (err) err.classList.remove('show');
+  openModal('modal-admin-training-confirm');
+}
+
+async function confirmAdminTrainingReport() {
+  closeModal('modal-admin-training-confirm');
+  const admin = getCurrentAdminActor();
+  const dateText = (document.getElementById('admin-training-date-text')?.value || '').trim();
+  const topic = (document.getElementById('admin-training-topic')?.value || '').trim();
+  const staffText = (document.getElementById('admin-training-staff')?.value || '').trim();
+  if (!dateText || !topic || !staffText) { showToast('Заполните отчет'); return; }
+  try {
+    showToast(activeAdminTrainingReportPhotos.length ? 'Отправляем фото...' : 'Отправляем отчет...');
+    const photos = await uploadTaskPhotos(activeAdminTrainingReportPhotos, 'adminTrainingReport');
+    const now = new Date();
+    const report = { id: Date.now(), adminId: admin.id || '', adminName: admin.name || 'Администратор', adminLogin: admin.login || '', dateText, topic, staffText, photos, date: toDateKey(now), time: now.toTimeString().slice(0, 5), createdAt: now.toISOString() };
+    await saveAdminTrainingReport(report);
+    notifyFounders(`🎓 Отчет по обучению\n\n${report.adminName}\nЧисло: ${report.dateText}\nТема: ${report.topic}\nСотрудники:\n${report.staffText}`);
+    activeAdminTrainingReportPhotos = [];
+    renderAdminTrainingReport();
+    showToast('Отчет отправлен ✓');
+  } catch (e) { console.error(e); showToast('Ошибка отправки отчета'); }
+}
+
+function renderFounderTrainingReportsList() {
+  const el = document.getElementById('panel-training');
+  if (!el) return;
+  const items = getAdminTrainingReports().slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  if (!items.length) { el.innerHTML = `<div class="empty"><div class="empty-icon">🎓</div><div class="empty-title">Отчетов обучения пока нет</div><div class="empty-sub">Отчеты администраторов появятся здесь</div></div>`; return; }
+  el.innerHTML = items.map(r => { const dateText = r.createdAt ? new Date(r.createdAt).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''; return `<div class="shift-card" onclick="openFounderTrainingReportView('${r.id}')"><div class="shift-date">${escapeHtml(r.dateText || 'Без числа')}${unreadDotHtml(isFounderItemUnread('adminTrainingReport', r.id, r.createdAt))}</div><div class="shift-meta">${escapeHtml(dateText)} · ${escapeHtml(r.adminName || 'Администратор')}</div><div style="font-size:15px;font-weight:700;margin-top:10px;">${escapeHtml(r.topic || 'Без темы')}</div><div style="font-size:14px;line-height:1.45;margin-top:8px;color:var(--text-2);white-space:pre-line;">${escapeHtml((r.staffText || '').slice(0, 140))}</div></div>`; }).join('');
+}
+
+function openFounderTrainingReportView(reportId) {
+  activeFounderTrainingReportId = String(reportId);
+  markFounderItemRead('adminTrainingReport', reportId);
+  updateUnreadBadges();
+  renderFounderTrainingReportView();
+  goTo('screen-founder-training-report-view');
+}
+
+function renderFounderTrainingReportView() {
+  const report = getAdminTrainingReports().find(r => String(r.id) === String(activeFounderTrainingReportId));
+  const title = document.getElementById('founder-training-report-view-title');
+  const content = document.getElementById('founder-training-report-view-content');
+  if (!title || !content) return;
+  if (!report) { title.textContent = 'Обучение'; content.innerHTML = `<div class="empty"><div class="empty-icon">🎓</div><div class="empty-title">Отчет не найден</div></div>`; return; }
+  title.textContent = `Обучение · ${report.dateText || ''}`;
+  const sentText = report.createdAt ? new Date(report.createdAt).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+  const photosHtml = (report.photos || []).length ? `<div class="section-label">Фото</div><div class="report-photo-grid" style="margin-bottom:16px;">${(report.photos || []).map(photo => `<div class="report-photo-thumb" onclick="openFullscreen('${getPhotoDisplaySrc(photo)}')"><img src="${getPhotoDisplaySrc(photo)}" alt=""></div>`).join('')}</div>` : '';
+  content.innerHTML = `<div class="inventory-status"><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Кто отправил</div><div style="font-size:18px;font-weight:700;margin-bottom:12px;">${escapeHtml(report.adminName || 'Администратор')}${report.adminLogin ? ' · ' + escapeHtml(report.adminLogin) : ''}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Дата и время отправки</div><div style="font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(sentText || '—')}</div><div style="font-size:13px;color:var(--text-3);margin-bottom:6px;">Число</div><div style="font-size:16px;font-weight:600;">${escapeHtml(report.dateText || '—')}</div></div><div class="section-label">Тема</div><div class="doc-placeholder" style="color:var(--text);font-weight:700;">${escapeHtml(report.topic || '—')}</div><div class="section-label">Сотрудники</div><div class="doc-placeholder" style="white-space:pre-line;color:var(--text);">${escapeHtml(report.staffText || '—')}</div>${photosHtml}`;
+}
 
 // ============================================================
 // STOP LIST — cook edits, waiters read
@@ -9908,10 +10099,15 @@ function switchTab(tab) {
   document.getElementById('tab-shifts').classList.toggle('active', tab === 'shifts');
   document.getElementById('tab-staff').classList.toggle('active', tab === 'staff');
   document.getElementById('tab-inventory').classList.toggle('active', tab === 'inventory');
+  const trainingTab = document.getElementById('tab-training');
+  if (trainingTab) trainingTab.classList.toggle('active', tab === 'training');
   document.getElementById('panel-shifts').style.display = tab === 'shifts' ? 'block' : 'none';
   document.getElementById('panel-staff').style.display = tab === 'staff' ? 'block' : 'none';
   document.getElementById('panel-inventory').style.display = tab === 'inventory' ? 'block' : 'none';
+  const trainingPanel = document.getElementById('panel-training');
+  if (trainingPanel) trainingPanel.style.display = tab === 'training' ? 'block' : 'none';
   if (tab === 'inventory') renderInventoryRecordsList();
+  if (tab === 'training') { markFounderItemsRead('adminTrainingReport', getAdminTrainingReports(), r => r.id); renderFounderTrainingReportsList(); }
   updateUnreadBadges();
 }
 
