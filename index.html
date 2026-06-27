@@ -533,6 +533,36 @@
     white-space: nowrap;
   }
 
+  .founder-waiter-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 3px;
+  }
+  .founder-waiter-tabs .tab {
+    min-width: 0;
+    padding: 9px 4px;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .founder-waiter-tabs .notify-badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    font-size: 10px;
+    line-height: 18px;
+    margin-left: 3px;
+  }
+  @media (max-width: 380px) {
+    .founder-waiter-tabs .tab {
+      font-size: 11px;
+      padding-left: 3px;
+      padding-right: 3px;
+    }
+  }
+
   /* MODAL */
   .modal-overlay {
     display: none;
@@ -1213,7 +1243,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.104 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.105 тестирование</div>
   </div>
 </div>
 
@@ -2600,7 +2630,7 @@
     <span class="header-title">Официанты</span>
   </div>
   <div class="content">
-    <div class="tabs">
+    <div class="tabs founder-waiter-tabs">
       <div class="tab active" id="tab-shifts" onclick="switchTab('shifts')">Смены <span class="notify-badge" id="badge-tab-shifts">0</span></div>
       <div class="tab" id="tab-staff" onclick="switchTab('staff')">Сотрудники</div>
       <div class="tab" id="tab-inventory" onclick="switchTab('inventory')">Инвентаризация <span class="notify-badge" id="badge-tab-inventory">0</span></div>
@@ -2829,7 +2859,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.104";
+const APP_VERSION = "1.105";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
