@@ -1243,7 +1243,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.109 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.110 тестирование</div>
   </div>
 </div>
 
@@ -1676,6 +1676,14 @@
         <div class="menu-desc">Звонки, Telegram и брони</div>
       </div>
       <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="openAdminWip('Статистика центр')">
+      <div class="menu-icon">📊</div>
+      <div class="menu-text">
+        <div class="menu-title">Статистика центр</div>
+        <div class="menu-desc">Звонки, Telegram и брони</div>
+      </div>
+      <span class="role-wip">Тестирование</span>
     </div>
     <div class="menu-item" onclick="openAdminTrainingReport()">
       <div class="menu-icon">🎓</div>
@@ -2542,6 +2550,14 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
+    <div class="menu-item" onclick="openFounderAdminWip('Статистика центр')">
+      <div class="menu-icon">📊</div>
+      <div class="menu-text">
+        <div class="menu-title">Статистика центр</div>
+        <div class="menu-desc">Отчеты администраторов по датам</div>
+      </div>
+      <span class="role-wip">Тестирование</span>
+    </div>
   </div>
 </div>
 
@@ -2863,7 +2879,7 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.109";
+const APP_VERSION = "1.110";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
