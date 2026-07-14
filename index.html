@@ -1243,7 +1243,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.106 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.109 тестирование</div>
   </div>
 </div>
 
@@ -2863,14 +2863,14 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.106";
+const APP_VERSION = "1.109";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
   version: APP_VERSION,
   channel: APP_CHANNEL,
   label: APP_VERSION_LABEL,
-  updatedAt: "2026-07-09"
+  updatedAt: "2026-07-14"
 };
 
 let db = null;
@@ -3224,7 +3224,8 @@ async function initCloud() {
   if (!CLOUD_ENABLED) {
     console.warn("Firebase config не заполнен. Работаем локально через localStorage.");
     appCache.staff = LocalDB.get("staff") || [];
-    appCache.reports = LocalDB.get("reports") || [];
+    appCache.reports = filterRecentPhotoReports(LocalDB.get("reports") || []);
+    LocalDB.set("reports", appCache.reports);
     appCache.dutyAssignment = LocalDB.get("dutyAssignment") || null;
     appCache.dutyAssignmentsByDate = LocalDB.get("dutyAssignmentsByDate") || {};
     appCache.founderPassword = LocalDB.get("founderPassword") || "5552";
@@ -3254,6 +3255,7 @@ async function initCloud() {
   db = firebase.firestore();
 
   await loadCloudData();
+  await cleanupExpiredPhotoReports();
 
   db.collection("staff").onSnapshot((snapshot) => {
     appCache.staff = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -3265,7 +3267,9 @@ async function initCloud() {
   });
 
   db.collection("reports").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
-    appCache.reports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const allReports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    appCache.reports = filterRecentPhotoReports(allReports);
+    LocalDB.set("reports", appCache.reports);
     refreshVisibleData();
   }, (err) => {
     console.error("reports snapshot error", err);
@@ -3415,7 +3419,8 @@ async function loadCloudData() {
   ]);
 
   appCache.staff = staffSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  appCache.reports = reportsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const loadedReports = reportsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  appCache.reports = filterRecentPhotoReports(loadedReports);
   appCache.fines = finesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.inventoryRecords = inventorySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.accessRequests = accessRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -3554,9 +3559,8 @@ const EMPLOYEE_ROLES = ['waiter', 'cook', 'stoker', 'masseur', 'cleaner', 'bathm
 let activeAccessRole = 'waiter';
 
 function normalizeLogin(login) {
-  const raw = String(login || '').trim();
-  if (!raw) return '';
-  return raw.startsWith('@') ? raw : '@' + raw;
+  const raw = String(login || '').trim().toLowerCase().replace(/^@+/, '');
+  return raw ? '@' + raw : '';
 }
 
 function getRoleLabel(role) {
@@ -3605,17 +3609,42 @@ async function deleteAccessRequest(requestId) {
   }
 }
 
+function getIdentityTelegramId(data) {
+  return data ? String(data.telegramId || data.chatId || data.telegramID || '').trim() : '';
+}
+
 function findApprovedStaffByLogin(login) {
   const normalized = normalizeLogin(login);
   return getStaff().find(s => normalizeLogin(s.login) === normalized);
 }
 
-function findPendingRequest(role, login) {
+function findApprovedStaffByIdentity(identity = {}) {
+  const telegramId = getIdentityTelegramId(identity);
+  if (telegramId) {
+    const byTelegramId = getStaff().find(s => getIdentityTelegramId(s) === telegramId);
+    if (byTelegramId) return byTelegramId;
+  }
+  return findApprovedStaffByLogin(identity.login || '');
+}
+
+async function refreshStaffForAccessCheck() {
+  if (!CLOUD_ENABLED || !db) return;
+  try {
+    const snapshot = await db.collection("staff").get();
+    appCache.staff = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    LocalDB.set("staff", appCache.staff);
+  } catch (err) {
+    console.warn("staff access refresh error", err);
+  }
+}
+
+function findPendingRequest(role, login, telegramId = '') {
   const normalized = normalizeLogin(login);
+  const cleanTelegramId = String(telegramId || '').trim();
   return getAccessRequests().find(r =>
     r.status === 'pending' &&
     r.role === role &&
-    normalizeLogin(r.login) === normalized
+    ((cleanTelegramId && getIdentityTelegramId(r) === cleanTelegramId) || normalizeLogin(r.login) === normalized)
   );
 }
 
@@ -3842,7 +3871,7 @@ function enterRole(role) {
       return;
     }
 
-    const pending = findPendingRequest(saved.role, saved.login);
+    const pending = findPendingRequest(saved.role, saved.login, getIdentityTelegramId(saved));
     if (pending) {
       showAccessPending(saved.role, saved.login);
       return;
@@ -3865,7 +3894,9 @@ async function submitAccessRequest() {
     return;
   }
 
-  const approved = findApprovedStaffByLogin(login);
+  await refreshStaffForAccessCheck();
+  const identity = fillTelegramMeta({ login, name, role: activeAccessRole });
+  const approved = findApprovedStaffByIdentity(identity);
   if (approved) {
     if (approved.role !== activeAccessRole) {
       err.textContent = `Вы уже зарегистрированы в подразделении ${getRolePrepositional(approved.role)}`;
@@ -3899,9 +3930,9 @@ async function submitAccessRequest() {
     return;
   }
 
-  const existing = findPendingRequest(activeAccessRole, login);
+  const existing = findPendingRequest(activeAccessRole, login, getIdentityTelegramId(identity));
   if (existing) {
-    setSavedAccessRequest({ id: existing.id, role: existing.role, login: existing.login, name: existing.name });
+    setSavedAccessRequest({ id: existing.id, role: existing.role, login: existing.login, name: existing.name, telegramId: getIdentityTelegramId(existing) });
     showAccessPending(existing.role, existing.login);
     return;
   }
@@ -3920,7 +3951,7 @@ async function submitAccessRequest() {
     await saveAccessRequest(req);
     notifyRole('admin', `✅ Новая заявка на вход\n\n${req.roleLabel}: ${req.name} · ${req.login}\n\nОткройте Drova Inspector → Администратор → Одобрить вход`, { startParam: 'access_requests', buttonText: NOTIFICATION_OPEN_BUTTON_TEXT });
     notifyFounders(`✅ Новая заявка на вход\n\n${req.roleLabel}: ${req.name} · ${req.login}`);
-    setSavedAccessRequest({ id: req.id, role: req.role, login: req.login, name: req.name });
+    setSavedAccessRequest({ id: req.id, role: req.role, login: req.login, name: req.name, telegramId: getIdentityTelegramId(req) });
     showAccessPending(req.role, req.login);
     showToast('Заявка отправлена');
   } catch (errSave) {
@@ -3954,12 +3985,66 @@ function setStaff(arr) {
   }
 }
 
+const PHOTO_REPORT_RETENTION_DAYS = 30;
+const PHOTO_REPORT_RETENTION_MS = PHOTO_REPORT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+function getPhotoReportTimeMs(report) {
+  if (!report) return 0;
+  const createdAtMs = getTimeMs(report.createdAt || report.submittedAt || report.updatedAt);
+  if (createdAtMs) return createdAtMs;
+  const dateMs = report.date ? Date.parse(String(report.date) + 'T23:59:59') : 0;
+  return Number.isFinite(dateMs) ? dateMs : 0;
+}
+
+function isPhotoReportWithinRetention(report, nowMs = Date.now()) {
+  const reportTime = getPhotoReportTimeMs(report);
+  // Старые записи без распознаваемой даты не удаляем автоматически, чтобы не снести данные ошибочно.
+  return !reportTime || reportTime >= nowMs - PHOTO_REPORT_RETENTION_MS;
+}
+
+function filterRecentPhotoReports(reports, nowMs = Date.now()) {
+  return (Array.isArray(reports) ? reports : []).filter(report => isPhotoReportWithinRetention(report, nowMs));
+}
+
+let photoReportCleanupPromise = null;
+
+async function cleanupExpiredPhotoReports() {
+  if (photoReportCleanupPromise) return photoReportCleanupPromise;
+
+  photoReportCleanupPromise = (async () => {
+    const nowMs = Date.now();
+    const currentReports = Array.isArray(appCache.reports) ? appCache.reports : [];
+    appCache.reports = filterRecentPhotoReports(currentReports, nowMs);
+    LocalDB.set("reports", appCache.reports);
+
+    if (!CLOUD_ENABLED || !db) return;
+
+    const snapshot = await db.collection("reports").get();
+    const expiredDocs = snapshot.docs.filter(doc => {
+      const report = { id: doc.id, ...doc.data() };
+      return !isPhotoReportWithinRetention(report, nowMs);
+    });
+
+    for (let offset = 0; offset < expiredDocs.length; offset += 450) {
+      const batch = db.batch();
+      expiredDocs.slice(offset, offset + 450).forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    }
+  })().catch(err => {
+    console.error("photo report cleanup error", err);
+  }).finally(() => {
+    photoReportCleanupPromise = null;
+  });
+
+  return photoReportCleanupPromise;
+}
+
 function getReports() {
-  return appCache.reports || [];
+  return filterRecentPhotoReports(appCache.reports || []);
 }
 
 function setReports(arr) {
-  appCache.reports = arr;
+  appCache.reports = filterRecentPhotoReports(arr);
   LocalDB.set("reports", arr);
   updateUnreadBadges();
 
@@ -7404,6 +7489,7 @@ const SECTIONS = [
   { key: 'remotes', label: 'Пульты', limit: 3 },
   { key: 'flowers', label: 'Цветы', limit: 5 },
   { key: 'station', label: 'Стейшн', limit: 3 },
+  { key: 'pencils', label: 'Карандаши', limit: 3 },
 ];
 const SIMPLE_PHOTO_BATH_NAMES = ['Зона ожидания', 'Ресепшн'];
 const SIMPLE_REPORT_SECTIONS = [
@@ -8395,7 +8481,8 @@ async function approveAccessRequest(requestId) {
     return;
   }
 
-  const existing = findApprovedStaffByLogin(req.login);
+  await refreshStaffForAccessCheck();
+  const existing = findApprovedStaffByIdentity(req);
   if (existing && existing.role !== req.role) {
     showToast(`Уже зарегистрирован в подразделении ${getRolePrepositional(existing.role)}`);
     await deleteAccessRequest(req.id);
@@ -8403,20 +8490,30 @@ async function approveAccessRequest(requestId) {
     return;
   }
 
-  const staffMember = fillTelegramMeta(existing || {
+  const nowIso = new Date().toISOString();
+  const staffMember = fillTelegramMeta(existing ? {
+    ...existing,
+    login: normalizeLogin(req.login || existing.login),
+    name: req.name || existing.name,
+    role: existing.role,
+    roleLabel: existing.roleLabel || req.roleLabel || getRoleLabel(existing.role),
+    updatedAt: nowIso
+  } : {
     id: req.id,
     login: normalizeLogin(req.login),
     name: req.name,
     role: req.role,
     roleLabel: req.roleLabel || getRoleLabel(req.role),
-    approvedAt: new Date().toISOString(),
-    createdAt: req.createdAt || new Date().toISOString()
+    approvedAt: nowIso,
+    createdAt: req.createdAt || nowIso,
+    updatedAt: nowIso
   });
 
-  if (!existing) {
-    const staff = getStaff();
-    staff.push(staffMember);
-    setStaff(staff);
+  const staff = getStaff().filter(s => String(s.id) !== String(staffMember.id));
+  staff.push(staffMember);
+  setStaff(staff);
+  if (CLOUD_ENABLED && db) {
+    await db.collection("staff").doc(String(staffMember.id)).set(staffMember, { merge: true });
   }
 
   await deleteAccessRequest(req.id);
