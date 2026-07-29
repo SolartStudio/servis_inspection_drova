@@ -1243,7 +1243,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 1.110 тестирование</div>
+    <div class="app-version" id="app-version-label">Версия 1.111 тестирование</div>
   </div>
 </div>
 
@@ -2879,14 +2879,14 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "1.110";
+const APP_VERSION = "1.111";
 const APP_CHANNEL = "тестирование";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION} ${APP_CHANNEL}`;
 window.DROVA_INSPECTOR_VERSION = {
   version: APP_VERSION,
   channel: APP_CHANNEL,
   label: APP_VERSION_LABEL,
-  updatedAt: "2026-07-14"
+  updatedAt: "2026-07-29"
 };
 
 let db = null;
@@ -3140,6 +3140,23 @@ function setAdminProfiles(arr) {
 function findAdminProfileByLogin(login) {
   const normalized = normalizeLogin(login);
   return getAdminProfiles().find(a => normalizeLogin(a.login) === normalized);
+}
+
+function findAdminProfileByTelegramId(telegramId = '') {
+  const cleanTelegramId = String(telegramId || '').trim();
+  if (!cleanTelegramId) return null;
+  return getAdminProfiles().find(a => getIdentityTelegramId(a) === cleanTelegramId) || null;
+}
+
+async function refreshAdminProfilesForAccessCheck() {
+  if (!CLOUD_ENABLED || !db) return;
+  try {
+    const snapshot = await db.collection("adminProfiles").get();
+    appCache.adminProfiles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    LocalDB.set("adminProfiles", appCache.adminProfiles);
+  } catch (err) {
+    console.warn("admin profiles access refresh error", err);
+  }
 }
 
 async function saveAdminProfile(profile) {
@@ -3815,7 +3832,7 @@ function resetAccessRequestForm() {
   location.reload();
 }
 
-function enterRole(role) {
+async function enterRole(role) {
   if (!EMPLOYEE_ROLES.includes(role)) return;
 
   if (hasFounderSession()) {
@@ -3824,7 +3841,26 @@ function enterRole(role) {
   }
 
   const saved = getSavedAccessRequest();
-  const current = getCurrentApprovedStaffForRole(role);
+  let current = getCurrentApprovedStaffForRole(role);
+
+  // Если локальная сессия потерялась после вылета Telegram WebView,
+  // восстанавливаем сотрудника только по постоянному Telegram ID из его карточки.
+  if (!current) {
+    const telegramId = getTelegramWebAppChatId();
+    if (telegramId) {
+      await refreshStaffForAccessCheck();
+      const byTelegramId = findApprovedStaffByIdentity({ telegramId });
+      if (byTelegramId) {
+        if (byTelegramId.role !== role) {
+          showRoleMismatch(byTelegramId, role);
+          return;
+        }
+        setCurrentStaffSession(byTelegramId);
+        clearSavedAccessRequest();
+        current = byTelegramId;
+      }
+    }
+  }
 
   if (current) {
     if (current.role && current.role !== role) {
@@ -5896,11 +5932,26 @@ function enterFounder() {
   document.getElementById('founder-error').classList.remove('show');
 }
 
-function enterAdmin() {
+async function enterAdmin() {
   if (hasAdminSession()) {
     goTo('screen-admin-menu');
     routeAfterRoleOpen(runPendingDeepLinkRoute);
     return;
+  }
+
+  // После вылета локальная сессия может исчезнуть. Если Telegram ID уже есть
+  // в карточке администратора, восстанавливаем прежний профиль без новой регистрации.
+  const telegramId = getTelegramWebAppChatId();
+  if (telegramId) {
+    await refreshAdminProfilesForAccessCheck();
+    const profileByTelegramId = findAdminProfileByTelegramId(telegramId);
+    if (profileByTelegramId) {
+      setCurrentAdminProfile(profileByTelegramId);
+      setAdminSession(profileByTelegramId);
+      goTo('screen-admin-menu');
+      routeAfterRoleOpen(runPendingDeepLinkRoute);
+      return;
+    }
   }
 
   goTo('screen-admin-login');
@@ -8568,11 +8619,13 @@ async function checkAdminPwd() {
 
   err.classList.remove('show');
 
-  const existing = findAdminProfileByLogin(login);
+  await refreshAdminProfilesForAccessCheck();
+  const telegramId = getTelegramWebAppChatId();
+  const existing = findAdminProfileByTelegramId(telegramId) || findAdminProfileByLogin(login);
   const now = new Date().toISOString();
   const profile = fillTelegramMeta({
     ...(existing || {}),
-    id: existing ? existing.id : Date.now(),
+    id: existing ? existing.id : (telegramId ? `tg_${telegramId}` : Date.now()),
     login,
     name,
     role: 'admin',
