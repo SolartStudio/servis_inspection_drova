@@ -2434,7 +2434,7 @@
   </div>
   <div class="home-footer">
     <div class="logo-sm">drova inspector</div>
-    <div class="app-version" id="app-version-label">Версия 2.123</div>
+    <div class="app-version" id="app-version-label">Версия 2.125</div>
   </div>
 </div>
 
@@ -2868,13 +2868,13 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
-    <div class="menu-item" onclick="openAdminWip('Статистика центр')">
+    <div class="menu-item" onclick="openAdminStatisticsCenter()">
       <div class="menu-icon">📊</div>
       <div class="menu-text">
         <div class="menu-title">Статистика центр</div>
         <div class="menu-desc">Звонки, Telegram и брони</div>
       </div>
-      <span class="role-wip">Тестирование</span>
+      <span class="menu-arrow">›</span>
     </div>
     <div class="menu-item" onclick="openAdminTrainingReport()">
       <div class="menu-icon">🎓</div>
@@ -3007,7 +3007,7 @@
 <div class="screen" id="screen-admin-statistics">
   <div class="header">
     <button class="back-btn" onclick="goBack()">←</button>
-    <span class="header-title">Статистика</span>
+    <span class="header-title" id="admin-statistics-title">Статистика</span>
   </div>
   <div class="content content-padded">
     <div class="section-label">Заполнить статистику</div>
@@ -3741,13 +3741,13 @@
       </div>
       <span class="menu-arrow">›</span>
     </div>
-    <div class="menu-item" onclick="openFounderAdminWip('Статистика центр')">
+    <div class="menu-item" onclick="openFounderAdminStatisticsCenter()">
       <div class="menu-icon">📊</div>
       <div class="menu-text">
-        <div class="menu-title">Статистика центр</div>
+        <div class="menu-title-row"><div class="menu-title">Статистика центр</div><span class="notify-badge" id="badge-founder-admin-statistics-center">0</span></div>
         <div class="menu-desc">Отчеты администраторов по датам</div>
       </div>
-      <span class="role-wip">Тестирование</span>
+      <span class="menu-arrow">›</span>
     </div>
   </div>
 </div>
@@ -3756,7 +3756,7 @@
 <div class="screen" id="screen-founder-admin-statistics">
   <div class="header">
     <button class="back-btn" onclick="goBack()">←</button>
-    <span class="header-title">Статистика</span>
+    <span class="header-title" id="founder-admin-statistics-title">Статистика</span>
   </div>
   <div class="content">
     <div class="admin-stats-chart-card">
@@ -4070,14 +4070,14 @@ const CLOUD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
 const TELEGRAM_PHOTO_ENABLED = !TELEGRAM_PHOTO_WORKER_URL.includes("PASTE_");
 
 // App version marker for rollback/testing notes.
-const APP_VERSION = "2.123";
+const APP_VERSION = "2.125";
 const APP_CHANNEL = "";
 const APP_VERSION_LABEL = `Версия ${APP_VERSION}`;
 window.DROVA_INSPECTOR_VERSION = {
   version: APP_VERSION,
   channel: APP_CHANNEL,
   label: APP_VERSION_LABEL,
-  updatedAt: "2026-07-29"
+  updatedAt: "2026-08-03"
 };
 
 let db = null;
@@ -4456,7 +4456,7 @@ async function initCloud() {
     appCache.adminPassword = LocalDB.get("adminPassword") || "3235";
     appCache.fines = LocalDB.get("fines") || [];
     appCache.inventoryDraft = LocalDB.get("inventoryDraft") || null;
-    appCache.photoReportDrafts = LocalDB.get("photoReportDrafts") || [];
+    // Черновики фотоотчётов загружаются отдельно из локального IndexedDB устройства.
     appCache.inventoryRecords = LocalDB.get("inventoryRecords") || [];
     appCache.accessRequests = LocalDB.get("accessRequests") || [];
     appCache.adminStats = LocalDB.get("adminStats") || [];
@@ -4518,6 +4518,7 @@ async function initCloud() {
 
   db.collection("adminStats").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
     appCache.adminStats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    LocalDB.set("adminStats", appCache.adminStats);
     refreshVisibleData();
   }, (err) => {
     console.error("admin stats snapshot error", err);
@@ -4605,14 +4606,13 @@ async function initCloud() {
     LocalDB.set("founderPassword", appCache.founderPassword);
     LocalDB.set("adminPassword", appCache.adminPassword);
     appCache.inventoryDraft = data.inventoryDraft || null;
-    appCache.photoReportDrafts = data.photoReportDrafts || LocalDB.get("photoReportDrafts") || [];
+    // Черновики фотоотчётов намеренно не читаются из общей базы.
     appCache.kpiContent = data.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
     appCache.stopList = data.stopList || LocalDB.get("stopList") || getDefaultStopList();
     appCache.adminShiftHandover = data.adminShiftHandover || LocalDB.get("adminShiftHandover") || null;
     appCache.technicianRepairReminderLog = data.technicianRepairReminderLog || LocalDB.get("technicianRepairReminderLog") || {};
     LocalDB.set("technicianRepairReminderLog", appCache.technicianRepairReminderLog);
     LocalDB.set("inventoryDraft", appCache.inventoryDraft);
-    LocalDB.set("photoReportDrafts", appCache.photoReportDrafts);
     LocalDB.set("kpiContent", appCache.kpiContent);
     LocalDB.set("stopList", appCache.stopList);
     LocalDB.set("adminShiftHandover", appCache.adminShiftHandover);
@@ -4658,6 +4658,7 @@ async function loadCloudData() {
   appCache.forgottenItems = forgottenItemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   appCache.anonymousFeedback = anonymousFeedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   LocalDB.set("staff", appCache.staff);
+  LocalDB.set("adminStats", appCache.adminStats);
   LocalDB.set("adminProfiles", appCache.adminProfiles);
   LocalDB.set("founderTasks", appCache.founderTasks);
   LocalDB.set("anonymousFeedback", appCache.anonymousFeedback);
@@ -4672,7 +4673,7 @@ async function loadCloudData() {
   LocalDB.set("founderPassword", appCache.founderPassword);
   LocalDB.set("adminPassword", appCache.adminPassword);
   appCache.inventoryDraft = settings.inventoryDraft || null;
-  appCache.photoReportDrafts = settings.photoReportDrafts || LocalDB.get("photoReportDrafts") || [];
+  // Черновики фотоотчётов намеренно не читаются из общей базы.
   appCache.kpiContent = settings.kpiContent || LocalDB.get("kpiContent") || getDefaultKpiContent();
   appCache.stopList = settings.stopList || LocalDB.get("stopList") || getDefaultStopList();
   appCache.adminShiftHandover = settings.adminShiftHandover || LocalDB.get("adminShiftHandover") || null;
@@ -4690,7 +4691,6 @@ async function loadCloudData() {
       stopList: appCache.stopList || getDefaultStopList(),
       adminShiftHandover: appCache.adminShiftHandover || null,
       technicianRepairReminderLog: appCache.technicianRepairReminderLog || {},
-      photoReportDrafts: appCache.photoReportDrafts || [],
       updatedAt: new Date().toISOString()
     }, { merge: true });
   }
@@ -5475,81 +5475,157 @@ async function deleteStaff(staffId) {
 
 
 
+// Черновики фотоотчётов живут только на устройстве конкретного пользователя.
+// IndexedDB хранит сами File/Blob, поэтому незавершённый отчёт восстанавливается
+// без загрузки фотографий в Telegram и без записи в общую базу.
+const PHOTO_REPORT_DRAFT_DB_NAME = 'drova-photo-report-drafts';
+const PHOTO_REPORT_DRAFT_DB_VERSION = 1;
+const PHOTO_REPORT_DRAFT_STORE = 'drafts';
+const PHOTO_REPORT_DRAFT_TTL_MS = 60 * 60 * 1000;
+let photoReportDraftDbPromise = null;
+
+function openPhotoReportDraftDb() {
+  if (!window.indexedDB) return Promise.reject(new Error('IndexedDB недоступен'));
+  if (photoReportDraftDbPromise) return photoReportDraftDbPromise;
+
+  photoReportDraftDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(PHOTO_REPORT_DRAFT_DB_NAME, PHOTO_REPORT_DRAFT_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const draftDb = request.result;
+      if (!draftDb.objectStoreNames.contains(PHOTO_REPORT_DRAFT_STORE)) {
+        draftDb.createObjectStore(PHOTO_REPORT_DRAFT_STORE, { keyPath: 'key' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Не удалось открыть локальное хранилище'));
+  });
+
+  return photoReportDraftDbPromise;
+}
+
+async function readAllLocalPhotoReportDrafts() {
+  const draftDb = await openPhotoReportDraftDb();
+  return new Promise((resolve, reject) => {
+    const request = draftDb.transaction(PHOTO_REPORT_DRAFT_STORE, 'readonly')
+      .objectStore(PHOTO_REPORT_DRAFT_STORE)
+      .getAll();
+    request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+    request.onerror = () => reject(request.error || new Error('Не удалось прочитать локальные черновики'));
+  });
+}
+
+async function writeLocalPhotoReportDraft(draft) {
+  const draftDb = await openPhotoReportDraftDb();
+  return new Promise((resolve, reject) => {
+    const transaction = draftDb.transaction(PHOTO_REPORT_DRAFT_STORE, 'readwrite');
+    transaction.objectStore(PHOTO_REPORT_DRAFT_STORE).put(draft);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Не удалось сохранить локальный черновик'));
+    transaction.onabort = () => reject(transaction.error || new Error('Сохранение локального черновика прервано'));
+  });
+}
+
+async function deleteLocalPhotoReportDraftKeys(keys) {
+  const uniqueKeys = [...new Set((keys || []).filter(Boolean).map(String))];
+  if (!uniqueKeys.length) return;
+  const draftDb = await openPhotoReportDraftDb();
+  return new Promise((resolve, reject) => {
+    const transaction = draftDb.transaction(PHOTO_REPORT_DRAFT_STORE, 'readwrite');
+    const store = transaction.objectStore(PHOTO_REPORT_DRAFT_STORE);
+    uniqueKeys.forEach(key => store.delete(key));
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Не удалось удалить локальный черновик'));
+    transaction.onabort = () => reject(transaction.error || new Error('Удаление локального черновика прервано'));
+  });
+}
+
+function getPhotoReportDraftUpdatedMs(draft) {
+  const value = Date.parse((draft && (draft.updatedAt || draft.createdAt)) || '');
+  return Number.isFinite(value) ? value : 0;
+}
+
+function isPhotoReportDraftExpired(draft, nowMs = Date.now()) {
+  const updatedMs = getPhotoReportDraftUpdatedMs(draft);
+  return !updatedMs || nowMs - updatedMs >= PHOTO_REPORT_DRAFT_TTL_MS;
+}
+
+async function cleanupExpiredLocalPhotoReportDrafts() {
+  const nowMs = Date.now();
+  const allDrafts = appCache.photoReportDrafts || [];
+  const expiredKeys = allDrafts.filter(draft => isPhotoReportDraftExpired(draft, nowMs)).map(draft => draft.key);
+  if (!expiredKeys.length) return;
+  appCache.photoReportDrafts = allDrafts.filter(draft => !expiredKeys.includes(draft.key));
+  await deleteLocalPhotoReportDraftKeys(expiredKeys);
+}
+
+async function initLocalPhotoReportDrafts() {
+  // Удаляем старую локальную копию общего Firestore-массива: она больше не используется.
+  LocalDB.remove('photoReportDrafts');
+  try {
+    appCache.photoReportDrafts = await readAllLocalPhotoReportDrafts();
+    await cleanupExpiredLocalPhotoReportDrafts();
+  } catch (err) {
+    console.error('local photo report drafts init error', err);
+    appCache.photoReportDrafts = [];
+  }
+}
+
 function getPhotoReportDrafts() {
-  return appCache.photoReportDrafts || [];
+  const drafts = appCache.photoReportDrafts || [];
+  const expiredKeys = drafts.filter(draft => isPhotoReportDraftExpired(draft)).map(draft => draft.key);
+  if (!expiredKeys.length) return drafts;
+
+  appCache.photoReportDrafts = drafts.filter(draft => !expiredKeys.includes(draft.key));
+  deleteLocalPhotoReportDraftKeys(expiredKeys).catch(err => {
+    console.error('expired local photo report drafts delete error', err);
+  });
+  return appCache.photoReportDrafts;
 }
 
 function getPhotoReportDraftKey(period, bathIndex, staffId = '') {
-  const base = `${period || 'morning'}_${String(bathIndex)}`;
-  return staffId ? `${base}_${String(staffId)}` : base;
+  return `photo_v2_${String(staffId || 'unknown')}_${period || 'morning'}_${String(bathIndex)}`;
 }
 
 function getPhotoReportDraft(period, bathIndex, staffId = '') {
-  const drafts = getPhotoReportDrafts();
-  const baseKey = getPhotoReportDraftKey(period, bathIndex);
-
-  if (staffId) {
-    const ownKey = getPhotoReportDraftKey(period, bathIndex, staffId);
-    return drafts.find(d => String(d.key || '') === ownKey)
-      || drafts.find(d => String(d.key || '') === baseKey && String(d.staffId || '') === String(staffId))
-      || null;
-  }
-
-  return drafts.find(d => String(d.key || '') === baseKey) || null;
+  if (!staffId) return null;
+  const ownKey = getPhotoReportDraftKey(period, bathIndex, staffId);
+  return getPhotoReportDrafts().find(draft => String(draft.key || '') === ownKey) || null;
 }
 
 async function setPhotoReportDraft(draft) {
   if (!draft || !draft.key) return;
-  const arr = getPhotoReportDrafts().filter(d => String(d.key || '') !== String(draft.key));
+  const arr = getPhotoReportDrafts().filter(item => String(item.key || '') !== String(draft.key));
   arr.unshift(draft);
   appCache.photoReportDrafts = arr;
-  LocalDB.set("photoReportDrafts", arr);
-
-  if (CLOUD_ENABLED && db) {
-    await db.collection("settings").doc("main").set({
-      photoReportDrafts: arr,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-  }
+  await writeLocalPhotoReportDraft(draft);
+  scheduleActivePhotoReportDraftExpiry(draft);
 }
 
 async function clearPhotoReportDraft(period, bathIndex, staffId = '') {
-  const baseKey = getPhotoReportDraftKey(period, bathIndex);
-  const ownKey = staffId ? getPhotoReportDraftKey(period, bathIndex, staffId) : baseKey;
-
-  appCache.photoReportDrafts = getPhotoReportDrafts().filter(d => {
-    const key = String(d.key || '');
-    if (staffId) {
-      return !(key === ownKey || (key === baseKey && String(d.staffId || '') === String(staffId)));
-    }
-    return key !== baseKey;
-  });
-  LocalDB.set("photoReportDrafts", appCache.photoReportDrafts);
-
-  if (CLOUD_ENABLED && db) {
-    await db.collection("settings").doc("main").set({
-      photoReportDrafts: appCache.photoReportDrafts,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-  }
+  if (!staffId) return;
+  const ownKey = getPhotoReportDraftKey(period, bathIndex, staffId);
+  appCache.photoReportDrafts = getPhotoReportDrafts().filter(draft => String(draft.key || '') !== ownKey);
+  await deleteLocalPhotoReportDraftKeys([ownKey]);
 }
 
 function serializeDraftPhoto(photo) {
   if (!photo) return null;
-  if (typeof photo === "string") return photo;
-  if (photo.type === "telegram" || photo.file_id) {
+  if (typeof photo === 'string') return photo;
+  if (photo.type === 'local' && photo.file) {
     return {
-      type: "telegram",
+      type: 'local',
+      file: photo.file,
+      fileName: photo.file.name || '',
+      mimeType: photo.file.type || '',
+      addedAt: photo.addedAt || new Date().toISOString()
+    };
+  }
+  if (photo.type === 'telegram' || photo.file_id) {
+    return {
+      type: 'telegram',
       file_id: photo.file_id,
       preview_url: photo.preview_url || null,
       uploadedAt: photo.uploadedAt || photo.addedAt || new Date().toISOString()
-    };
-  }
-  if (photo.preview_url && !photo.file) {
-    return {
-      type: photo.type || "preview",
-      preview_url: photo.preview_url,
-      addedAt: photo.addedAt || new Date().toISOString()
     };
   }
   return null;
@@ -5559,78 +5635,133 @@ function hydrateDraftPhotos(draft) {
   const photos = {};
   const sections = getSectionsForBathNameOrIndex(draft && draft.bathName, draft && draft.bathIndex);
   sections.forEach(section => {
-    photos[section.key] = ((draft && draft.photos && draft.photos[section.key]) || []).filter(Boolean);
+    photos[section.key] = ((draft && draft.photos && draft.photos[section.key]) || [])
+      .filter(Boolean)
+      .map(photo => {
+        if (photo && photo.type === 'local' && photo.file) {
+          return { ...photo, preview_url: URL.createObjectURL(photo.file) };
+        }
+        return photo;
+      });
   });
   return photos;
 }
 
+function revokePhotoReportPreviewUrls(photos) {
+  Object.values(photos || {}).forEach(sectionPhotos => {
+    (Array.isArray(sectionPhotos) ? sectionPhotos : []).forEach(photo => {
+      if (photo && photo.type === 'local' && String(photo.preview_url || '').startsWith('blob:')) {
+        try { URL.revokeObjectURL(photo.preview_url); } catch (_) {}
+      }
+    });
+  });
+}
+
 let photoReportDraftSaveTimer = null;
-let photoReportDraftSaving = false;
+let photoReportDraftExpiryTimer = null;
+let photoReportDraftSaveBlocked = false;
+let photoReportDraftSavePromise = Promise.resolve();
+
+function scheduleActivePhotoReportDraftExpiry(draftOrTime = Date.now()) {
+  clearTimeout(photoReportDraftExpiryTimer);
+  const waiter = getWaiter();
+  if (!waiter || !activeReport || activeReport.bathIndex === null || activeReport.bathIndex === undefined) return;
+
+  const period = activeReport.period || activePhotoReportPeriod || 'morning';
+  const key = getPhotoReportDraftKey(period, activeReport.bathIndex, waiter.id || '');
+  const updatedMs = typeof draftOrTime === 'number'
+    ? draftOrTime
+    : getPhotoReportDraftUpdatedMs(draftOrTime);
+  const remainingMs = Math.max(0, PHOTO_REPORT_DRAFT_TTL_MS - (Date.now() - updatedMs));
+
+  photoReportDraftExpiryTimer = setTimeout(() => {
+    expireLocalPhotoReportDraft(key).catch(err => console.error('local photo report draft expiry error', err));
+  }, remainingMs + 50);
+}
+
+async function expireLocalPhotoReportDraft(key) {
+  const draft = (appCache.photoReportDrafts || []).find(item => String(item.key || '') === String(key));
+  if (draft && !isPhotoReportDraftExpired(draft)) {
+    scheduleActivePhotoReportDraftExpiry(draft);
+    return;
+  }
+
+  appCache.photoReportDrafts = (appCache.photoReportDrafts || []).filter(item => String(item.key || '') !== String(key));
+  await deleteLocalPhotoReportDraftKeys([key]);
+
+  const waiter = getWaiter();
+  const activeKey = waiter && activeReport && activeReport.bathIndex !== null && activeReport.bathIndex !== undefined
+    ? getPhotoReportDraftKey(activeReport.period || activePhotoReportPeriod || 'morning', activeReport.bathIndex, waiter.id || '')
+    : '';
+
+  if (activeKey === key && screenStack[screenStack.length - 1] === 'screen-bath-report') {
+    clearTimeout(photoReportDraftSaveTimer);
+    revokePhotoReportPreviewUrls(activeReport.photos);
+    activeReport.photos = {};
+    getSectionsForBathIndex(activeReport.bathIndex).forEach(section => { activeReport.photos[section.key] = []; });
+    renderBathReportContent();
+    renderBathList();
+    showToast('Прошёл час — черновик фотоотчёта очищен');
+  }
+}
 
 function schedulePhotoReportDraftSave() {
+  if (photoReportDraftSaveBlocked) return;
   clearTimeout(photoReportDraftSaveTimer);
+  scheduleActivePhotoReportDraftExpiry(Date.now());
   photoReportDraftSaveTimer = setTimeout(() => {
-    saveActivePhotoReportDraft().catch(err => {
+    photoReportDraftSavePromise = photoReportDraftSavePromise
+      .catch(() => {})
+      .then(() => saveActivePhotoReportDraftNow());
+    photoReportDraftSavePromise.catch(err => {
       console.error('photo report draft save error', err);
       showToast('Не удалось сохранить черновик фотоотчета');
     });
   }, 250);
 }
 
-async function saveActivePhotoReportDraft() {
+async function saveActivePhotoReportDraftNow() {
   const waiter = getWaiter();
-  if (!activeReport || activeReport.bathIndex === null || activeReport.bathIndex === undefined || !waiter) return;
-  if (photoReportDraftSaving) return;
-  photoReportDraftSaving = true;
+  if (photoReportDraftSaveBlocked || !activeReport || activeReport.bathIndex === null || activeReport.bathIndex === undefined || !waiter) return;
 
-  try {
-    const period = activeReport.period || activePhotoReportPeriod || 'morning';
-    const key = getPhotoReportDraftKey(period, activeReport.bathIndex, waiter.id || '');
-    const nowIso = new Date().toISOString();
-    const sections = getActiveReportSections();
-    const draftPhotos = {};
+  const period = activeReport.period || activePhotoReportPeriod || 'morning';
+  const key = getPhotoReportDraftKey(period, activeReport.bathIndex, waiter.id || '');
+  const nowIso = new Date().toISOString();
+  const sections = getActiveReportSections();
+  const draftPhotos = {};
+  let totalPhotos = 0;
 
-    for (const section of sections) {
-      draftPhotos[section.key] = [];
-      const photos = activeReport.photos && activeReport.photos[section.key] ? activeReport.photos[section.key] : [];
+  sections.forEach(section => {
+    const photos = activeReport.photos && activeReport.photos[section.key] ? activeReport.photos[section.key] : [];
+    draftPhotos[section.key] = photos.map(serializeDraftPhoto).filter(Boolean);
+    totalPhotos += draftPhotos[section.key].length;
+  });
 
-      for (let i = 0; i < photos.length; i++) {
-        const photo = photos[i];
-
-        if (photo && photo.type === "local" && photo.file) {
-          try {
-            const uploaded = await uploadReportPhoto(photo.file, section.key);
-            activeReport.photos[section.key][i] = uploaded;
-            draftPhotos[section.key].push(uploaded);
-          } catch (err) {
-            console.error('draft photo upload error', err);
-            const safe = serializeDraftPhoto(photo);
-            if (safe) draftPhotos[section.key].push(safe);
-          }
-        } else {
-          const safe = serializeDraftPhoto(photo);
-          if (safe) draftPhotos[section.key].push(safe);
-        }
-      }
-    }
-
-    const draft = {
-      key,
-      bathIndex: activeReport.bathIndex,
-      bathName: BATHS[activeReport.bathIndex],
-      period,
-      periodLabel: getPhotoPeriodLabel(period),
-      staffId: waiter.id || '',
-      staffName: waiter.name || 'Официант',
-      updatedAt: nowIso,
-      createdAt: (getPhotoReportDraft(period, activeReport.bathIndex, waiter.id || '') || {}).createdAt || nowIso,
-      photos: draftPhotos
-    };
-
-    await setPhotoReportDraft(draft);
-  } finally {
-    photoReportDraftSaving = false;
+  if (!totalPhotos) {
+    await clearPhotoReportDraft(period, activeReport.bathIndex, waiter.id || '');
+    return;
   }
+
+  const previousDraft = getPhotoReportDraft(period, activeReport.bathIndex, waiter.id || '');
+  await setPhotoReportDraft({
+    key,
+    bathIndex: activeReport.bathIndex,
+    bathName: BATHS[activeReport.bathIndex],
+    period,
+    periodLabel: getPhotoPeriodLabel(period),
+    staffId: waiter.id || '',
+    staffName: waiter.name || 'Официант',
+    updatedAt: nowIso,
+    createdAt: (previousDraft && previousDraft.createdAt) || nowIso,
+    photos: draftPhotos
+  });
+}
+
+function saveActivePhotoReportDraft() {
+  photoReportDraftSavePromise = photoReportDraftSavePromise
+    .catch(() => {})
+    .then(() => saveActivePhotoReportDraftNow());
+  return photoReportDraftSavePromise;
 }
 
 
@@ -5690,23 +5821,56 @@ async function deleteInventoryRecordById(recordId) {
   refreshVisibleData();
 }
 
-function getAdminStats() {
+function getAllAdminStats() {
   return appCache.adminStats || [];
 }
 
+function isAdminStatsCenterRecord(record) {
+  return String((record && (record.statisticsScope || record.statsScope || record.location)) || '').toLowerCase() === 'center';
+}
+
+function getAdminStats() {
+  return getAllAdminStats().filter(record => !isAdminStatsCenterRecord(record));
+}
+
+function getAdminStatsCenter() {
+  return getAllAdminStats().filter(record => isAdminStatsCenterRecord(record));
+}
+
+function getAdminStatsByScope(scope) {
+  return scope === 'center' ? getAdminStatsCenter() : getAdminStats();
+}
+
 async function saveAdminStat(record) {
-  appCache.adminStats = [record, ...(appCache.adminStats || [])];
+  const scopedRecord = { ...record, statisticsScope: 'main' };
+  appCache.adminStats = [scopedRecord, ...(appCache.adminStats || [])];
   LocalDB.set("adminStats", appCache.adminStats);
   updateUnreadBadges();
 
   if (CLOUD_ENABLED && db) {
-    await db.collection("adminStats").doc(String(record.id)).set(record, { merge: true });
+    await db.collection("adminStats").doc(String(scopedRecord.id)).set(scopedRecord, { merge: true });
   }
+}
+
+async function saveAdminStatCenter(record) {
+  const scopedRecord = { ...record, statisticsScope: 'center' };
+  appCache.adminStats = [scopedRecord, ...(appCache.adminStats || [])];
+  LocalDB.set("adminStats", appCache.adminStats);
+  updateUnreadBadges();
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("adminStats").doc(String(scopedRecord.id)).set(scopedRecord, { merge: true });
+  }
+}
+
+async function saveAdminStatByScope(record, scope) {
+  if (scope === 'center') return saveAdminStatCenter(record);
+  return saveAdminStat(record);
 }
 
 async function deleteAdminStatById(statId) {
   const id = String(statId);
-  appCache.adminStats = getAdminStats().filter(s => String(s.id) !== id);
+  appCache.adminStats = getAllAdminStats().filter(s => String(s.id) !== id);
   LocalDB.set("adminStats", appCache.adminStats);
   updateUnreadBadges();
 
@@ -5715,6 +5879,24 @@ async function deleteAdminStatById(statId) {
   }
 
   refreshVisibleData();
+}
+
+async function deleteAdminStatCenterById(statId) {
+  const id = String(statId);
+  appCache.adminStats = getAllAdminStats().filter(s => String(s.id) !== id);
+  LocalDB.set("adminStats", appCache.adminStats);
+  updateUnreadBadges();
+
+  if (CLOUD_ENABLED && db) {
+    await db.collection("adminStats").doc(id).delete();
+  }
+
+  refreshVisibleData();
+}
+
+async function deleteAdminStatByScope(statId, scope) {
+  if (scope === 'center') return deleteAdminStatCenterById(statId);
+  return deleteAdminStatById(statId);
 }
 
 
@@ -5917,6 +6099,7 @@ function getUnreadCounts() {
   const reportsUnread = getFounderUnreadReportDates().length;
   const inventoryUnread = getFounderUnreadCount('inventory', getInventoryRecords(), r => r.id, r => r.createdAt || r.submittedAt);
   const adminStatsUnread = getFounderUnreadCount('adminStats', getAdminStats(), r => r.id, r => r.createdAt);
+  const adminStatsCenterUnread = getFounderUnreadCount('adminStatsCenter', getAdminStatsCenter(), r => r.id, r => r.createdAt);
   const bathmasterOrdersUnread = getFounderUnreadCount('bathmasterOrder', getBathmasterOrders().filter(r => String(r.sourceRole || 'bathmaster') === 'bathmaster'), r => r.id, r => r.createdAt);
   const masseurOrdersUnread = getFounderUnreadCount('masseurOrder', getBathmasterOrders().filter(r => String(r.sourceRole || '') === 'masseur'), r => r.id, r => r.createdAt);
   const repairUnreadForFounder = getFounderUnreadCount('repair', getRepairRequests(), r => r.id, r => r.createdAt);
@@ -5936,7 +6119,8 @@ function getUnreadCounts() {
     inventory: inventoryUnread,
     waiters: reportsUnread + inventoryUnread,
     adminStats: adminStatsUnread,
-    admins: adminStatsUnread,
+    adminStatsCenter: adminStatsCenterUnread,
+    admins: adminStatsUnread + adminStatsCenterUnread,
     bathmasterOrders: bathmasterOrdersUnread,
     bathmasters: bathmasterOrdersUnread,
     masseurOrders: masseurOrdersUnread,
@@ -5972,6 +6156,7 @@ function updateUnreadBadges() {
 
   setBadge("badge-founder-admins", c.admins);
   setBadge("badge-founder-admin-statistics", c.adminStats);
+  setBadge("badge-founder-admin-statistics-center", c.adminStatsCenter);
 
   setBadge("badge-founder-bathmasters", c.bathmasters);
   setBadge("badge-tab-bathmaster-consumables", c.bathmasterOrders);
@@ -6915,6 +7100,30 @@ function addRepairCloseCameraPhoto(localPhoto) {
 
 window.addEventListener('pagehide', stopCameraStream);
 window.addEventListener('beforeunload', stopCameraStream);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+
+  const waiter = getWaiter();
+  const activeKey = waiter && activeReport && activeReport.bathIndex !== null && activeReport.bathIndex !== undefined
+    ? getPhotoReportDraftKey(
+        activeReport.period || activePhotoReportPeriod || 'morning',
+        activeReport.bathIndex,
+        waiter.id || ''
+      )
+    : '';
+  const activeDraft = activeKey
+    ? (appCache.photoReportDrafts || []).find(item => String(item.key || '') === activeKey)
+    : null;
+  const activeDraftExpired = Boolean(activeDraft && isPhotoReportDraftExpired(activeDraft));
+
+  cleanupExpiredLocalPhotoReportDrafts()
+    .then(async () => {
+      if (activeDraftExpired) await expireLocalPhotoReportDraft(activeKey);
+      else if (activeDraft) scheduleActivePhotoReportDraftExpiry(activeDraft);
+      renderBathList();
+    })
+    .catch(err => console.error('local photo report drafts resume cleanup error', err));
+});
 window.addEventListener('resize', () => {
   const active = screenStack && screenStack[screenStack.length - 1];
   if (active === 'screen-founder-admin-statistics') {
@@ -8811,18 +9020,22 @@ function openBathReport(bathIndex) {
 
   const existingDraft = getPhotoReportDraft(activePhotoReportPeriod, bathIndex, waiter.id || '');
 
+  clearTimeout(photoReportDraftSaveTimer);
+  clearTimeout(photoReportDraftExpiryTimer);
+  photoReportDraftSaveBlocked = false;
+  revokePhotoReportPreviewUrls(activeReport && activeReport.photos);
   activeReport = { bathIndex, period: activePhotoReportPeriod, photos: {} };
   getSectionsForBathIndex(bathIndex).forEach(s => { activeReport.photos[s.key] = []; });
 
   if (existingDraft) {
     activeReport.photos = hydrateDraftPhotos(existingDraft);
+    scheduleActivePhotoReportDraftExpiry(existingDraft);
     showToast('Черновик восстановлен');
   }
 
   document.getElementById('bath-report-title').textContent = `${BATHS[bathIndex]} · ${getPhotoPeriodLabel(activeReport.period)}`;
   renderBathReportContent();
   goTo('screen-bath-report');
-  schedulePhotoReportDraftSave();
 }
 
 function renderBathReportContent() {
@@ -8884,12 +9097,22 @@ async function deleteActivePhotoReportDraft() {
   if (!ok) return;
 
   const period = activeReport.period || activePhotoReportPeriod || 'morning';
-  await clearPhotoReportDraft(period, activeReport.bathIndex, waiter.id || '');
-  activeReport.photos = {};
-  getSectionsForBathIndex(activeReport.bathIndex).forEach(s => { activeReport.photos[s.key] = []; });
-  renderBathReportContent();
-  renderBathList();
-  showToast('Черновик удалён');
+  photoReportDraftSaveBlocked = true;
+  clearTimeout(photoReportDraftSaveTimer);
+  clearTimeout(photoReportDraftExpiryTimer);
+
+  try {
+    await photoReportDraftSavePromise.catch(() => {});
+    await clearPhotoReportDraft(period, activeReport.bathIndex, waiter.id || '');
+    revokePhotoReportPreviewUrls(activeReport.photos);
+    activeReport.photos = {};
+    getSectionsForBathIndex(activeReport.bathIndex).forEach(s => { activeReport.photos[s.key] = []; });
+    renderBathReportContent();
+    renderBathList();
+    showToast('Черновик удалён');
+  } finally {
+    photoReportDraftSaveBlocked = false;
+  }
 }
 
 function handlePhotos(event, sectionKey) {
@@ -8931,7 +9154,10 @@ function handlePhotos(event, sectionKey) {
 }
 
 function removePhoto(sectionKey, idx) {
-  activeReport.photos[sectionKey].splice(idx, 1);
+  const removed = activeReport.photos[sectionKey].splice(idx, 1)[0];
+  if (removed && removed.type === 'local' && String(removed.preview_url || '').startsWith('blob:')) {
+    try { URL.revokeObjectURL(removed.preview_url); } catch (_) {}
+  }
   renderBathReportContent();
   schedulePhotoReportDraftSave();
 }
@@ -8988,7 +9214,13 @@ async function confirmReport() {
 
   try {
     showToast('Отправляем фото...');
-    await saveActivePhotoReportDraft();
+    clearTimeout(photoReportDraftSaveTimer);
+    clearTimeout(photoReportDraftExpiryTimer);
+    await photoReportDraftSavePromise.catch(() => {});
+    await saveActivePhotoReportDraft().catch(saveErr => {
+      console.error('photo report draft pre-submit save error', saveErr);
+    });
+    photoReportDraftSaveBlocked = true;
     const uploadedPhotos = await uploadAllReportPhotos();
 
     const report = {
@@ -9011,6 +9243,8 @@ async function confirmReport() {
     reports.push(report);
     setReports(reports);
     await clearPhotoReportDraft(activeReport.period || getReportPeriodFromTime(now), activeReport.bathIndex, waiter.id || '');
+    revokePhotoReportPreviewUrls(activeReport.photos);
+    activeReport.photos = {};
     renderBathList();
     notifyFounders(`📷 Новый фотоотчёт\n\n${report.staffName} · ${report.bathName} · ${getPhotoPeriodLabel(report.reportPeriod)}\n${formatDateRu(report.date)} · ${report.time}`);
 
@@ -9021,6 +9255,10 @@ async function confirmReport() {
     goBack();
   } catch (err) {
     console.error(err);
+    photoReportDraftSaveBlocked = false;
+    await saveActivePhotoReportDraft().catch(saveErr => {
+      console.error('photo report draft recovery save error', saveErr);
+    });
     showToast('Не удалось отправить отчет');
   }
 }
@@ -9844,7 +10082,16 @@ function openAdminWip(title) {
   goTo('screen-admin-wip');
 }
 
+let activeAdminStatisticsScope = 'main';
+
 function openAdminStatistics() {
+  activeAdminStatisticsScope = 'main';
+  renderAdminStatisticsForm();
+  goTo('screen-admin-statistics');
+}
+
+function openAdminStatisticsCenter() {
+  activeAdminStatisticsScope = 'center';
   renderAdminStatisticsForm();
   goTo('screen-admin-statistics');
 }
@@ -9858,6 +10105,9 @@ function getAdminShiftDateKey(baseDate = new Date()) {
 }
 
 function renderAdminStatisticsForm() {
+  const title = document.getElementById('admin-statistics-title');
+  if (title) title.textContent = activeAdminStatisticsScope === 'center' ? 'Статистика центр' : 'Статистика';
+
   const dateInput = document.getElementById('admin-stat-date');
   if (dateInput) {
     dateInput.value = getAdminShiftDateKey();
@@ -9930,7 +10180,7 @@ async function submitAdminStatistics() {
   };
 
   try {
-    await saveAdminStat(record);
+    await saveAdminStatByScope(record, activeAdminStatisticsScope);
     document.getElementById('admin-stat-calls').value = '';
     document.getElementById('admin-stat-telegram').value = '';
     document.getElementById('admin-stat-bookings-total').value = '';
@@ -9943,11 +10193,11 @@ async function submitAdminStatistics() {
       dateField.value = getAdminShiftDateKey();
       dateField.dataset.manual = '0';
     }
-    showToast('Статистика отправлена ✓');
+    showToast(activeAdminStatisticsScope === 'center' ? 'Статистика центра отправлена ✓' : 'Статистика отправлена ✓');
     goBack();
   } catch (e) {
     console.error(e);
-    showToast('Ошибка отправки статистики');
+    showToast(activeAdminStatisticsScope === 'center' ? 'Ошибка отправки статистики центра' : 'Ошибка отправки статистики');
   }
 }
 
@@ -10139,8 +10389,26 @@ function adminLogout() {
 
 
 let activeAdminStatId = null;
+let activeFounderAdminStatisticsScope = 'main';
+
+function getFounderAdminStatisticsLabel() {
+  return activeFounderAdminStatisticsScope === 'center' ? 'Статистика центр' : 'Статистика';
+}
+
+function getFounderAdminStatisticsUnreadKind() {
+  return activeFounderAdminStatisticsScope === 'center' ? 'adminStatsCenter' : 'adminStats';
+}
 
 function openFounderAdminStatistics() {
+  activeFounderAdminStatisticsScope = 'main';
+  adminStatsChartOffsetDays = 0;
+  goTo('screen-founder-admin-statistics');
+  renderFounderAdminStatistics();
+}
+
+function openFounderAdminStatisticsCenter() {
+  activeFounderAdminStatisticsScope = 'center';
+  adminStatsChartOffsetDays = 0;
   goTo('screen-founder-admin-statistics');
   renderFounderAdminStatistics();
 }
@@ -10220,7 +10488,7 @@ async function endAdminStatSwipe(event, statId) {
       el.style.opacity = '0';
     }
     try {
-      await deleteAdminStatById(statId);
+      await deleteAdminStatByScope(statId, activeFounderAdminStatisticsScope);
       showToast('Отчёт удалён ✓');
     } catch (e) {
       console.error(e);
@@ -10313,7 +10581,7 @@ function getAdminStatsNumber(stat, keys) {
 
 function getAdminStatsDailyGroups() {
   const grouped = {};
-  getAdminStats().forEach(stat => {
+  getAdminStatsByScope(activeFounderAdminStatisticsScope).forEach(stat => {
     const key = normalizeAdminStatsDateKey(stat);
     const date = parseAdminStatsDateKey(key);
     if (!date) return;
@@ -10592,6 +10860,9 @@ function renderFounderAdminStatistics() {
   const list = document.getElementById('founder-admin-statistics-list');
   if (!list) return;
 
+  const title = document.getElementById('founder-admin-statistics-title');
+  if (title) title.textContent = getFounderAdminStatisticsLabel();
+
   renderAdminStatsChartTabs();
   setTimeout(() => {
     try {
@@ -10616,7 +10887,7 @@ function renderFounderAdminStatistics() {
     }
   }, 0);
 
-  const stats = getAdminStats().slice().sort((a, b) => {
+  const stats = getAdminStatsByScope(activeFounderAdminStatisticsScope).slice().sort((a, b) => {
     return String(b.date || '').localeCompare(String(a.date || '')) ||
            String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
   });
@@ -10640,7 +10911,7 @@ function renderFounderAdminStatistics() {
       ontouchmove="moveAdminStatSwipe(event, '${stat.id}')"
       ontouchend="endAdminStatSwipe(event, '${stat.id}')"
       onclick="openFounderAdminStatisticsView('${stat.id}')">
-      <div class="shift-date">${escapeHtml(d)}${unreadDotHtml(isFounderItemUnread('adminStats', stat.id, stat.createdAt))}</div>
+      <div class="shift-date">${escapeHtml(d)}${unreadDotHtml(isFounderItemUnread(getFounderAdminStatisticsUnreadKind(), stat.id, stat.createdAt))}</div>
       <div class="shift-meta">${escapeHtml(stat.name || 'Администратор')} · Звонки: ${calls} · Брони: ${total} · Не смогли принять: ${couldNotAccept}</div>
       <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Длинный свайп влево до конца + подтверждение для удаления</div>
     </div>`;
@@ -10649,25 +10920,25 @@ function renderFounderAdminStatistics() {
 
 function openFounderAdminStatisticsView(statId) {
   activeAdminStatId = String(statId);
-  markFounderItemRead('adminStats', statId);
+  markFounderItemRead(getFounderAdminStatisticsUnreadKind(), statId);
   renderFounderAdminStatisticsView();
   updateUnreadBadges();
   goTo('screen-founder-admin-statistics-view');
 }
 
 function renderFounderAdminStatisticsView() {
-  const stat = getAdminStats().find(s => String(s.id) === String(activeAdminStatId));
+  const stat = getAdminStatsByScope(activeFounderAdminStatisticsScope).find(s => String(s.id) === String(activeAdminStatId));
   const title = document.getElementById('founder-admin-statistics-view-title');
   const content = document.getElementById('founder-admin-statistics-view-content');
   if (!title || !content) return;
 
   if (!stat) {
-    title.textContent = 'Статистика';
+    title.textContent = getFounderAdminStatisticsLabel();
     content.innerHTML = `<div class="empty"><div class="empty-icon">📊</div><div class="empty-title">Запись не найдена</div></div>`;
     return;
   }
 
-  title.textContent = stat.date ? formatDateRu(stat.date) : 'Статистика';
+  title.textContent = stat.date ? formatDateRu(stat.date) : getFounderAdminStatisticsLabel();
 
   content.innerHTML = `
     <div class="inventory-status">
@@ -12258,6 +12529,8 @@ async function init() {
   const versionEl = document.getElementById('app-version-label');
   if (versionEl) versionEl.textContent = APP_VERSION_LABEL;
 
+  await initLocalPhotoReportDrafts();
+
   try {
     await initCloud();
   } catch (e) {
@@ -12277,7 +12550,6 @@ async function init() {
     appCache.bathmasterOrders = LocalDB.get("bathmasterOrders") || appCache.bathmasterOrders || [];
     appCache.repairRequests = LocalDB.get("repairRequests") || appCache.repairRequests || [];
     appCache.technicianRepairReminderLog = LocalDB.get("technicianRepairReminderLog") || appCache.technicianRepairReminderLog || {};
-    appCache.photoReportDrafts = LocalDB.get("photoReportDrafts") || appCache.photoReportDrafts || [];
     appCache.founderTasks = LocalDB.get("founderTasks") || appCache.founderTasks || [];
     appCache.kpiContent = LocalDB.get("kpiContent") || appCache.kpiContent || getDefaultKpiContent();
     appCache.stopList = LocalDB.get("stopList") || appCache.stopList || getDefaultStopList();
@@ -12361,4 +12633,3 @@ init().catch((e) => {
 </script>
 </body>
 </html>
-
